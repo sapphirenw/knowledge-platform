@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 const createCustomer = `-- name: CreateCustomer :one
@@ -27,6 +28,99 @@ func (q *Queries) CreateCustomer(ctx context.Context, name string) (Customer, er
 		&i.ID,
 		&i.Name,
 		&i.Datastore,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createDocument = `-- name: CreateDocument :one
+INSERT INTO document (
+    parent_id, customer_id, filename, type, size_bytes, sha_256
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+)
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at
+`
+
+type CreateDocumentParams struct {
+	ParentID   int64
+	CustomerID int64
+	Filename   string
+	Type       string
+	SizeBytes  int64
+	Sha256     string
+}
+
+func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error) {
+	row := q.db.QueryRow(ctx, createDocument,
+		arg.ParentID,
+		arg.CustomerID,
+		arg.Filename,
+		arg.Type,
+		arg.SizeBytes,
+		arg.Sha256,
+	)
+	var i Document
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.CustomerID,
+		&i.Filename,
+		&i.Type,
+		&i.SizeBytes,
+		&i.Sha256,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createFolder = `-- name: CreateFolder :one
+INSERT INTO folder (
+    parent_id, customer_id, title
+) VALUES (
+    $1, $2, $3
+)
+RETURNING id, parent_id, customer_id, title, created_at, updated_at
+`
+
+type CreateFolderParams struct {
+	ParentID   pgtype.Int8
+	CustomerID int64
+	Title      string
+}
+
+func (q *Queries) CreateFolder(ctx context.Context, arg CreateFolderParams) (Folder, error) {
+	row := q.db.QueryRow(ctx, createFolder, arg.ParentID, arg.CustomerID, arg.Title)
+	var i Folder
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.CustomerID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createFolderRoot = `-- name: CreateFolderRoot :one
+INSERT INTO folder (
+    customer_id, title
+) VALUES (
+    $1, 'root'
+)
+RETURNING id, parent_id, customer_id, title, created_at, updated_at
+`
+
+func (q *Queries) CreateFolderRoot(ctx context.Context, customerID int64) (Folder, error) {
+	row := q.db.QueryRow(ctx, createFolderRoot, customerID)
+	var i Folder
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.CustomerID,
+		&i.Title,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -80,6 +174,44 @@ func (q *Queries) CreateTokenUsage(ctx context.Context, arg CreateTokenUsagePara
 	return i, err
 }
 
+const createVector = `-- name: CreateVector :one
+INSERT INTO vector_store (
+    raw, embeddings, customer_id, document_id, index
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, raw, embeddings, customer_id, document_id, index, created_at
+`
+
+type CreateVectorParams struct {
+	Raw        string
+	Embeddings pgvector.Vector
+	CustomerID int64
+	DocumentID int64
+	Index      int32
+}
+
+func (q *Queries) CreateVector(ctx context.Context, arg CreateVectorParams) (VectorStore, error) {
+	row := q.db.QueryRow(ctx, createVector,
+		arg.Raw,
+		arg.Embeddings,
+		arg.CustomerID,
+		arg.DocumentID,
+		arg.Index,
+	)
+	var i VectorStore
+	err := row.Scan(
+		&i.ID,
+		&i.Raw,
+		&i.Embeddings,
+		&i.CustomerID,
+		&i.DocumentID,
+		&i.Index,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteCustomer = `-- name: DeleteCustomer :exec
 DELETE FROM customer
 WHERE id = $1
@@ -128,7 +260,7 @@ func (q *Queries) GetCustomerByName(ctx context.Context, name string) (Customer,
 
 const getCustomerRootFolder = `-- name: GetCustomerRootFolder :one
 SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
-WHERE customer_id = $1 AND parent_id = NULL
+WHERE customer_id = $1 AND parent_id IS NULL
 `
 
 func (q *Queries) GetCustomerRootFolder(ctx context.Context, customerID int64) (Folder, error) {
@@ -290,7 +422,7 @@ SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 WHERE parent_id = $1
 `
 
-func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID int64) ([]Folder, error) {
+func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID pgtype.Int8) ([]Folder, error) {
 	rows, err := q.db.Query(ctx, getFoldersFromParent, parentID)
 	if err != nil {
 		return nil, err
@@ -338,6 +470,92 @@ func (q *Queries) GetTokenUsage(ctx context.Context, customerID int64) ([]TokenU
 			&i.InputTokens,
 			&i.OutputTokens,
 			&i.TotalTokens,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getVector = `-- name: GetVector :one
+SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
+WHERE id = $1
+`
+
+func (q *Queries) GetVector(ctx context.Context, id int64) (VectorStore, error) {
+	row := q.db.QueryRow(ctx, getVector, id)
+	var i VectorStore
+	err := row.Scan(
+		&i.ID,
+		&i.Raw,
+		&i.Embeddings,
+		&i.CustomerID,
+		&i.DocumentID,
+		&i.Index,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getVectorsByCustomer = `-- name: GetVectorsByCustomer :many
+SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
+WHERE customer_id = $1
+`
+
+func (q *Queries) GetVectorsByCustomer(ctx context.Context, customerID int64) ([]VectorStore, error) {
+	rows, err := q.db.Query(ctx, getVectorsByCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VectorStore
+	for rows.Next() {
+		var i VectorStore
+		if err := rows.Scan(
+			&i.ID,
+			&i.Raw,
+			&i.Embeddings,
+			&i.CustomerID,
+			&i.DocumentID,
+			&i.Index,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getVectorsByDocument = `-- name: GetVectorsByDocument :many
+SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
+WHERE document_id = $1
+`
+
+func (q *Queries) GetVectorsByDocument(ctx context.Context, documentID int64) ([]VectorStore, error) {
+	rows, err := q.db.Query(ctx, getVectorsByDocument, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VectorStore
+	for rows.Next() {
+		var i VectorStore
+		if err := rows.Scan(
+			&i.ID,
+			&i.Raw,
+			&i.Embeddings,
+			&i.CustomerID,
+			&i.DocumentID,
+			&i.Index,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

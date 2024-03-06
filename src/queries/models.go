@@ -30,7 +30,7 @@ type Document struct {
 
 type Folder struct {
 	ID         int64
-	ParentID   int64
+	ParentID   pgtype.Int8
 	CustomerID int64
 	Title      string
 	CreatedAt  pgtype.Timestamp

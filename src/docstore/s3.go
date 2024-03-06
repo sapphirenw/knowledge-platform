@@ -30,7 +30,7 @@ func NewS3Docstore(ctx context.Context, bucket string, logger *slog.Logger) (*S3
 	if logger == nil {
 		logger = utils.DefaultLogger()
 	}
-	lgr := logger.With("s3_bucket", bucket)
+	l := logger.With("docstore", "s3", "s3_bucket", bucket)
 
 	// setup aws config using env
 	config, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-west-2"))
@@ -43,7 +43,7 @@ func NewS3Docstore(ctx context.Context, bucket string, logger *slog.Logger) (*S3
 
 	return &S3Docstore{
 		bucket: S3_BUCKET,
-		logger: lgr,
+		logger: l,
 		config: &config,
 		client: client,
 	}, nil

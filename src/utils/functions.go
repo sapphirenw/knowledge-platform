@@ -2,6 +2,8 @@ package utils
 
 import (
 	"math"
+	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -58,4 +60,15 @@ func PGXUUIDToGoogleUUID(pgxUUID pgtype.UUID) (uuid.UUID, error) {
 		return uuid.New(), err
 	}
 	return uuid.Parse(tmp.(string))
+}
+
+func CleanInput(input string) string {
+	// Replace all whitespace characters with a space
+	input = strings.Join(strings.Fields(input), " ")
+
+	// Replace multiple consecutive spaces with a single space
+	re := regexp.MustCompile(`\s+`)
+	input = re.ReplaceAllString(input, " ")
+
+	return input
 }

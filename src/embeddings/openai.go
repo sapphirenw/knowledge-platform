@@ -31,32 +31,35 @@ type OpenAIEmbeddings struct {
 
 type OpenAIEmbeddingsOpts struct {
 	Model  string
-	logger *slog.Logger
+	Logger *slog.Logger
 }
 
 func NewOpenAIEmbeddings(userId string, opts *OpenAIEmbeddingsOpts) *OpenAIEmbeddings {
 	if opts == nil {
 		opts = &OpenAIEmbeddingsOpts{}
 	}
-	if opts.logger == nil {
-		opts.logger = utils.DefaultLogger()
+	if opts.Logger == nil {
+		opts.Logger = utils.DefaultLogger()
 	}
 	if opts.Model == "" {
 		opts.Model = OPENAI_EMBEDDINGS_MODEL
 	}
 
-	opts.logger = opts.logger.With("userId", userId, "model", opts.Model)
+	opts.Logger = opts.Logger.With("userId", userId, "model", opts.Model)
 
 	return &OpenAIEmbeddings{
 		userId: userId,
 		model:  opts.Model,
-		logger: opts.logger,
+		logger: opts.Logger,
 	}
 }
 
 func (e *OpenAIEmbeddings) Embed(ctx context.Context, input string) ([]*EmbeddingsData, error) {
+	// clean the input
+	cleaned := utils.CleanInput(input)
+
 	// chunk the input
-	chunks := utils.ChunkStringEqualUntilN(input, OPENAI_EMBEDDINGS_INPUT_MAX)
+	chunks := utils.ChunkStringEqualUntilN(cleaned, OPENAI_EMBEDDINGS_INPUT_MAX)
 	response, err := openAIEmbed(ctx, e.logger, e.userId, e.model, chunks)
 	if err != nil {
 		return nil, err
@@ -137,7 +140,7 @@ func openAIEmbed(ctx context.Context, logger *slog.Logger, userId string, model 
 	backoff := 1 * time.Second
 
 	for attempt := 0; attempt < retries; attempt++ {
-		logger.InfoContext(ctx, "Sending embeddings request...")
+		logger.InfoContext(ctx, "Sending embeddings request...", "chunks", len(input))
 		resp, err := client.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("there was an unknown issue with the request: %v", err)

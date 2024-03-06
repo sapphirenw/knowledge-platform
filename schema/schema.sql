@@ -1,7 +1,7 @@
 CREATE TABLE customer(
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(256) NOT NULL,
-    datastore VARCHAR(256) NOT NULL DEFAULT 's3', -- name of the datastore the user wants to store their documents
+    datastore VARCHAR(256) NOT NULL DEFAULT '', -- name of the datastore the user wants to store their documents
 
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -9,7 +9,7 @@ CREATE TABLE customer(
 
 CREATE TABLE folder(
     id BIGSERIAL PRIMARY KEY,
-    parent_id BIGINT NOT NULL REFERENCES folder(id) ON DELETE CASCADE,
+    parent_id BIGINT NULL REFERENCES folder(id) ON DELETE CASCADE,
     customer_id BIGINT NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     title VARCHAR(256) NOT NULL,
 
