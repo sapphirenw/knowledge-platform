@@ -74,7 +74,7 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *CreateFol
 		args.Owner = c.root
 	}
 
-	logger := c.logger.With("name", args.Name)
+	logger := c.logger.With("name", args.Name, "owner", args.Owner.ID)
 	logger.InfoContext(ctx, "Creating a new folder ...")
 
 	// create the folder
@@ -87,6 +87,7 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *CreateFol
 	if err != nil {
 		return nil, fmt.Errorf("there was an issue creating the folder: %v", err)
 	}
+	logger.InfoContext(ctx, "Successfully created folder", "id", folder.ID)
 
 	return &folder, err
 }

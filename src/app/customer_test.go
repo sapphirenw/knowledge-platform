@@ -13,6 +13,93 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestCustomerFolderStructure(t *testing.T) {
+	ctx := context.TODO()
+	logger := utils.DefaultLogger()
+
+	// get the db pool
+	pool, err := db.GetPool()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// start a txn
+	txn, err := pool.Begin(ctx)
+	if err != nil {
+		t.Error(t)
+	}
+	defer txn.Rollback(ctx)
+
+	// get the customer
+	c, err := testingutils.CreateTestCustomer(txn)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// create the wrapper customer object
+	customer, err := NewCustomer(ctx, logger, c.ID, txn)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// create 2 folders in the root
+	f1, err := customer.CreateFolder(ctx, txn, &CreateFolderArgs{
+		Owner: customer.root,
+		Name:  "folder1",
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	f2, err := customer.CreateFolder(ctx, txn, &CreateFolderArgs{
+		Owner: customer.root,
+		Name:  "folder2",
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// create a folder in folder2
+	_, err = customer.CreateFolder(ctx, txn, &CreateFolderArgs{
+		Owner: f2,
+		Name:  "folder3",
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// describe the folders
+	resp1, err := customer.GetFolderContents(ctx, txn, customer.root)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	assert.Equal(t, 2, len(resp1.Folders))
+	assert.Empty(t, resp1.Documents)
+
+	resp2, err := customer.GetFolderContents(ctx, txn, f1)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	assert.Empty(t, resp2.Folders)
+	assert.Empty(t, resp2.Documents)
+
+	resp3, err := customer.GetFolderContents(ctx, txn, f2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	assert.Equal(t, 1, len(resp3.Folders))
+	assert.Empty(t, resp3.Documents)
+
+}
+
 func TestCustomerInsertDocuments(t *testing.T) {
 	ctx := context.TODO()
 	logger := utils.DefaultLogger()
