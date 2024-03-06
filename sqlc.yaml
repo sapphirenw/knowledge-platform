@@ -1,0 +1,12 @@
+version: "2"
+cloud:
+  project: '01HQXPT9M4B611XZA5XS501TYE'
+sql:
+  - engine: "postgresql"
+    queries: "./schema/queries.sql"
+    schema: "./schema/schema.sql"
+    gen:
+      go:
+        package: "queries"
+        out: "./src/queries"
+        sql_package: "pgx/v5"
