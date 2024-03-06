@@ -23,16 +23,10 @@ const (
 )
 
 type Docstore interface {
-	UploadDocuments(ctx context.Context, customer *queries.Customer, docs []*Doc) []*UploadResponse
+	// Uploads a document and returns the url of the document
+	UploadDocument(ctx context.Context, customer *queries.Customer, doc *Doc) (string error)
 	GetDocument(ctx context.Context, customer *queries.Customer, filename string) (*Doc, error)
 	DeleteDocument(ctx context.Context, customer *queries.Customer, filename string) error
-}
-
-type UploadResponse struct {
-	Document *Doc
-	FileID   string
-	Url      string
-	Error    error
 }
 
 type Doc struct {

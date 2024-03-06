@@ -2,6 +2,7 @@ package docstore
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
@@ -41,13 +42,12 @@ func TestS3Docstore(t *testing.T) {
 	}
 
 	// insert the document
-	response := ds.UploadDocuments(ctx, customer, []*Doc{doc})
-
-	for _, item := range response {
-		if item.Error != nil {
-			t.Error(item.Error)
-		}
+	url, err := ds.UploadDocument(ctx, customer, doc)
+	if err != nil {
+		t.Error(err)
 	}
+
+	fmt.Println("URL:", url)
 
 	// get the document
 	retrievedDoc, err := ds.GetDocument(ctx, customer, doc.Filename)
