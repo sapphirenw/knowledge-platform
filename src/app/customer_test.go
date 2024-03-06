@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
-	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
+	"github.com/sapphirenw/ai-content-creation-api/src/document"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/stretchr/testify/assert"
@@ -138,14 +138,16 @@ func TestCustomerInsertDocuments(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	doc := &docstore.Doc{
-		Filename: "test.txt",
-		Filetype: docstore.FT_txt,
-		Data:     data,
+
+	// create a new document type
+	doc, err := document.NewDocFromBytes("oregon.txt", data)
+	if err != nil {
+		t.Error(err)
+		return
 	}
 
 	// upload the documents
-	resp, err := customer.UploadDocuments(ctx, txn, customer.root, []*docstore.Doc{doc})
+	resp, err := customer.UploadDocuments(ctx, txn, customer.root, []*document.Doc{doc})
 	if err != nil {
 		t.Error(err)
 		return

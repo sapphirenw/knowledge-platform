@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/sapphirenw/ai-content-creation-api/src/document"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 )
 
@@ -20,12 +21,12 @@ func NewTODODocstore(logger *slog.Logger) (*TODODocstore, error) {
 	}, nil
 }
 
-func (d *TODODocstore) UploadDocument(ctx context.Context, customer *queries.Customer, doc *Doc) (string, error) {
+func (d *TODODocstore) UploadDocument(ctx context.Context, customer *queries.Customer, doc *document.Doc) (string, error) {
 	d.logger.InfoContext(ctx, "TODO -- UploadDocument")
 	return "", nil
 }
 
-func (d *TODODocstore) GetDocument(ctx context.Context, customer *queries.Customer, filename string) (*Doc, error) {
+func (d *TODODocstore) GetDocument(ctx context.Context, customer *queries.Customer, filename string) (*document.Doc, error) {
 	d.logger.InfoContext(ctx, "TODO -- GetDocument")
 	return nil, nil
 }

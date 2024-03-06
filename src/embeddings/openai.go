@@ -55,11 +55,8 @@ func NewOpenAIEmbeddings(userId string, opts *OpenAIEmbeddingsOpts) *OpenAIEmbed
 }
 
 func (e *OpenAIEmbeddings) Embed(ctx context.Context, input string) ([]*EmbeddingsData, error) {
-	// clean the input
-	cleaned := utils.CleanInput(input)
-
 	// chunk the input
-	chunks := utils.ChunkStringEqualUntilN(cleaned, OPENAI_EMBEDDINGS_INPUT_MAX)
+	chunks := utils.ChunkStringEqualUntilN(input, OPENAI_EMBEDDINGS_INPUT_MAX)
 	response, err := openAIEmbed(ctx, e.logger, e.userId, e.model, chunks)
 	if err != nil {
 		return nil, err

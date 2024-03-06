@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
+	"github.com/sapphirenw/ai-content-creation-api/src/document"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,7 +37,7 @@ func TestS3Docstore(t *testing.T) {
 	}
 
 	// dummy doc
-	doc, err := NewDoc("helloworld.txt", []byte("This is some text from the document"))
+	doc, err := document.NewDocFromString("helloworld.txt", "This is some text from the document")
 	if err != nil {
 		t.Error(err)
 	}

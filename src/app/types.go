@@ -7,6 +7,12 @@ type CreateFolderArgs struct {
 	Name  string
 }
 
+type FolderContents struct {
+	Self      *queries.Folder
+	Folders   []queries.Folder
+	Documents []queries.Document
+}
+
 type UploadDocumentsResponse struct {
 	Doc   *queries.Document
 	Url   string

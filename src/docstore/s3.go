@@ -1,15 +1,16 @@
 package docstore
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/sapphirenw/ai-content-creation-api/src/document"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
@@ -49,7 +50,7 @@ func NewS3Docstore(ctx context.Context, bucket string, logger *slog.Logger) (*S3
 	}, nil
 }
 
-func (d *S3Docstore) UploadDocument(ctx context.Context, customer *queries.Customer, doc *Doc) (string, error) {
+func (d *S3Docstore) UploadDocument(ctx context.Context, customer *queries.Customer, doc *document.Doc) (string, error) {
 	// create the s3 client
 	if d.uploader == nil {
 		d.uploader = manager.NewUploader(d.client)
@@ -63,7 +64,7 @@ func (d *S3Docstore) UploadDocument(ctx context.Context, customer *queries.Custo
 	result, err := d.uploader.Upload(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(d.bucket),
 		Key:    aws.String(documentId),
-		Body:   bytes.NewReader(doc.Data),
+		Body:   strings.NewReader(doc.Data),
 	})
 	if err != nil {
 		return "", fmt.Errorf("there was an issue uploading the file: %v", err)
@@ -74,7 +75,7 @@ func (d *S3Docstore) UploadDocument(ctx context.Context, customer *queries.Custo
 	return result.Location, nil
 }
 
-func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer, filename string) (*Doc, error) {
+func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer, filename string) (*document.Doc, error) {
 	d.logger.InfoContext(ctx, "Donwloading file from s3...", "filename", filename)
 
 	if d.downloader == nil {
@@ -93,19 +94,9 @@ func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer
 		return nil, fmt.Errorf("there was an issue downloading the file from s3: %v", err)
 	}
 
-	// parse the filetype
-	ft, err := parseFileType(filename)
-	if err != nil {
-		return nil, fmt.Errorf("there was an issue parsing the filetype: %v", err)
-	}
-
 	d.logger.InfoContext(ctx, "Successfully downloaded file", "filename", filename)
 
-	return &Doc{
-		Filename: parseUniqueFileId(customer, fileId),
-		Filetype: ft,
-		Data:     buffer.Bytes(),
-	}, nil
+	return document.NewDocFromBytes(parseUniqueFileId(customer, fileId), buffer.Bytes())
 }
 
 func (d *S3Docstore) DeleteDocument(ctx context.Context, customer *queries.Customer, filename string) error {

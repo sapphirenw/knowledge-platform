@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
+	"github.com/sapphirenw/ai-content-creation-api/src/document"
 	"github.com/sapphirenw/ai-content-creation-api/src/embeddings"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 )
@@ -45,12 +46,6 @@ func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, txn pgx.Tx)
 		root:     &f,
 		logger:   l,
 	}, nil
-}
-
-type FolderContents struct {
-	Self      *queries.Folder
-	Folders   []queries.Folder
-	Documents []queries.Document
 }
 
 // Gets the docstore associated with the customer
@@ -122,7 +117,7 @@ Uploads documents to the customer's datastore, and stores the reference to the o
 the database, but does NOT vectorize the data. The vectorization is done by the function
 `ReVectorizeDatastore`.
 */
-func (c *Customer) UploadDocuments(ctx context.Context, txn pgx.Tx, folder *queries.Folder, docs []*docstore.Doc) ([]*UploadDocumentsResponse, error) {
+func (c *Customer) UploadDocuments(ctx context.Context, txn pgx.Tx, folder *queries.Folder, docs []*document.Doc) ([]*UploadDocumentsResponse, error) {
 	logger := c.logger.With("folder", folder.ID, "numDocuments", len(docs))
 	logger.InfoContext(ctx, "Uploading documents ...")
 
@@ -155,7 +150,7 @@ func (c *Customer) UploadDocuments(ctx context.Context, txn pgx.Tx, folder *quer
 		model := queries.New(tx)
 
 		// create an sha256 fingerprint for the document
-		hash := sha256.Sum256(item.Data)
+		hash := sha256.Sum256([]byte(item.Data))
 
 		// upload to postgres
 		doc, err := model.CreateDocument(ctx, queries.CreateDocumentParams{
@@ -163,7 +158,7 @@ func (c *Customer) UploadDocuments(ctx context.Context, txn pgx.Tx, folder *quer
 			CustomerID: c.ID,
 			Filename:   item.Filename,
 			Type:       string(item.Filetype),
-			SizeBytes:  int64(len(item.Data)),
+			SizeBytes:  int64(item.GetSizeInBytes()),
 			Sha256:     fmt.Sprintf("%x", hash),
 		})
 		if err != nil {
@@ -240,7 +235,7 @@ func (c *Customer) UploadDocuments(ctx context.Context, txn pgx.Tx, folder *quer
 /*
 Deletes a document from the datastore and its vectorization data.
 */
-func (c *Customer) DeleteDocument(ctx context.Context, doc *docstore.Doc) {
+func (c *Customer) DeleteDocument(ctx context.Context, doc *document.Doc) {
 
 }
 
