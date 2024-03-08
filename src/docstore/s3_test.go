@@ -37,7 +37,7 @@ func TestS3Docstore(t *testing.T) {
 	}
 
 	// dummy doc
-	doc, err := document.NewDocFromString("helloworld.txt", "This is some text from the document")
+	doc, err := document.NewDoc("helloworld.txt", []byte("This is some text from the document"))
 	if err != nil {
 		t.Error(err)
 	}

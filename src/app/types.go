@@ -13,8 +13,8 @@ type FolderContents struct {
 	Documents []queries.Document
 }
 
-type UploadDocumentsResponse struct {
-	Doc   *queries.Document
-	Url   string
-	Error error
+// Provides metadata to the user about how to upload the document that was sent for upload
+type GeneratePresignedUrlResponse struct {
+	UploadUrl string
+	Method    string
 }

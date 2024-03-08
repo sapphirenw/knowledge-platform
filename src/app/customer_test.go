@@ -1,12 +1,17 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
 
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
+	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/document"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -100,7 +105,7 @@ func TestCustomerFolderStructure(t *testing.T) {
 
 }
 
-func TestCustomerInsertDocuments(t *testing.T) {
+func TestCustomerUploadDocument(t *testing.T) {
 	ctx := context.TODO()
 	logger := utils.DefaultLogger()
 
@@ -133,31 +138,79 @@ func TestCustomerInsertDocuments(t *testing.T) {
 	}
 
 	// create a doc
-	data, err := os.ReadFile("/Users/jakelanders/code/ai-content-creation/api/resources/oregon.txt")
+	filename := "file1.txt"
+	data, err := os.ReadFile(fmt.Sprintf("../../resources/%s", filename))
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	// create a new document type
-	doc, err := document.NewDocFromBytes("oregon.txt", data)
+	doc, err := document.NewDoc(filename, data)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	// upload the documents
-	resp, err := customer.UploadDocuments(ctx, txn, customer.root, []*document.Doc{doc})
+	// generate a fingerprint for the file
+	hash := sha256.Sum256(data)
+	hashHex := hex.EncodeToString(hash[:])
+
+	// create the pre-signed url
+	uploadInput := &docstore.UploadUrlInput{
+		Filename:  doc.Filename,
+		Mime:      string(doc.Filetype),
+		Signature: hashHex,
+		Size:      int64(len(doc.Data)),
+	}
+	preSignedResp, err := customer.GeneratePresignedUrl(ctx, uploadInput)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	for _, item := range resp {
-		if item.Error != nil {
-			t.Error(item.Error)
-		}
-		fmt.Println("URL:", item.Url)
-		fmt.Println("ID:", item.Doc.ID)
+
+	// create the upload request
+	request, err := http.NewRequest(preSignedResp.Method, preSignedResp.UploadUrl, bytes.NewReader(doc.Data))
+	if err != nil {
+		t.Error(err)
+		return
 	}
-	assert.NotEmpty(t, resp)
+
+	// set the headers
+	request.Header.Set("Content-Type", string(doc.Filetype))
+	client := &http.Client{}
+
+	// send the request
+	response, err := client.Do(request)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Error("the status code was not 400")
+		fmt.Println(response.StatusCode)
+		fmt.Println(response)
+	}
+
+	// notify the server of the success
+	err = customer.NotifyOfSuccessfulUpload(ctx, txn, customer.root, uploadInput)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// delete the document from the docstore
+	store, err := customer.GetDocstore(ctx)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	err = store.DeleteDocument(ctx, customer.Customer, doc.Filename)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 }

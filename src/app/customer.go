@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"log/slog"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/document"
-	"github.com/sapphirenw/ai-content-creation-api/src/embeddings"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 )
 
@@ -24,10 +22,9 @@ type Customer struct {
 }
 
 func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, txn pgx.Tx) (*Customer, error) {
-	l := logger.With("customerId", id)
 	model := queries.New(txn)
 
-	l.InfoContext(ctx, "Fetching the customer record")
+	logger.InfoContext(ctx, "Fetching the customer record")
 
 	// get the customer
 	c, err := model.GetCustomer(ctx, id)
@@ -44,7 +41,7 @@ func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, txn pgx.Tx)
 	return &Customer{
 		Customer: &c,
 		root:     &f,
-		logger:   l,
+		logger:   logger.With("customer.ID", c.ID, "customer.Name", c.Name, "customer.Datastore", c.Datastore),
 	}, nil
 }
 
@@ -58,6 +55,7 @@ func (c *Customer) GetDocstore(ctx context.Context) (docstore.Docstore, error) {
 	}
 }
 
+// Creates a new folder tied to the customer with an optional parent.
 func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *CreateFolderArgs) (*queries.Folder, error) {
 	if args == nil {
 		return nil, fmt.Errorf("the arguments cannot be nil")
@@ -69,7 +67,7 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *CreateFol
 		args.Owner = c.root
 	}
 
-	logger := c.logger.With("name", args.Name, "owner", args.Owner.ID)
+	logger := c.logger.With("folder.Name", args.Name, "folder.Owner", args.Owner.ID)
 	logger.InfoContext(ctx, "Creating a new folder ...")
 
 	// create the folder
@@ -87,9 +85,10 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *CreateFol
 	return &folder, err
 }
 
+// Does an 'ls' on a folder
 func (c *Customer) GetFolderContents(ctx context.Context, txn pgx.Tx, folder *queries.Folder) (*FolderContents, error) {
-	logger := c.logger.With("folder.id", folder.ID, "folder.title", folder.Title)
-	logger.InfoContext(ctx, "Listing folder contents")
+	logger := c.logger.With("folder.ID", folder.ID, "folder.Title", folder.Title)
+	logger.InfoContext(ctx, "Getting all children of the folder ...")
 
 	model := queries.New(txn)
 
@@ -113,123 +112,58 @@ func (c *Customer) GetFolderContents(ctx context.Context, txn pgx.Tx, folder *qu
 }
 
 /*
-Uploads documents to the customer's datastore, and stores the reference to the object in
-the database, but does NOT vectorize the data. The vectorization is done by the function
-`ReVectorizeDatastore`.
+Generates pre-signed urls for the user to use to upload to their preferred datastore. This does not
+have any state-chaning effects, as no records are inserted into the database, and no objects
 */
-func (c *Customer) UploadDocuments(ctx context.Context, txn pgx.Tx, folder *queries.Folder, docs []*document.Doc) ([]*UploadDocumentsResponse, error) {
-	logger := c.logger.With("folder", folder.ID, "numDocuments", len(docs))
-	logger.InfoContext(ctx, "Uploading documents ...")
+func (c *Customer) GeneratePresignedUrl(ctx context.Context, doc *docstore.UploadUrlInput) (*GeneratePresignedUrlResponse, error) {
+	logger := c.logger.With("doc.Filename", doc.Filename, "doc.Mime", doc.Mime, "doc.Signature", doc.Signature, "doc.Size", doc.Size)
+	logger.InfoContext(ctx, "Generating a presigned url...")
 
-	// create the docstore object based on the customer
+	// get the customer's docstore
 	store, err := c.GetDocstore(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get docstore: %v", err)
+		return nil, fmt.Errorf("failed to get the document store: %v", err)
 	}
 
-	// create the embeddings
-	em := embeddings.NewOpenAIEmbeddings(fmt.Sprint(c.ID), &embeddings.OpenAIEmbeddingsOpts{
-		Logger: logger,
+	// generate the pre-signed url
+	url, err := store.GeneratePresignedUrl(ctx, c.Customer, doc)
+	if err != nil {
+		return nil, fmt.Errorf("there was an issue generating the presigned url: %v", err)
+	}
+
+	logger.InfoContext(ctx, "Successfully generated the pre-signed url")
+
+	return &GeneratePresignedUrlResponse{
+		UploadUrl: url,
+		Method:    store.GetUploadMethod(),
+	}, nil
+}
+
+/*
+Function to notify the server that the document upload using the pre-signed url was successful, and the
+server can store the record of this object in the datastore.
+*/
+func (c *Customer) NotifyOfSuccessfulUpload(ctx context.Context, txn pgx.Tx, folder *queries.Folder, doc *docstore.UploadUrlInput) error {
+	logger := c.logger.With("folder.Title", folder.Title, "older.ID", folder.ID, "doc.Filename", doc.Filename, "doc.Mime", doc.Mime, "doc.Signature", doc.Signature, "doc.Size", doc.Size)
+	logger.InfoContext(ctx, "Marking the document as successfully uploaded and storing a record in the database...")
+
+	// create the database object
+	model := queries.New(txn)
+	_, err := model.CreateDocument(ctx, queries.CreateDocumentParams{
+		ParentID:   folder.ID,
+		CustomerID: c.ID,
+		Filename:   doc.Filename,
+		Type:       doc.Mime,
+		SizeBytes:  doc.Size,
+		Sha256:     doc.Signature,
 	})
-
-	// track responses
-	response := make([]*UploadDocumentsResponse, len(docs))
-
-	// upload all the documents to postgres
-	for idx, item := range docs {
-		logger.DebugContext(ctx, "Processing document ...", "filename", item.Filename)
-		response[idx] = &UploadDocumentsResponse{}
-
-		// pseudo transaction for the document
-		tx, err := txn.Begin(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("there was an issue creating the pseudo-transaction: %v", err)
-		}
-
-		// create the queries model
-		model := queries.New(tx)
-
-		// create an sha256 fingerprint for the document
-		hash := sha256.Sum256([]byte(item.Data))
-
-		// upload to postgres
-		doc, err := model.CreateDocument(ctx, queries.CreateDocumentParams{
-			ParentID:   folder.ID,
-			CustomerID: c.ID,
-			Filename:   item.Filename,
-			Type:       string(item.Filetype),
-			SizeBytes:  int64(item.GetSizeInBytes()),
-			Sha256:     fmt.Sprintf("%x", hash),
-		})
-		if err != nil {
-			// rollback
-			logger.ErrorContext(ctx, "There was an error uploading to postgres", "error", err)
-			response[idx].Error = err
-			err := tx.Rollback(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("CRITICAL failed to rollback: %v", err)
-			}
-			continue
-		}
-		response[idx].Doc = &doc
-
-		// create embeddings for the document
-		vectors, err := em.Embed(ctx, string(item.Data))
-		if err != nil {
-			// rollback
-			logger.ErrorContext(ctx, "There was an error creating the vectors", "error", err)
-			response[idx].Error = err
-			err := tx.Rollback(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("CRITICAL failed to rollback: %v", err)
-			}
-			continue
-		}
-
-		// create vector objects for all the vectors retrieved
-		for idx, v := range vectors {
-			_, err := model.CreateVector(ctx, queries.CreateVectorParams{
-				Raw:        v.Raw,
-				Embeddings: v.Embedding,
-				CustomerID: c.ID,
-				DocumentID: doc.ID,
-				Index:      int32(idx),
-			})
-			if err != nil {
-				// rollback
-				logger.ErrorContext(ctx, "There was an error inserting the vector", "vectorIndex", idx, "error", err)
-				response[idx].Error = err
-				err := tx.Rollback(ctx)
-				if err != nil {
-					return nil, fmt.Errorf("CRITICAL failed to rollback: %v", err)
-				}
-				continue
-			}
-		}
-
-		// create the model records for the user
-		err = em.ReportUsage(ctx, tx, c.Customer)
-		if err != nil {
-			// not an error worth failing on
-			logger.ErrorContext(ctx, "There was an error reporting the usage", "error", err)
-		}
-
-		// upload to docstore
-		url, err := store.UploadDocument(ctx, c.Customer, item)
-		if err != nil {
-			// rollback
-			logger.ErrorContext(ctx, "There was an error uploading to the document store", "error", err)
-			response[idx].Error = err
-			err := tx.Rollback(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("CRITICAL failed to rollback: %v", err)
-			}
-			continue
-		}
-		response[idx].Url = url
+	if err != nil {
+		// TODO -- implement a critical error here that can contain information to be notified by
+		return fmt.Errorf("there was an issue inserting the document into the database: %v", err)
 	}
 
-	return response, nil
+	logger.InfoContext(ctx, "Successfully inserted document into the database")
+	return nil
 }
 
 /*
@@ -247,6 +181,69 @@ object is deleted and then re-vectorized. If the object in the datastore does no
 anymore, the vector data is deleted. This operation is quite expensive from compute and
 api costs, so the customer should be wary to run this function often
 */
-// func (c *Customer) ReVectorizeDatastore(ctx context.Context) {
+func (c *Customer) ReVectorizeDatastore(ctx context.Context) {
+	// fetch all documents from database
 
-// }
+	// loop over all documents
+
+	// query for document in s3
+
+	// if exists
+	// query vectors. If empty, vectorize. If not,
+	// compare fingerprints
+	// if different, re-vectorize
+	// if same, do nothing
+
+	// if not exists
+	// remove document from datastore
+
+	//
+	//
+	//
+
+	// create the embeddings
+	// em := embeddings.NewOpenAIEmbeddings(fmt.Sprint(c.ID), &embeddings.OpenAIEmbeddingsOpts{
+	// 	Logger: logger,
+	// })
+
+	// create embeddings for the document
+	// vectors, err := em.Embed(ctx, string(item.Data))
+	// if err != nil {
+	// 	// rollback
+	// 	logger.ErrorContext(ctx, "There was an error creating the vectors", "error", err)
+	// 	response[idx].Error = err
+	// 	err := tx.Rollback(ctx)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("CRITICAL failed to rollback: %v", err)
+	// 	}
+	// 	continue
+	// }
+
+	// // create vector objects for all the vectors retrieved
+	// for idx, v := range vectors {
+	// 	_, err := model.CreateVector(ctx, queries.CreateVectorParams{
+	// 		Raw:        v.Raw,
+	// 		Embeddings: v.Embedding,
+	// 		CustomerID: c.ID,
+	// 		DocumentID: doc.ID,
+	// 		Index:      int32(idx),
+	// 	})
+	// 	if err != nil {
+	// 		// rollback
+	// 		logger.ErrorContext(ctx, "There was an error inserting the vector", "vectorIndex", idx, "error", err)
+	// 		response[idx].Error = err
+	// 		err := tx.Rollback(ctx)
+	// 		if err != nil {
+	// 			return nil, fmt.Errorf("CRITICAL failed to rollback: %v", err)
+	// 		}
+	// 		continue
+	// 	}
+	// }
+
+	// create the model records for the user
+	// err = em.ReportUsage(ctx, tx, c.Customer)
+	// if err != nil {
+	// 	// not an error worth failing on
+	// 	logger.ErrorContext(ctx, "There was an error reporting the usage", "error", err)
+	// }
+}

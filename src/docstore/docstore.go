@@ -12,4 +12,17 @@ type Docstore interface {
 	UploadDocument(ctx context.Context, customer *queries.Customer, doc *document.Doc) (string, error)
 	GetDocument(ctx context.Context, customer *queries.Customer, filename string) (*document.Doc, error)
 	DeleteDocument(ctx context.Context, customer *queries.Customer, filename string) error
+
+	// Requests a pre-signed url a client can use to upload documents
+	GeneratePresignedUrl(ctx context.Context, customer *queries.Customer, input *UploadUrlInput) (string, error)
+
+	// returns the method the client should use for the pre-signed url
+	GetUploadMethod() string
+}
+
+type UploadUrlInput struct {
+	Filename  string
+	Mime      string
+	Signature string
+	Size      int64
 }

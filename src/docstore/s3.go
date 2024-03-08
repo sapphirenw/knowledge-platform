@@ -1,10 +1,11 @@
 package docstore
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -64,7 +65,7 @@ func (d *S3Docstore) UploadDocument(ctx context.Context, customer *queries.Custo
 	result, err := d.uploader.Upload(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(d.bucket),
 		Key:    aws.String(documentId),
-		Body:   strings.NewReader(doc.Data),
+		Body:   bytes.NewBuffer(doc.Data),
 	})
 	if err != nil {
 		return "", fmt.Errorf("there was an issue uploading the file: %v", err)
@@ -96,7 +97,7 @@ func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer
 
 	d.logger.InfoContext(ctx, "Successfully downloaded file", "filename", filename)
 
-	return document.NewDocFromBytes(parseUniqueFileId(customer, fileId), buffer.Bytes())
+	return document.NewDoc(parseUniqueFileId(customer, fileId), buffer.Bytes())
 }
 
 func (d *S3Docstore) DeleteDocument(ctx context.Context, customer *queries.Customer, filename string) error {
@@ -114,4 +115,29 @@ func (d *S3Docstore) DeleteDocument(ctx context.Context, customer *queries.Custo
 	d.logger.InfoContext(ctx, "Successfully deleted file")
 
 	return nil
+}
+
+func (d *S3Docstore) GeneratePresignedUrl(ctx context.Context, customer *queries.Customer, input *UploadUrlInput) (string, error) {
+	// Set the desired parameters for the pre-signed URL
+	presignClient := s3.NewPresignClient(d.client)
+	params := &s3.PutObjectInput{
+		Bucket:         aws.String(d.bucket),
+		Key:            aws.String(input.Filename),
+		ContentType:    aws.String(input.Mime),
+		ChecksumSHA256: aws.String(input.Signature),
+	}
+
+	resp, err := presignClient.PresignPutObject(ctx, params, func(o *s3.PresignOptions) {
+		o.Expires = time.Minute * 10
+	})
+	if err != nil {
+		return "", fmt.Errorf("there was an issue generating the pre-signed url: %v", err)
+	}
+
+	// Return the pre-signed URL
+	return resp.URL, nil
+}
+
+func (d *S3Docstore) GetUploadMethod() string {
+	return "PUT"
 }

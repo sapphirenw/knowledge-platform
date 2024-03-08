@@ -35,3 +35,11 @@ func (d *TODODocstore) DeleteDocument(ctx context.Context, customer *queries.Cus
 	d.logger.InfoContext(ctx, "TODO -- DeleteDocument")
 	return nil
 }
+
+func (d *TODODocstore) GeneratePresignedUrl(ctx context.Context, customer *queries.Customer, input *UploadUrlInput) (string, error) {
+	return "", nil
+}
+
+func (d *TODODocstore) GetUploadMethod() string {
+	return ""
+}
