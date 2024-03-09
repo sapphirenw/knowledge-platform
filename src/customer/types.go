@@ -1,4 +1,4 @@
-package app
+package customer
 
 import "github.com/sapphirenw/ai-content-creation-api/src/queries"
 
@@ -8,9 +8,9 @@ type CreateFolderArgs struct {
 }
 
 type FolderContents struct {
-	Self      *queries.Folder
-	Folders   []queries.Folder
-	Documents []queries.Document
+	Self      *queries.Folder     `json:"self"`
+	Folders   []*queries.Folder   `json:"folders"`
+	Documents []*queries.Document `json:"documents"`
 }
 
 // Provides metadata to the user about how to upload the document that was sent for upload

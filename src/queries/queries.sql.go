@@ -21,7 +21,15 @@ INSERT INTO customer (
 RETURNING id, name, datastore, created_at, updated_at
 `
 
-func (q *Queries) CreateCustomer(ctx context.Context, name string) (Customer, error) {
+// CreateCustomer
+//
+//	INSERT INTO customer (
+//	    name
+//	) VALUES (
+//	    $1
+//	)
+//	RETURNING id, name, datastore, created_at, updated_at
+func (q *Queries) CreateCustomer(ctx context.Context, name string) (*Customer, error) {
 	row := q.db.QueryRow(ctx, createCustomer, name)
 	var i Customer
 	err := row.Scan(
@@ -31,7 +39,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, name string) (Customer, er
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const createDocument = `-- name: CreateDocument :one
@@ -44,15 +52,23 @@ RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, creat
 `
 
 type CreateDocumentParams struct {
-	ParentID   int64
-	CustomerID int64
-	Filename   string
-	Type       string
-	SizeBytes  int64
-	Sha256     string
+	ParentID   int64  `db:"parent_id" json:"parentId"`
+	CustomerID int64  `db:"customer_id" json:"customerId"`
+	Filename   string `db:"filename" json:"filename"`
+	Type       string `db:"type" json:"type"`
+	SizeBytes  int64  `db:"size_bytes" json:"sizeBytes"`
+	Sha256     string `db:"sha_256" json:"sha256"`
 }
 
-func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error) {
+// CreateDocument
+//
+//	INSERT INTO document (
+//	    parent_id, customer_id, filename, type, size_bytes, sha_256
+//	) VALUES (
+//	    $1, $2, $3, $4, $5, $6
+//	)
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at
+func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, createDocument,
 		arg.ParentID,
 		arg.CustomerID,
@@ -72,7 +88,7 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		&i.Sha256,
 		&i.CreatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const createFolder = `-- name: CreateFolder :one
@@ -85,12 +101,20 @@ RETURNING id, parent_id, customer_id, title, created_at, updated_at
 `
 
 type CreateFolderParams struct {
-	ParentID   pgtype.Int8
-	CustomerID int64
-	Title      string
+	ParentID   pgtype.Int8 `db:"parent_id" json:"parentId"`
+	CustomerID int64       `db:"customer_id" json:"customerId"`
+	Title      string      `db:"title" json:"title"`
 }
 
-func (q *Queries) CreateFolder(ctx context.Context, arg CreateFolderParams) (Folder, error) {
+// CreateFolder
+//
+//	INSERT INTO folder (
+//	    parent_id, customer_id, title
+//	) VALUES (
+//	    $1, $2, $3
+//	)
+//	RETURNING id, parent_id, customer_id, title, created_at, updated_at
+func (q *Queries) CreateFolder(ctx context.Context, arg CreateFolderParams) (*Folder, error) {
 	row := q.db.QueryRow(ctx, createFolder, arg.ParentID, arg.CustomerID, arg.Title)
 	var i Folder
 	err := row.Scan(
@@ -101,7 +125,7 @@ func (q *Queries) CreateFolder(ctx context.Context, arg CreateFolderParams) (Fol
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const createFolderRoot = `-- name: CreateFolderRoot :one
@@ -113,7 +137,15 @@ INSERT INTO folder (
 RETURNING id, parent_id, customer_id, title, created_at, updated_at
 `
 
-func (q *Queries) CreateFolderRoot(ctx context.Context, customerID int64) (Folder, error) {
+// CreateFolderRoot
+//
+//	INSERT INTO folder (
+//	    customer_id, title
+//	) VALUES (
+//	    $1, 'root'
+//	)
+//	RETURNING id, parent_id, customer_id, title, created_at, updated_at
+func (q *Queries) CreateFolderRoot(ctx context.Context, customerID int64) (*Folder, error) {
 	row := q.db.QueryRow(ctx, createFolderRoot, customerID)
 	var i Folder
 	err := row.Scan(
@@ -124,7 +156,7 @@ func (q *Queries) CreateFolderRoot(ctx context.Context, customerID int64) (Folde
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const createTokenUsage = `-- name: CreateTokenUsage :one
@@ -144,15 +176,30 @@ RETURNING id, customer_id, model, input_tokens, output_tokens, total_tokens, cre
 `
 
 type CreateTokenUsageParams struct {
-	ID           pgtype.UUID
-	CustomerID   int64
-	Model        string
-	InputTokens  int32
-	OutputTokens int32
-	TotalTokens  int32
+	ID           pgtype.UUID `db:"id" json:"id"`
+	CustomerID   int64       `db:"customer_id" json:"customerId"`
+	Model        string      `db:"model" json:"model"`
+	InputTokens  int32       `db:"input_tokens" json:"inputTokens"`
+	OutputTokens int32       `db:"output_tokens" json:"outputTokens"`
+	TotalTokens  int32       `db:"total_tokens" json:"totalTokens"`
 }
 
-func (q *Queries) CreateTokenUsage(ctx context.Context, arg CreateTokenUsageParams) (TokenUsage, error) {
+// CreateTokenUsage
+//
+//	INSERT INTO token_usage (
+//	    id, customer_id, model, input_tokens, output_tokens, total_tokens
+//	) VALUES (
+//	    $1, $2, $3, $4, $5, $6
+//	)
+//	ON CONFLICT (id)
+//	DO UPDATE SET
+//	    customer_id = EXCLUDED.customer_id,
+//	    model = EXCLUDED.model,
+//	    input_tokens = EXCLUDED.input_tokens,
+//	    output_tokens = EXCLUDED.output_tokens,
+//	    total_tokens = EXCLUDED.total_tokens
+//	RETURNING id, customer_id, model, input_tokens, output_tokens, total_tokens, created_at
+func (q *Queries) CreateTokenUsage(ctx context.Context, arg CreateTokenUsageParams) (*TokenUsage, error) {
 	row := q.db.QueryRow(ctx, createTokenUsage,
 		arg.ID,
 		arg.CustomerID,
@@ -171,7 +218,7 @@ func (q *Queries) CreateTokenUsage(ctx context.Context, arg CreateTokenUsagePara
 		&i.TotalTokens,
 		&i.CreatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const createVector = `-- name: CreateVector :one
@@ -184,14 +231,22 @@ RETURNING id, raw, embeddings, customer_id, document_id, index, created_at
 `
 
 type CreateVectorParams struct {
-	Raw        string
-	Embeddings pgvector.Vector
-	CustomerID int64
-	DocumentID int64
-	Index      int32
+	Raw        string          `db:"raw" json:"raw"`
+	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
+	CustomerID int64           `db:"customer_id" json:"customerId"`
+	DocumentID int64           `db:"document_id" json:"documentId"`
+	Index      int32           `db:"index" json:"index"`
 }
 
-func (q *Queries) CreateVector(ctx context.Context, arg CreateVectorParams) (VectorStore, error) {
+// CreateVector
+//
+//	INSERT INTO vector_store (
+//	    raw, embeddings, customer_id, document_id, index
+//	) VALUES (
+//	    $1, $2, $3, $4, $5
+//	)
+//	RETURNING id, raw, embeddings, customer_id, document_id, index, created_at
+func (q *Queries) CreateVector(ctx context.Context, arg CreateVectorParams) (*VectorStore, error) {
 	row := q.db.QueryRow(ctx, createVector,
 		arg.Raw,
 		arg.Embeddings,
@@ -209,7 +264,7 @@ func (q *Queries) CreateVector(ctx context.Context, arg CreateVectorParams) (Vec
 		&i.Index,
 		&i.CreatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const deleteCustomer = `-- name: DeleteCustomer :exec
@@ -217,6 +272,10 @@ DELETE FROM customer
 WHERE id = $1
 `
 
+// DeleteCustomer
+//
+//	DELETE FROM customer
+//	WHERE id = $1
 func (q *Queries) DeleteCustomer(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, deleteCustomer, id)
 	return err
@@ -227,7 +286,11 @@ SELECT id, name, datastore, created_at, updated_at FROM customer
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetCustomer(ctx context.Context, id int64) (Customer, error) {
+// GetCustomer
+//
+//	SELECT id, name, datastore, created_at, updated_at FROM customer
+//	WHERE id = $1 LIMIT 1
+func (q *Queries) GetCustomer(ctx context.Context, id int64) (*Customer, error) {
 	row := q.db.QueryRow(ctx, getCustomer, id)
 	var i Customer
 	err := row.Scan(
@@ -237,7 +300,7 @@ func (q *Queries) GetCustomer(ctx context.Context, id int64) (Customer, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const getCustomerByName = `-- name: GetCustomerByName :one
@@ -245,7 +308,11 @@ SELECT id, name, datastore, created_at, updated_at FROM customer
 WHERE name = $1 LIMIT 1
 `
 
-func (q *Queries) GetCustomerByName(ctx context.Context, name string) (Customer, error) {
+// GetCustomerByName
+//
+//	SELECT id, name, datastore, created_at, updated_at FROM customer
+//	WHERE name = $1 LIMIT 1
+func (q *Queries) GetCustomerByName(ctx context.Context, name string) (*Customer, error) {
 	row := q.db.QueryRow(ctx, getCustomerByName, name)
 	var i Customer
 	err := row.Scan(
@@ -255,7 +322,7 @@ func (q *Queries) GetCustomerByName(ctx context.Context, name string) (Customer,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const getCustomerRootFolder = `-- name: GetCustomerRootFolder :one
@@ -263,7 +330,11 @@ SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 WHERE customer_id = $1 AND parent_id IS NULL
 `
 
-func (q *Queries) GetCustomerRootFolder(ctx context.Context, customerID int64) (Folder, error) {
+// GetCustomerRootFolder
+//
+//	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+//	WHERE customer_id = $1 AND parent_id IS NULL
+func (q *Queries) GetCustomerRootFolder(ctx context.Context, customerID int64) (*Folder, error) {
 	row := q.db.QueryRow(ctx, getCustomerRootFolder, customerID)
 	var i Folder
 	err := row.Scan(
@@ -274,7 +345,7 @@ func (q *Queries) GetCustomerRootFolder(ctx context.Context, customerID int64) (
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const getDocument = `-- name: GetDocument :one
@@ -282,7 +353,11 @@ SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetDocument(ctx context.Context, id int64) (Document, error) {
+// GetDocument
+//
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at FROM document
+//	WHERE id = $1 LIMIT 1
+func (q *Queries) GetDocument(ctx context.Context, id int64) (*Document, error) {
 	row := q.db.QueryRow(ctx, getDocument, id)
 	var i Document
 	err := row.Scan(
@@ -295,7 +370,7 @@ func (q *Queries) GetDocument(ctx context.Context, id int64) (Document, error) {
 		&i.Sha256,
 		&i.CreatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const getDocumentsByCustomer = `-- name: GetDocumentsByCustomer :many
@@ -303,13 +378,17 @@ SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_
 WHERE customer_id = $1
 `
 
-func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID int64) ([]Document, error) {
+// GetDocumentsByCustomer
+//
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at FROM document
+//	WHERE customer_id = $1
+func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID int64) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsByCustomer, customerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Document
+	var items []*Document
 	for rows.Next() {
 		var i Document
 		if err := rows.Scan(
@@ -324,7 +403,7 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID int64) 
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -337,13 +416,17 @@ SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_
 where parent_id = $1
 `
 
-func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID int64) ([]Document, error) {
+// GetDocumentsFromParent
+//
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at FROM document
+//	where parent_id = $1
+func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID int64) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsFromParent, parentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Document
+	var items []*Document
 	for rows.Next() {
 		var i Document
 		if err := rows.Scan(
@@ -358,7 +441,7 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID int64) ([
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -371,7 +454,11 @@ SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetFolder(ctx context.Context, id int64) (Folder, error) {
+// GetFolder
+//
+//	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+//	WHERE id = $1 LIMIT 1
+func (q *Queries) GetFolder(ctx context.Context, id int64) (*Folder, error) {
 	row := q.db.QueryRow(ctx, getFolder, id)
 	var i Folder
 	err := row.Scan(
@@ -382,7 +469,37 @@ func (q *Queries) GetFolder(ctx context.Context, id int64) (Folder, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
-	return i, err
+	return &i, err
+}
+
+const getFolderWithName = `-- name: GetFolderWithName :one
+SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+WHERE customer_id = $1 AND title = $2
+LIMIT 1
+`
+
+type GetFolderWithNameParams struct {
+	CustomerID int64  `db:"customer_id" json:"customerId"`
+	Title      string `db:"title" json:"title"`
+}
+
+// GetFolderWithName
+//
+//	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+//	WHERE customer_id = $1 AND title = $2
+//	LIMIT 1
+func (q *Queries) GetFolderWithName(ctx context.Context, arg GetFolderWithNameParams) (*Folder, error) {
+	row := q.db.QueryRow(ctx, getFolderWithName, arg.CustomerID, arg.Title)
+	var i Folder
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.CustomerID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
 }
 
 const getFoldersByCustomer = `-- name: GetFoldersByCustomer :many
@@ -390,13 +507,17 @@ SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 WHERE customer_id = $1
 `
 
-func (q *Queries) GetFoldersByCustomer(ctx context.Context, customerID int64) ([]Folder, error) {
+// GetFoldersByCustomer
+//
+//	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+//	WHERE customer_id = $1
+func (q *Queries) GetFoldersByCustomer(ctx context.Context, customerID int64) ([]*Folder, error) {
 	rows, err := q.db.Query(ctx, getFoldersByCustomer, customerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Folder
+	var items []*Folder
 	for rows.Next() {
 		var i Folder
 		if err := rows.Scan(
@@ -409,7 +530,7 @@ func (q *Queries) GetFoldersByCustomer(ctx context.Context, customerID int64) ([
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -422,13 +543,17 @@ SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 WHERE parent_id = $1
 `
 
-func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID pgtype.Int8) ([]Folder, error) {
+// GetFoldersFromParent
+//
+//	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+//	WHERE parent_id = $1
+func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID pgtype.Int8) ([]*Folder, error) {
 	rows, err := q.db.Query(ctx, getFoldersFromParent, parentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Folder
+	var items []*Folder
 	for rows.Next() {
 		var i Folder
 		if err := rows.Scan(
@@ -441,7 +566,7 @@ func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID pgtype.Int8
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -454,13 +579,17 @@ SELECT id, customer_id, model, input_tokens, output_tokens, total_tokens, create
 WHERE customer_id = $1
 `
 
-func (q *Queries) GetTokenUsage(ctx context.Context, customerID int64) ([]TokenUsage, error) {
+// GetTokenUsage
+//
+//	SELECT id, customer_id, model, input_tokens, output_tokens, total_tokens, created_at FROM token_usage
+//	WHERE customer_id = $1
+func (q *Queries) GetTokenUsage(ctx context.Context, customerID int64) ([]*TokenUsage, error) {
 	rows, err := q.db.Query(ctx, getTokenUsage, customerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []TokenUsage
+	var items []*TokenUsage
 	for rows.Next() {
 		var i TokenUsage
 		if err := rows.Scan(
@@ -474,7 +603,7 @@ func (q *Queries) GetTokenUsage(ctx context.Context, customerID int64) ([]TokenU
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -487,7 +616,11 @@ SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vec
 WHERE id = $1
 `
 
-func (q *Queries) GetVector(ctx context.Context, id int64) (VectorStore, error) {
+// GetVector
+//
+//	SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
+//	WHERE id = $1
+func (q *Queries) GetVector(ctx context.Context, id int64) (*VectorStore, error) {
 	row := q.db.QueryRow(ctx, getVector, id)
 	var i VectorStore
 	err := row.Scan(
@@ -499,7 +632,7 @@ func (q *Queries) GetVector(ctx context.Context, id int64) (VectorStore, error) 
 		&i.Index,
 		&i.CreatedAt,
 	)
-	return i, err
+	return &i, err
 }
 
 const getVectorsByCustomer = `-- name: GetVectorsByCustomer :many
@@ -507,13 +640,17 @@ SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vec
 WHERE customer_id = $1
 `
 
-func (q *Queries) GetVectorsByCustomer(ctx context.Context, customerID int64) ([]VectorStore, error) {
+// GetVectorsByCustomer
+//
+//	SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
+//	WHERE customer_id = $1
+func (q *Queries) GetVectorsByCustomer(ctx context.Context, customerID int64) ([]*VectorStore, error) {
 	rows, err := q.db.Query(ctx, getVectorsByCustomer, customerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VectorStore
+	var items []*VectorStore
 	for rows.Next() {
 		var i VectorStore
 		if err := rows.Scan(
@@ -527,7 +664,7 @@ func (q *Queries) GetVectorsByCustomer(ctx context.Context, customerID int64) ([
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -540,13 +677,17 @@ SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vec
 WHERE document_id = $1
 `
 
-func (q *Queries) GetVectorsByDocument(ctx context.Context, documentID int64) ([]VectorStore, error) {
+// GetVectorsByDocument
+//
+//	SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
+//	WHERE document_id = $1
+func (q *Queries) GetVectorsByDocument(ctx context.Context, documentID int64) ([]*VectorStore, error) {
 	rows, err := q.db.Query(ctx, getVectorsByDocument, documentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VectorStore
+	var items []*VectorStore
 	for rows.Next() {
 		var i VectorStore
 		if err := rows.Scan(
@@ -560,7 +701,7 @@ func (q *Queries) GetVectorsByDocument(ctx context.Context, documentID int64) ([
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -573,13 +714,17 @@ SELECT id, name, datastore, created_at, updated_at FROM customer
 ORDER BY name
 `
 
-func (q *Queries) ListCustomers(ctx context.Context) ([]Customer, error) {
+// ListCustomers
+//
+//	SELECT id, name, datastore, created_at, updated_at FROM customer
+//	ORDER BY name
+func (q *Queries) ListCustomers(ctx context.Context) ([]*Customer, error) {
 	rows, err := q.db.Query(ctx, listCustomers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Customer
+	var items []*Customer
 	for rows.Next() {
 		var i Customer
 		if err := rows.Scan(
@@ -591,7 +736,7 @@ func (q *Queries) ListCustomers(ctx context.Context) ([]Customer, error) {
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -607,10 +752,16 @@ RETURNING id, name, datastore, created_at, updated_at
 `
 
 type UpdateCustomerParams struct {
-	ID   int64
-	Name string
+	ID   int64  `db:"id" json:"id"`
+	Name string `db:"name" json:"name"`
 }
 
+// UpdateCustomer
+//
+//	UPDATE customer
+//	    set name = $2
+//	WHERE id = $1
+//	RETURNING id, name, datastore, created_at, updated_at
 func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) error {
 	_, err := q.db.Exec(ctx, updateCustomer, arg.ID, arg.Name)
 	return err

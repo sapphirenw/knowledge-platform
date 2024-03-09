@@ -18,5 +18,5 @@ func CreateTestCustomer(db queries.DBTX) (*queries.Customer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("there was an issue creating the root folder: %v", err)
 	}
-	return &item, err
+	return item, err
 }

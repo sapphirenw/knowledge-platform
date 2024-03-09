@@ -10,49 +10,49 @@ import (
 )
 
 type Customer struct {
-	ID        int64
-	Name      string
-	Datastore string
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
+	ID        int64            `db:"id" json:"id"`
+	Name      string           `db:"name" json:"name"`
+	Datastore string           `db:"datastore" json:"datastore"`
+	CreatedAt pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	UpdatedAt pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
 }
 
 type Document struct {
-	ID         int64
-	ParentID   int64
-	CustomerID int64
-	Filename   string
-	Type       string
-	SizeBytes  int64
-	Sha256     string
-	CreatedAt  pgtype.Timestamp
+	ID         int64            `db:"id" json:"id"`
+	ParentID   int64            `db:"parent_id" json:"parentId"`
+	CustomerID int64            `db:"customer_id" json:"customerId"`
+	Filename   string           `db:"filename" json:"filename"`
+	Type       string           `db:"type" json:"type"`
+	SizeBytes  int64            `db:"size_bytes" json:"sizeBytes"`
+	Sha256     string           `db:"sha_256" json:"sha256"`
+	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
 }
 
 type Folder struct {
-	ID         int64
-	ParentID   pgtype.Int8
-	CustomerID int64
-	Title      string
-	CreatedAt  pgtype.Timestamp
-	UpdatedAt  pgtype.Timestamp
+	ID         int64            `db:"id" json:"id"`
+	ParentID   pgtype.Int8      `db:"parent_id" json:"parentId"`
+	CustomerID int64            `db:"customer_id" json:"customerId"`
+	Title      string           `db:"title" json:"title"`
+	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
 }
 
 type TokenUsage struct {
-	ID           pgtype.UUID
-	CustomerID   int64
-	Model        string
-	InputTokens  int32
-	OutputTokens int32
-	TotalTokens  int32
-	CreatedAt    pgtype.Timestamp
+	ID           pgtype.UUID      `db:"id" json:"id"`
+	CustomerID   int64            `db:"customer_id" json:"customerId"`
+	Model        string           `db:"model" json:"model"`
+	InputTokens  int32            `db:"input_tokens" json:"inputTokens"`
+	OutputTokens int32            `db:"output_tokens" json:"outputTokens"`
+	TotalTokens  int32            `db:"total_tokens" json:"totalTokens"`
+	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
 }
 
 type VectorStore struct {
-	ID         int64
-	Raw        string
-	Embeddings pgvector.Vector
-	CustomerID int64
-	DocumentID int64
-	Index      int32
-	CreatedAt  pgtype.Timestamp
+	ID         int64            `db:"id" json:"id"`
+	Raw        string           `db:"raw" json:"raw"`
+	Embeddings pgvector.Vector  `db:"embeddings" json:"embeddings"`
+	CustomerID int64            `db:"customer_id" json:"customerId"`
+	DocumentID int64            `db:"document_id" json:"documentId"`
+	Index      int32            `db:"index" json:"index"`
+	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
 }

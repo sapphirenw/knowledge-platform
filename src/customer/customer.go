@@ -1,4 +1,4 @@
-package app
+package customer
 
 import (
 	"context"
@@ -21,8 +21,8 @@ type Customer struct {
 	logger *slog.Logger
 }
 
-func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, txn pgx.Tx) (*Customer, error) {
-	model := queries.New(txn)
+func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, db queries.DBTX) (*Customer, error) {
+	model := queries.New(db)
 
 	logger.InfoContext(ctx, "Fetching the customer record")
 
@@ -35,12 +35,22 @@ func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, txn pgx.Tx)
 	// get the root folder
 	f, err := model.GetCustomerRootFolder(ctx, c.ID)
 	if err != nil {
-		return nil, fmt.Errorf("could not get the root folder: %v", err)
+		if err.Error() == "no rows in result set" {
+			// attempt to create a new root folder
+			logger.InfoContext(ctx, "No root folder was found, attempting to create one...")
+			f, err = model.CreateFolderRoot(ctx, c.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create the root folder: %v", err)
+			}
+			logger.InfoContext(ctx, "Successfully created the root folder")
+		} else {
+			return nil, fmt.Errorf("could not get the root folder: %v", err)
+		}
 	}
 
 	return &Customer{
-		Customer: &c,
-		root:     &f,
+		Customer: c,
+		root:     f,
 		logger:   logger.With("customer.ID", c.ID, "customer.Name", c.Name, "customer.Datastore", c.Datastore),
 	}, nil
 }
@@ -82,15 +92,15 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *CreateFol
 	}
 	logger.InfoContext(ctx, "Successfully created folder", "id", folder.ID)
 
-	return &folder, err
+	return folder, err
 }
 
 // Does an 'ls' on a folder
-func (c *Customer) GetFolderContents(ctx context.Context, txn pgx.Tx, folder *queries.Folder) (*FolderContents, error) {
+func (c *Customer) GetFolderContents(ctx context.Context, db queries.DBTX, folder *queries.Folder) (*FolderContents, error) {
 	logger := c.logger.With("folder.ID", folder.ID, "folder.Title", folder.Title)
 	logger.InfoContext(ctx, "Getting all children of the folder ...")
 
-	model := queries.New(txn)
+	model := queries.New(db)
 
 	// get the folders
 	folders, err := model.GetFoldersFromParent(ctx, pgtype.Int8{Int64: folder.ID, Valid: true})

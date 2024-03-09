@@ -1,4 +1,4 @@
-package app
+package customer
 
 import (
 	"bytes"

@@ -2,6 +2,11 @@
 SELECT * FROM folder
 WHERE id = $1 LIMIT 1;
 
+-- name: GetFolderWithName :one
+SELECT * FROM folder
+WHERE customer_id = $1 AND title = $2
+LIMIT 1;
+
 -- name: GetFoldersByCustomer :many
 SELECT * FROM folder
 WHERE customer_id = $1;

@@ -21,8 +21,8 @@ type Docstore interface {
 }
 
 type UploadUrlInput struct {
-	Filename  string
-	Mime      string
-	Signature string
-	Size      int64
+	Filename  string `json:"filename"`
+	Mime      string `json:"mime"`
+	Signature string `json:"signature"`
+	Size      int64  `json:"size"`
 }

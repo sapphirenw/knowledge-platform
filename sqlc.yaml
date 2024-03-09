@@ -10,3 +10,9 @@ sql:
         package: "queries"
         out: "./src/queries"
         sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_result_struct_pointers: true
+        emit_sql_as_comment: true
+        json_tags_case_style: "camel"
+        
