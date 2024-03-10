@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"math"
 	"regexp"
 	"strings"
@@ -71,4 +73,9 @@ func CleanInput(input string) string {
 	input = re.ReplaceAllString(input, " ")
 
 	return input
+}
+
+func GenerateFingerprint(input []byte) string {
+	hash := sha256.Sum256(input)
+	return base64.StdEncoding.EncodeToString(hash[:])
 }

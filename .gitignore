@@ -1,2 +1,6 @@
 .env
 coverage.out
+
+# bun
+node_modules/
+*.lockb

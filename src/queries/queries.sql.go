@@ -48,7 +48,7 @@ INSERT INTO document (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at
 `
 
 type CreateDocumentParams struct {
@@ -67,7 +67,7 @@ type CreateDocumentParams struct {
 //	) VALUES (
 //	    $1, $2, $3, $4, $5, $6
 //	)
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at
 func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, createDocument,
 		arg.ParentID,
@@ -86,6 +86,7 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		&i.Type,
 		&i.SizeBytes,
 		&i.Sha256,
+		&i.Validated,
 		&i.CreatedAt,
 	)
 	return &i, err
@@ -349,13 +350,13 @@ func (q *Queries) GetCustomerRootFolder(ctx context.Context, customerID int64) (
 }
 
 const getDocument = `-- name: GetDocument :one
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
 WHERE id = $1 LIMIT 1
 `
 
 // GetDocument
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
 //	WHERE id = $1 LIMIT 1
 func (q *Queries) GetDocument(ctx context.Context, id int64) (*Document, error) {
 	row := q.db.QueryRow(ctx, getDocument, id)
@@ -368,20 +369,21 @@ func (q *Queries) GetDocument(ctx context.Context, id int64) (*Document, error) 
 		&i.Type,
 		&i.SizeBytes,
 		&i.Sha256,
+		&i.Validated,
 		&i.CreatedAt,
 	)
 	return &i, err
 }
 
 const getDocumentsByCustomer = `-- name: GetDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at FROM document
-WHERE customer_id = $1
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
+WHERE customer_id = $1 AND validated = true
 `
 
 // GetDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at FROM document
-//	WHERE customer_id = $1
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
+//	WHERE customer_id = $1 AND validated = true
 func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID int64) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsByCustomer, customerID)
 	if err != nil {
@@ -399,6 +401,7 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID int64) 
 			&i.Type,
 			&i.SizeBytes,
 			&i.Sha256,
+			&i.Validated,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -412,14 +415,14 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID int64) 
 }
 
 const getDocumentsFromParent = `-- name: GetDocumentsFromParent :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at FROM document
-where parent_id = $1
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
+where parent_id = $1 and validated = true
 `
 
 // GetDocumentsFromParent
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, created_at FROM document
-//	where parent_id = $1
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
+//	where parent_id = $1 and validated = true
 func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID int64) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsFromParent, parentID)
 	if err != nil {
@@ -437,6 +440,7 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID int64) ([
 			&i.Type,
 			&i.SizeBytes,
 			&i.Sha256,
+			&i.Validated,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -611,6 +615,45 @@ func (q *Queries) GetTokenUsage(ctx context.Context, customerID int64) ([]*Token
 	return items, nil
 }
 
+const getUnvalidatedDocumentsByCustomer = `-- name: GetUnvalidatedDocumentsByCustomer :many
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
+WHERE customer_id = $1 AND validated = false
+`
+
+// GetUnvalidatedDocumentsByCustomer
+//
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
+//	WHERE customer_id = $1 AND validated = false
+func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, customerID int64) ([]*Document, error) {
+	rows, err := q.db.Query(ctx, getUnvalidatedDocumentsByCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Document
+	for rows.Next() {
+		var i Document
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.CustomerID,
+			&i.Filename,
+			&i.Type,
+			&i.SizeBytes,
+			&i.Sha256,
+			&i.Validated,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getVector = `-- name: GetVector :one
 SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
 WHERE id = $1
@@ -742,6 +785,36 @@ func (q *Queries) ListCustomers(ctx context.Context) ([]*Customer, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const markDocumentAsUploaded = `-- name: MarkDocumentAsUploaded :one
+UPDATE document
+SET validated = true
+WHERE id = $1
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at
+`
+
+// MarkDocumentAsUploaded
+//
+//	UPDATE document
+//	SET validated = true
+//	WHERE id = $1
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at
+func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id int64) (*Document, error) {
+	row := q.db.QueryRow(ctx, markDocumentAsUploaded, id)
+	var i Document
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.CustomerID,
+		&i.Filename,
+		&i.Type,
+		&i.SizeBytes,
+		&i.Sha256,
+		&i.Validated,
+		&i.CreatedAt,
+	)
+	return &i, err
 }
 
 const updateCustomer = `-- name: UpdateCustomer :exec

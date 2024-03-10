@@ -66,7 +66,7 @@ func (c *Customer) GetDocstore(ctx context.Context) (docstore.Docstore, error) {
 }
 
 // Creates a new folder tied to the customer with an optional parent.
-func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *CreateFolderArgs) (*queries.Folder, error) {
+func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *createFolderRequest) (*queries.Folder, error) {
 	if args == nil {
 		return nil, fmt.Errorf("the arguments cannot be nil")
 	}
@@ -96,7 +96,7 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *CreateFol
 }
 
 // Does an 'ls' on a folder
-func (c *Customer) GetFolderContents(ctx context.Context, db queries.DBTX, folder *queries.Folder) (*FolderContents, error) {
+func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, folder *queries.Folder) (*listFolderContentsResponse, error) {
 	logger := c.logger.With("folder.ID", folder.ID, "folder.Title", folder.Title)
 	logger.InfoContext(ctx, "Getting all children of the folder ...")
 
@@ -114,7 +114,7 @@ func (c *Customer) GetFolderContents(ctx context.Context, db queries.DBTX, folde
 		return nil, fmt.Errorf("there was an issue getting the documents: %v", err)
 	}
 
-	return &FolderContents{
+	return &listFolderContentsResponse{
 		Self:      folder,
 		Folders:   folders,
 		Documents: documents,
@@ -125,8 +125,8 @@ func (c *Customer) GetFolderContents(ctx context.Context, db queries.DBTX, folde
 Generates pre-signed urls for the user to use to upload to their preferred datastore. This does not
 have any state-chaning effects, as no records are inserted into the database, and no objects
 */
-func (c *Customer) GeneratePresignedUrl(ctx context.Context, doc *docstore.UploadUrlInput) (*GeneratePresignedUrlResponse, error) {
-	logger := c.logger.With("doc.Filename", doc.Filename, "doc.Mime", doc.Mime, "doc.Signature", doc.Signature, "doc.Size", doc.Size)
+func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, body *generatePresignedUrlRequest) (*generatePresignedUrlResponse, error) {
+	logger := c.logger.With("body", *body)
 	logger.InfoContext(ctx, "Generating a presigned url...")
 
 	// get the customer's docstore
@@ -135,17 +135,37 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, doc *docstore.Uploa
 		return nil, fmt.Errorf("failed to get the document store: %v", err)
 	}
 
+	// insert a record into the documents table
+	model := queries.New(db)
+	d, err := model.CreateDocument(ctx, queries.CreateDocumentParams{
+		ParentID:   body.ParentId,
+		CustomerID: c.ID,
+		Filename:   body.Filename,
+		Type:       body.Mime,
+		SizeBytes:  body.Size,
+		Sha256:     body.Signature,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("there was an issue creating the document: %v", err)
+	}
+
 	// generate the pre-signed url
-	url, err := store.GeneratePresignedUrl(ctx, c.Customer, doc)
+	url, err := store.GeneratePresignedUrl(ctx, c.Customer, &docstore.UploadUrlInput{
+		Filename:  body.Filename,
+		Mime:      body.Mime,
+		Signature: body.Signature,
+		Size:      body.Size,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("there was an issue generating the presigned url: %v", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully generated the pre-signed url")
 
-	return &GeneratePresignedUrlResponse{
-		UploadUrl: url,
-		Method:    store.GetUploadMethod(),
+	return &generatePresignedUrlResponse{
+		UploadUrl:  url,
+		Method:     store.GetUploadMethod(),
+		DocumentId: d.ID,
 	}, nil
 }
 
@@ -153,26 +173,19 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, doc *docstore.Uploa
 Function to notify the server that the document upload using the pre-signed url was successful, and the
 server can store the record of this object in the datastore.
 */
-func (c *Customer) NotifyOfSuccessfulUpload(ctx context.Context, txn pgx.Tx, folder *queries.Folder, doc *docstore.UploadUrlInput) error {
-	logger := c.logger.With("folder.Title", folder.Title, "older.ID", folder.ID, "doc.Filename", doc.Filename, "doc.Mime", doc.Mime, "doc.Signature", doc.Signature, "doc.Size", doc.Size)
-	logger.InfoContext(ctx, "Marking the document as successfully uploaded and storing a record in the database...")
+func (c *Customer) NotifyOfSuccessfulUpload(ctx context.Context, db queries.DBTX, documentId int64) error {
+	logger := c.logger.With("documentId", documentId)
+	logger.InfoContext(ctx, "Marking the document as successfully uploaded")
 
 	// create the database object
-	model := queries.New(txn)
-	_, err := model.CreateDocument(ctx, queries.CreateDocumentParams{
-		ParentID:   folder.ID,
-		CustomerID: c.ID,
-		Filename:   doc.Filename,
-		Type:       doc.Mime,
-		SizeBytes:  doc.Size,
-		Sha256:     doc.Signature,
-	})
+	model := queries.New(db)
+	_, err := model.MarkDocumentAsUploaded(ctx, documentId)
 	if err != nil {
 		// TODO -- implement a critical error here that can contain information to be notified by
 		return fmt.Errorf("there was an issue inserting the document into the database: %v", err)
 	}
 
-	logger.InfoContext(ctx, "Successfully inserted document into the database")
+	logger.InfoContext(ctx, "Successfully validated document")
 	return nil
 }
 

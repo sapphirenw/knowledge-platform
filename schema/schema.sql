@@ -25,6 +25,7 @@ CREATE TABLE document(
     type VARCHAR(256) NOT NULL, -- txt, md, html, xlsx, etc.
     size_bytes BIGINT NOT NULL, -- size of the document in terms of bytes
     sha_256 CHAR(64) NOT NULL, -- acts as a fingerprint of the document to compare old vs new
+    validated BOOLEAN NOT NULL DEFAULT false, -- whether the object exists in datastore
 
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

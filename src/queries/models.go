@@ -25,6 +25,7 @@ type Document struct {
 	Type       string           `db:"type" json:"type"`
 	SizeBytes  int64            `db:"size_bytes" json:"sizeBytes"`
 	Sha256     string           `db:"sha_256" json:"sha256"`
+	Validated  bool             `db:"validated" json:"validated"`
 	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
 }
 
