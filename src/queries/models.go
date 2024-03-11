@@ -29,6 +29,15 @@ type Document struct {
 	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
 }
 
+type DocumentVector struct {
+	ID            int64            `db:"id" json:"id"`
+	DocumentID    int64            `db:"document_id" json:"documentId"`
+	VectorStoreID int64            `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    int64            `db:"customer_id" json:"customerId"`
+	Index         int32            `db:"index" json:"index"`
+	CreatedAt     pgtype.Timestamp `db:"created_at" json:"createdAt"`
+}
+
 type Folder struct {
 	ID         int64            `db:"id" json:"id"`
 	ParentID   pgtype.Int8      `db:"parent_id" json:"parentId"`
@@ -53,7 +62,33 @@ type VectorStore struct {
 	Raw        string           `db:"raw" json:"raw"`
 	Embeddings pgvector.Vector  `db:"embeddings" json:"embeddings"`
 	CustomerID int64            `db:"customer_id" json:"customerId"`
-	DocumentID int64            `db:"document_id" json:"documentId"`
-	Index      int32            `db:"index" json:"index"`
 	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
+}
+
+type Website struct {
+	ID          int64            `db:"id" json:"id"`
+	CustomerID  int64            `db:"customer_id" json:"customerId"`
+	BaseUrl     string           `db:"base_url" json:"baseUrl"`
+	SiteMap     string           `db:"site_map" json:"siteMap"`
+	IgnoreRules []string         `db:"ignore_rules" json:"ignoreRules"`
+	CreatedAt   pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+}
+
+type WebsitePage struct {
+	ID         int64            `db:"id" json:"id"`
+	CustomerID int64            `db:"customer_id" json:"customerId"`
+	WebsiteID  int64            `db:"website_id" json:"websiteId"`
+	Url        string           `db:"url" json:"url"`
+	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+}
+
+type WebsitePageVector struct {
+	ID            int64            `db:"id" json:"id"`
+	WebsitePageID int64            `db:"website_page_id" json:"websitePageId"`
+	VectorStoreID int64            `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    int64            `db:"customer_id" json:"customerId"`
+	Index         int32            `db:"index" json:"index"`
+	CreatedAt     pgtype.Timestamp `db:"created_at" json:"createdAt"`
 }

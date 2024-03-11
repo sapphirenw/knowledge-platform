@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
 )
 
 const createCustomer = `-- name: CreateCustomer :one
@@ -217,52 +216,6 @@ func (q *Queries) CreateTokenUsage(ctx context.Context, arg CreateTokenUsagePara
 		&i.InputTokens,
 		&i.OutputTokens,
 		&i.TotalTokens,
-		&i.CreatedAt,
-	)
-	return &i, err
-}
-
-const createVector = `-- name: CreateVector :one
-INSERT INTO vector_store (
-    raw, embeddings, customer_id, document_id, index
-) VALUES (
-    $1, $2, $3, $4, $5
-)
-RETURNING id, raw, embeddings, customer_id, document_id, index, created_at
-`
-
-type CreateVectorParams struct {
-	Raw        string          `db:"raw" json:"raw"`
-	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
-	CustomerID int64           `db:"customer_id" json:"customerId"`
-	DocumentID int64           `db:"document_id" json:"documentId"`
-	Index      int32           `db:"index" json:"index"`
-}
-
-// CreateVector
-//
-//	INSERT INTO vector_store (
-//	    raw, embeddings, customer_id, document_id, index
-//	) VALUES (
-//	    $1, $2, $3, $4, $5
-//	)
-//	RETURNING id, raw, embeddings, customer_id, document_id, index, created_at
-func (q *Queries) CreateVector(ctx context.Context, arg CreateVectorParams) (*VectorStore, error) {
-	row := q.db.QueryRow(ctx, createVector,
-		arg.Raw,
-		arg.Embeddings,
-		arg.CustomerID,
-		arg.DocumentID,
-		arg.Index,
-	)
-	var i VectorStore
-	err := row.Scan(
-		&i.ID,
-		&i.Raw,
-		&i.Embeddings,
-		&i.CustomerID,
-		&i.DocumentID,
-		&i.Index,
 		&i.CreatedAt,
 	)
 	return &i, err
@@ -694,104 +647,6 @@ func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, custome
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getVector = `-- name: GetVector :one
-SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
-WHERE id = $1
-`
-
-// GetVector
-//
-//	SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
-//	WHERE id = $1
-func (q *Queries) GetVector(ctx context.Context, id int64) (*VectorStore, error) {
-	row := q.db.QueryRow(ctx, getVector, id)
-	var i VectorStore
-	err := row.Scan(
-		&i.ID,
-		&i.Raw,
-		&i.Embeddings,
-		&i.CustomerID,
-		&i.DocumentID,
-		&i.Index,
-		&i.CreatedAt,
-	)
-	return &i, err
-}
-
-const getVectorsByCustomer = `-- name: GetVectorsByCustomer :many
-SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
-WHERE customer_id = $1
-`
-
-// GetVectorsByCustomer
-//
-//	SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
-//	WHERE customer_id = $1
-func (q *Queries) GetVectorsByCustomer(ctx context.Context, customerID int64) ([]*VectorStore, error) {
-	rows, err := q.db.Query(ctx, getVectorsByCustomer, customerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*VectorStore
-	for rows.Next() {
-		var i VectorStore
-		if err := rows.Scan(
-			&i.ID,
-			&i.Raw,
-			&i.Embeddings,
-			&i.CustomerID,
-			&i.DocumentID,
-			&i.Index,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getVectorsByDocument = `-- name: GetVectorsByDocument :many
-SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
-WHERE document_id = $1
-`
-
-// GetVectorsByDocument
-//
-//	SELECT id, raw, embeddings, customer_id, document_id, index, created_at FROM vector_store
-//	WHERE document_id = $1
-func (q *Queries) GetVectorsByDocument(ctx context.Context, documentID int64) ([]*VectorStore, error) {
-	rows, err := q.db.Query(ctx, getVectorsByDocument, documentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*VectorStore
-	for rows.Next() {
-		var i VectorStore
-		if err := rows.Scan(
-			&i.ID,
-			&i.Raw,
-			&i.Embeddings,
-			&i.CustomerID,
-			&i.DocumentID,
-			&i.Index,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
