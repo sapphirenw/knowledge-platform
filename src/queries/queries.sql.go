@@ -52,12 +52,12 @@ RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, valid
 `
 
 type CreateDocumentParams struct {
-	ParentID   int64  `db:"parent_id" json:"parentId"`
-	CustomerID int64  `db:"customer_id" json:"customerId"`
-	Filename   string `db:"filename" json:"filename"`
-	Type       string `db:"type" json:"type"`
-	SizeBytes  int64  `db:"size_bytes" json:"sizeBytes"`
-	Sha256     string `db:"sha_256" json:"sha256"`
+	ParentID   pgtype.Int8 `db:"parent_id" json:"parentId"`
+	CustomerID int64       `db:"customer_id" json:"customerId"`
+	Filename   string      `db:"filename" json:"filename"`
+	Type       string      `db:"type" json:"type"`
+	SizeBytes  int64       `db:"size_bytes" json:"sizeBytes"`
+	Sha256     string      `db:"sha_256" json:"sha256"`
 }
 
 // CreateDocument
@@ -326,29 +326,6 @@ func (q *Queries) GetCustomerByName(ctx context.Context, name string) (*Customer
 	return &i, err
 }
 
-const getCustomerRootFolder = `-- name: GetCustomerRootFolder :one
-SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
-WHERE customer_id = $1 AND parent_id IS NULL
-`
-
-// GetCustomerRootFolder
-//
-//	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
-//	WHERE customer_id = $1 AND parent_id IS NULL
-func (q *Queries) GetCustomerRootFolder(ctx context.Context, customerID int64) (*Folder, error) {
-	row := q.db.QueryRow(ctx, getCustomerRootFolder, customerID)
-	var i Folder
-	err := row.Scan(
-		&i.ID,
-		&i.ParentID,
-		&i.CustomerID,
-		&i.Title,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
 const getDocument = `-- name: GetDocument :one
 SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
 WHERE id = $1 LIMIT 1
@@ -423,7 +400,7 @@ where parent_id = $1 and validated = true
 //
 //	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
 //	where parent_id = $1 and validated = true
-func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID int64) ([]*Document, error) {
+func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.Int8) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsFromParent, parentID)
 	if err != nil {
 		return nil, err
@@ -553,6 +530,81 @@ WHERE parent_id = $1
 //	WHERE parent_id = $1
 func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID pgtype.Int8) ([]*Folder, error) {
 	rows, err := q.db.Query(ctx, getFoldersFromParent, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Folder
+	for rows.Next() {
+		var i Folder
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.CustomerID,
+			&i.Title,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRootDocumentsByCustomer = `-- name: GetRootDocumentsByCustomer :many
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
+WHERE customer_id = $1 AND parent_id is NULL
+`
+
+// GetRootDocumentsByCustomer
+//
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at FROM document
+//	WHERE customer_id = $1 AND parent_id is NULL
+func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID int64) ([]*Document, error) {
+	rows, err := q.db.Query(ctx, getRootDocumentsByCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Document
+	for rows.Next() {
+		var i Document
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.CustomerID,
+			&i.Filename,
+			&i.Type,
+			&i.SizeBytes,
+			&i.Sha256,
+			&i.Validated,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRootFoldersByCustomer = `-- name: GetRootFoldersByCustomer :many
+SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+WHERE customer_id = $1 AND parent_id IS NULL
+`
+
+// GetRootFoldersByCustomer
+//
+//	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+//	WHERE customer_id = $1 AND parent_id IS NULL
+func (q *Queries) GetRootFoldersByCustomer(ctx context.Context, customerID int64) ([]*Folder, error) {
+	rows, err := q.db.Query(ctx, getRootFoldersByCustomer, customerID)
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,7 @@ WHERE customer_id = $1;
 SELECT * FROM folder
 WHERE parent_id = $1;
 
--- name: GetCustomerRootFolder :one
+-- name: GetRootFoldersByCustomer :many
 SELECT * FROM folder
 WHERE customer_id = $1 AND parent_id IS NULL;
 

@@ -13,20 +13,27 @@ import (
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
 )
 
-func CustomerHandler(mux chi.Router) {
-	mux.Get("/", handle(GetCustomer))
-	mux.Post("/generatePresignedUrl", handle(GeneratePresignedUrl))
+func Handler(mux chi.Router) {
+	mux.Get("/", customerHandler(GetCustomer))
+	mux.Post("/generatePresignedUrl", customerHandler(GeneratePresignedUrl))
 
 	// documents
-	mux.Put("/documents/{documentId}/validate", handle(NotifyOfSuccessfulUpload))
+	mux.Put("/documents/{documentId}/validate", customerHandler(NotifyOfSuccessfulUpload))
 
 	// folders
-	mux.Get("/folders/{folderId}", handle(ListCustomerFolder))
+	mux.Get("/folders/{folderId}", customerHandler(ListCustomerFolder))
 }
 
 // Custom handler that parses the customerId from the request, fetches the customer from the database
 // and passes a valid database connection pool writer to the handler
-func handle(handler func(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, c *Customer)) http.HandlerFunc {
+func customerHandler(
+	handler func(
+		w http.ResponseWriter,
+		r *http.Request,
+		pool *pgxpool.Pool,
+		c *Customer,
+	),
+) http.HandlerFunc {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			// create the logger with the request context

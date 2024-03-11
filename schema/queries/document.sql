@@ -10,6 +10,10 @@ WHERE customer_id = $1 AND validated = true;
 SELECT * FROM document
 where parent_id = $1 and validated = true;
 
+-- name: GetRootDocumentsByCustomer :many
+SELECT * FROM document
+WHERE customer_id = $1 AND parent_id is NULL;
+
 -- name: GetUnvalidatedDocumentsByCustomer :many
 SELECT * FROM document
 WHERE customer_id = $1 AND validated = false;

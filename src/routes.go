@@ -17,5 +17,5 @@ func addRoutes(
 		oplog.Info("info here")
 		w.Write([]byte("hello world"))
 	})
-	mux.Route("/customers/{customerId}", customer.CustomerHandler)
+	mux.Route("/customers/{customerId}", customer.Handler)
 }

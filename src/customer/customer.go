@@ -17,7 +17,7 @@ import (
 type Customer struct {
 	*queries.Customer
 
-	root   *queries.Folder
+	// root   *queries.Folder
 	logger *slog.Logger
 }
 
@@ -33,25 +33,25 @@ func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, db queries.
 	}
 
 	// get the root folder
-	f, err := model.GetCustomerRootFolder(ctx, c.ID)
-	if err != nil {
-		if err.Error() == "no rows in result set" {
-			// attempt to create a new root folder
-			logger.InfoContext(ctx, "No root folder was found, attempting to create one...")
-			f, err = model.CreateFolderRoot(ctx, c.ID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create the root folder: %v", err)
-			}
-			logger.InfoContext(ctx, "Successfully created the root folder")
-		} else {
-			return nil, fmt.Errorf("could not get the root folder: %v", err)
-		}
-	}
+	// f, err := model.GetCustomerRootFolder(ctx, c.ID)
+	// if err != nil {
+	// 	if err.Error() == "no rows in result set" {
+	// 		// attempt to create a new root folder
+	// 		logger.InfoContext(ctx, "No root folder was found, attempting to create one...")
+	// 		f, err = model.CreateFolderRoot(ctx, c.ID)
+	// 		if err != nil {
+	// 			return nil, fmt.Errorf("failed to create the root folder: %v", err)
+	// 		}
+	// 		logger.InfoContext(ctx, "Successfully created the root folder")
+	// 	} else {
+	// 		return nil, fmt.Errorf("could not get the root folder: %v", err)
+	// 	}
+	// }
 
 	return &Customer{
 		Customer: c,
-		root:     f,
-		logger:   logger.With("customer.ID", c.ID, "customer.Name", c.Name, "customer.Datastore", c.Datastore),
+		// root:     f,
+		logger: logger.With("customer.ID", c.ID, "customer.Name", c.Name, "customer.Datastore", c.Datastore),
 	}, nil
 }
 
@@ -73,17 +73,21 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *createFol
 	if args.Name == "" {
 		return nil, fmt.Errorf("the name cannot be empty")
 	}
-	if args.Owner == nil {
-		args.Owner = c.root
-	}
 
-	logger := c.logger.With("folder.Name", args.Name, "folder.Owner", args.Owner.ID)
+	logger := c.logger.With("folder.Name", args.Name)
+
+	// parse the owner if applicable
+	var parentId pgtype.Int8
+	if args.Owner != nil {
+		logger = c.logger.With("folder.Owner", args.Owner.ID)
+		parentId.Scan(args.Owner.ID)
+	}
 	logger.InfoContext(ctx, "Creating a new folder ...")
 
 	// create the folder
 	model := queries.New(txn)
 	folder, err := model.CreateFolder(ctx, queries.CreateFolderParams{
-		ParentID:   pgtype.Int8{Int64: args.Owner.ID, Valid: true},
+		ParentID:   parentId,
 		CustomerID: c.ID,
 		Title:      args.Name,
 	})
@@ -97,22 +101,41 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *createFol
 
 // Does an 'ls' on a folder
 func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, folder *queries.Folder) (*listFolderContentsResponse, error) {
-	logger := c.logger.With("folder.ID", folder.ID, "folder.Title", folder.Title)
+	logger := c.logger.With()
+	if folder != nil {
+		logger = logger.With("folder.ID", folder.ID, "folder.Title", folder.Title)
+	}
 	logger.InfoContext(ctx, "Getting all children of the folder ...")
 
 	model := queries.New(db)
 
-	// get the folders
-	folders, err := model.GetFoldersFromParent(ctx, pgtype.Int8{Int64: folder.ID, Valid: true})
-	if err != nil {
-		return nil, fmt.Errorf("there was an issue getting the folders: %v", err)
+	var err error
+	var folders []*queries.Folder
+	var documents []*queries.Document
+
+	if folder == nil {
+		// get root file information
+		folders, err = model.GetRootFoldersByCustomer(ctx, c.ID)
+		if err != nil {
+			return nil, fmt.Errorf("there was an issue getting the folders: %v", err)
+		}
+		documents, err = model.GetRootDocumentsByCustomer(ctx, c.ID)
+		if err != nil {
+			return nil, fmt.Errorf("there was an issue getting the documents: %v", err)
+		}
+	} else {
+		// get the information using the folder
+		folders, err = model.GetFoldersFromParent(ctx, pgtype.Int8{Int64: folder.ID, Valid: true})
+		if err != nil {
+			return nil, fmt.Errorf("there was an issue getting the folders: %v", err)
+		}
+		documents, err = model.GetDocumentsFromParent(ctx, pgtype.Int8{Int64: folder.ID, Valid: true})
+		if err != nil {
+			return nil, fmt.Errorf("there was an issue getting the documents: %v", err)
+		}
 	}
 
-	// get the documents
-	documents, err := model.GetDocumentsFromParent(ctx, folder.ID)
-	if err != nil {
-		return nil, fmt.Errorf("there was an issue getting the documents: %v", err)
-	}
+	logger.InfoContext(ctx, "Successfully listed folder contents", "folders", len(folders), "documents", len(documents))
 
 	return &listFolderContentsResponse{
 		Self:      folder,
@@ -135,10 +158,15 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 		return nil, fmt.Errorf("failed to get the document store: %v", err)
 	}
 
+	var parentId pgtype.Int8
+	if body.ParentId != nil {
+		parentId.Scan(body.ParentId)
+	}
+
 	// insert a record into the documents table
 	model := queries.New(db)
 	d, err := model.CreateDocument(ctx, queries.CreateDocumentParams{
-		ParentID:   body.ParentId,
+		ParentID:   parentId,
 		CustomerID: c.ID,
 		Filename:   body.Filename,
 		Type:       body.Mime,

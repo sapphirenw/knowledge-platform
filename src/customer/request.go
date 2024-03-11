@@ -11,7 +11,7 @@ type generatePresignedUrlRequest struct {
 	Mime      string `json:"mime"`
 	Signature string `json:"signature"`
 	Size      int64  `json:"size"`
-	ParentId  int64  `json:"parentId"`
+	ParentId  *int64 `json:"parentId,omitempty"`
 }
 
 func (b generatePresignedUrlRequest) Valid(ctx context.Context) map[string]string {
@@ -27,9 +27,6 @@ func (b generatePresignedUrlRequest) Valid(ctx context.Context) map[string]strin
 	}
 	if b.Size == 0 {
 		p["size"] = "cannot be 0"
-	}
-	if b.ParentId == 0 {
-		p["parentId"] = "cannot be 0"
 	}
 	return p
 }

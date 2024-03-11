@@ -3,12 +3,14 @@ module github.com/sapphirenw/ai-content-creation-api
 go 1.22.0
 
 require (
+	code.sajari.com/docconv/v2 v2.0.0-pre.4
 	github.com/JohannesKaufmann/html-to-markdown v1.5.0
 	github.com/aws/aws-sdk-go-v2 v1.25.2
 	github.com/aws/aws-sdk-go-v2/config v1.27.4
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.6
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.51.1
-	github.com/dslipak/pdf v0.0.2
+	github.com/go-chi/chi/v5 v5.0.12
+	github.com/go-chi/httplog/v2 v2.0.9
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.5.3
 	github.com/jake-landersweb/gollm v1.2.0
@@ -17,7 +19,6 @@ require (
 )
 
 require (
-	code.sajari.com/docconv/v2 v2.0.0-pre.4 // indirect
 	github.com/JalfResi/justext v0.0.0-20170829062021-c0282dea7198 // indirect
 	github.com/PuerkitoBio/goquery v1.8.1 // indirect
 	github.com/advancedlogic/GoOse v0.0.0-20191112112754-e742535969c1 // indirect
@@ -41,10 +42,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/set v0.2.1 // indirect
 	github.com/gigawattio/window v0.0.0-20180317192513-0f5467e35573 // indirect
-	github.com/go-chi/chi/v5 v5.0.12 // indirect
-	github.com/go-chi/httplog/v2 v2.0.9 // indirect
 	github.com/go-resty/resty/v2 v2.3.0 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect

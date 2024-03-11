@@ -42,7 +42,7 @@ func TestCustomerFolderStructure(t *testing.T) {
 
 	// create 2 folders in the root
 	f1, err := customer.CreateFolder(ctx, txn, &createFolderRequest{
-		Owner: customer.root,
+		Owner: nil,
 		Name:  "folder1",
 	})
 	if err != nil {
@@ -50,7 +50,7 @@ func TestCustomerFolderStructure(t *testing.T) {
 		return
 	}
 	f2, err := customer.CreateFolder(ctx, txn, &createFolderRequest{
-		Owner: customer.root,
+		Owner: nil,
 		Name:  "folder2",
 	})
 	if err != nil {
@@ -69,7 +69,7 @@ func TestCustomerFolderStructure(t *testing.T) {
 	}
 
 	// describe the folders
-	resp1, err := customer.ListFolderContents(ctx, txn, customer.root)
+	resp1, err := customer.ListFolderContents(ctx, txn, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -141,7 +141,6 @@ func TestCustomerUploadDocument(t *testing.T) {
 		Mime:      string(doc.Filetype),
 		Signature: utils.GenerateFingerprint(doc.Data),
 		Size:      int64(len(doc.Data)),
-		ParentId:  customer.root.ID,
 	}
 	preSignedResp, err := customer.GeneratePresignedUrl(ctx, txn, &uploadInput)
 	if err != nil {

@@ -19,7 +19,7 @@ type Customer struct {
 
 type Document struct {
 	ID         int64            `db:"id" json:"id"`
-	ParentID   int64            `db:"parent_id" json:"parentId"`
+	ParentID   pgtype.Int8      `db:"parent_id" json:"parentId"`
 	CustomerID int64            `db:"customer_id" json:"customerId"`
 	Filename   string           `db:"filename" json:"filename"`
 	Type       string           `db:"type" json:"type"`
