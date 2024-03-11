@@ -5,18 +5,18 @@ to the server running on localhost.
 
 const BASE_URL = "http://localhost:8000"
 const CUSTOMER_ID = 7
-const PARENT_FOLDER_ID = 14
 
 async function uploadDocument(filename: string) {
 
     // Step 1: Read the file (adapted for Bun)
     const file = Bun.file(`../../resources/${filename}`);
-    const contents = await file.arrayBuffer();
+    const arrBuffer = await file.arrayBuffer();
+    const byteArray = new Uint8Array(arrBuffer);
 
     // Create a SHA-256 hash of the file content
     const hasher = new Bun.CryptoHasher("sha256");
-    hasher.update(contents);
-    const signature = hasher.digest("base64")
+    hasher.update(byteArray);
+    const signature = hasher.digest("base64");
 
     // create a json body for the request to process
     const fileUploadbody = {
@@ -24,7 +24,6 @@ async function uploadDocument(filename: string) {
         mime: file.type,
         signature: signature,
         size: file.size,
-        parentId: PARENT_FOLDER_ID,
     }
 
     // Step 2: Get pre-signed URL
@@ -40,10 +39,14 @@ async function uploadDocument(filename: string) {
 
     const uploadData = await presignedUrlResponse.json();
 
+    // parse the upload url
+    const urlBuf = Buffer.from(uploadData.uploadUrl, 'base64')
+    const url = urlBuf.toString('utf-8')
+    console.log(url)
     // Step 3: Upload the document
-    const uploadResponse = await fetch(uploadData.uploadUrl, {
+    const uploadResponse = await fetch(url, {
         method: uploadData.method,
-        body: contents,
+        body: byteArray,
         headers: {
             'Content-Type': file.type,
         },

@@ -2,6 +2,7 @@ package customer
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 
@@ -191,7 +192,7 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 	logger.InfoContext(ctx, "Successfully generated the pre-signed url")
 
 	return &generatePresignedUrlResponse{
-		UploadUrl:  url,
+		UploadUrl:  base64.StdEncoding.EncodeToString([]byte(url)),
 		Method:     store.GetUploadMethod(),
 		DocumentId: d.ID,
 	}, nil

@@ -18,9 +18,11 @@ func Handler(mux chi.Router) {
 	mux.Post("/generatePresignedUrl", customerHandler(GeneratePresignedUrl))
 
 	// documents
+	mux.Get("/documents/{documentId}", customerHandler(NotifyOfSuccessfulUpload))
 	mux.Put("/documents/{documentId}/validate", customerHandler(NotifyOfSuccessfulUpload))
 
 	// folders
+	mux.Get("/root", customerHandler(ListCustomerFolder))
 	mux.Get("/folders/{folderId}", customerHandler(ListCustomerFolder))
 }
 
@@ -86,11 +88,7 @@ func GetCustomer(
 	c *Customer,
 ) {
 	// return the customer
-	if err := request.Encode(w, r, http.StatusOK, c.Customer); err != nil {
-		c.logger.ErrorContext(r.Context(), "Error encoding data", "error", err)
-		http.Error(w, "There was an internal server error", http.StatusInternalServerError)
-		return
-	}
+	request.Encode(w, r, c.logger, http.StatusOK, c.Customer)
 }
 
 func ListCustomerFolder(
@@ -99,22 +97,18 @@ func ListCustomerFolder(
 	pool *pgxpool.Pool,
 	c *Customer,
 ) {
-	// parse the folder title from the query args
-	fidStr := chi.URLParam(r, "folderId")
-	folderId, err := strconv.ParseInt(fidStr, 10, 64)
-	if err != nil {
-		c.logger.Error("Invalid folderId", "folderId", fidStr)
-		http.Error(w, fmt.Sprintf("Invalid folderId: %s", fidStr), http.StatusBadRequest)
-		return
-	}
+	var err error
+	var folder *queries.Folder
 
-	// fetch the folder using the foldername
-	model := queries.New(pool)
-	folder, err := model.GetFolder(r.Context(), folderId)
-	if err != nil {
-		c.logger.ErrorContext(r.Context(), "Error getting folder", "error", err)
-		http.Error(w, "There was an issue getting the folder", http.StatusInternalServerError)
-		return
+	// if the param was passed then get the folder
+	if chi.URLParam(r, "folderId") != "" {
+		// parse the folder from the query args
+		folder, err = parseFolderFromRequest(r, pool)
+		if err != nil {
+			c.logger.ErrorContext(r.Context(), "Error getting folder", "error", err)
+			http.Error(w, "There was an issue getting the folder", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// fetch the data inside the customer's folder
@@ -125,11 +119,7 @@ func ListCustomerFolder(
 		return
 	}
 
-	if err := request.Encode(w, r, http.StatusOK, response); err != nil {
-		c.logger.ErrorContext(r.Context(), "Error encoding data", "error", err)
-		http.Error(w, "There was an internal server error", http.StatusInternalServerError)
-		return
-	}
+	request.Encode(w, r, c.logger, http.StatusOK, response)
 }
 
 func GeneratePresignedUrl(
@@ -153,11 +143,7 @@ func GeneratePresignedUrl(
 	}
 
 	// return the response to the user
-	if err := request.Encode(w, r, http.StatusOK, response); err != nil {
-		c.logger.ErrorContext(r.Context(), "Error encoding data", "error", err)
-		http.Error(w, "There was an internal server error", http.StatusInternalServerError)
-		return
-	}
+	request.Encode(w, r, c.logger, http.StatusOK, response)
 }
 
 func NotifyOfSuccessfulUpload(
@@ -186,12 +172,28 @@ func NotifyOfSuccessfulUpload(
 
 	// send the validation request against the customer
 	if err = c.NotifyOfSuccessfulUpload(r.Context(), tx, documentId); err != nil {
+		tx.Rollback(r.Context())
 		c.logger.Error("failed to validate the document record", "error", err)
 		http.Error(w, "There was a database issue", http.StatusInternalServerError)
-		tx.Rollback(r.Context())
 		return
 	}
 
 	// let the user know the request was successful
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func GetDocument(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	doc, err := parseDocumentFromRequest(r, pool)
+	if err != nil {
+		c.logger.Error("failed to get the document", "error", err)
+		http.Error(w, "There was an internal server issue", http.StatusInternalServerError)
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, doc)
 }

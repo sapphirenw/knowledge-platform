@@ -21,6 +21,7 @@ CREATE TABLE document(
     id BIGSERIAL PRIMARY KEY,
     parent_id BIGINT NULL REFERENCES folder(id) ON DELETE CASCADE,
     customer_id BIGINT NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+    
     filename VARCHAR(1024) NOT NULL, -- human name of the document
     type VARCHAR(256) NOT NULL, -- txt, md, html, xlsx, etc.
     size_bytes BIGINT NOT NULL, -- size of the document in terms of bytes

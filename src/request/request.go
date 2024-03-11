@@ -7,15 +7,19 @@ import (
 	"net/http"
 )
 
-func Encode[T any](w http.ResponseWriter, r *http.Request, status int, v T) error {
+// Encodes the given type into json and writes it to the request. If the encoding fails, then
+// an `http.StatusInternalServerError` is sent instead.
+func Encode[T any](w http.ResponseWriter, r *http.Request, logger *slog.Logger, status int, v T) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		return fmt.Errorf("encode json: %w", err)
+		logger.ErrorContext(r.Context(), "There was an issue encoding the data", "error", err)
+		http.Error(w, "There was an issue encoding the body", http.StatusInternalServerError)
 	}
-	return nil
 }
 
+// Decodes the data as the given type and ensures the data is valid. If the data is not valid
+// or there is an issue decoding the request, an `http.StatusBadRequest` is written and (nil, false) is returned
 func Decode[T Validator](w http.ResponseWriter, r *http.Request, logger *slog.Logger) (T, bool) {
 	var v T
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {

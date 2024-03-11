@@ -3,6 +3,7 @@ package customer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -148,8 +149,14 @@ func TestCustomerUploadDocument(t *testing.T) {
 		return
 	}
 
+	// decode the request url
+	url, err := base64.StdEncoding.DecodeString(preSignedResp.UploadUrl)
+	if err != nil {
+		t.Error(err)
+	}
+
 	// create the upload request
-	request, err := http.NewRequest(preSignedResp.Method, preSignedResp.UploadUrl, bytes.NewReader(doc.Data))
+	request, err := http.NewRequest(preSignedResp.Method, string(url), bytes.NewReader(doc.Data))
 	if err != nil {
 		t.Error(err)
 		return
