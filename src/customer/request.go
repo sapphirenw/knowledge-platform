@@ -14,18 +14,18 @@ type generatePresignedUrlRequest struct {
 	ParentId  *int64 `json:"parentId,omitempty"`
 }
 
-func (b generatePresignedUrlRequest) Valid(ctx context.Context) map[string]string {
+func (r generatePresignedUrlRequest) Valid(ctx context.Context) map[string]string {
 	p := make(map[string]string, 0)
-	if b.Filename == "" {
+	if r.Filename == "" {
 		p["filename"] = "cannot be empty"
 	}
-	if b.Mime == "" {
+	if r.Mime == "" {
 		p["mime"] = "cannot be empty"
 	}
-	if b.Signature == "" {
+	if r.Signature == "" {
 		p["signature"] = "cannot be empty"
 	}
-	if b.Size == 0 {
+	if r.Size == 0 {
 		p["size"] = "cannot be 0"
 	}
 	return p
@@ -36,13 +36,28 @@ type createFolderRequest struct {
 	Name  string
 }
 
-func (b *createFolderRequest) Valid(ctx context.Context) map[string]string {
+func (r *createFolderRequest) Valid(ctx context.Context) map[string]string {
 	p := make(map[string]string, 0)
-	if b.Owner == nil {
+	if r.Owner == nil {
 		p["owner"] = "cannot be nil"
 	}
-	if b.Name == "" {
+	if r.Name == "" {
 		p["name"] = "cannot be empty"
+	}
+	return p
+}
+
+type handleWebsiteRequest struct {
+	Domain    string   `json:"domain"`
+	Blacklist []string `json:"blacklist"`
+	Whitelist []string `json:"whitelist"`
+	Insert    bool     `json:"insert"`
+}
+
+func (r handleWebsiteRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string, 0)
+	if r.Domain == "" {
+		p["domain"] = "cannot be empty"
 	}
 	return p
 }

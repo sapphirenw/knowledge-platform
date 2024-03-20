@@ -66,13 +66,14 @@ type VectorStore struct {
 }
 
 type Website struct {
-	ID          int64            `db:"id" json:"id"`
-	CustomerID  int64            `db:"customer_id" json:"customerId"`
-	BaseUrl     string           `db:"base_url" json:"baseUrl"`
-	SiteMap     string           `db:"site_map" json:"siteMap"`
-	IgnoreRules []string         `db:"ignore_rules" json:"ignoreRules"`
-	CreatedAt   pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	ID         int64            `db:"id" json:"id"`
+	CustomerID int64            `db:"customer_id" json:"customerId"`
+	Protocol   string           `db:"protocol" json:"protocol"`
+	Domain     string           `db:"domain" json:"domain"`
+	Blacklist  []string         `db:"blacklist" json:"blacklist"`
+	Whitelist  []string         `db:"whitelist" json:"whitelist"`
+	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
 }
 
 type WebsitePage struct {
@@ -80,6 +81,7 @@ type WebsitePage struct {
 	CustomerID int64            `db:"customer_id" json:"customerId"`
 	WebsiteID  int64            `db:"website_id" json:"websiteId"`
 	Url        string           `db:"url" json:"url"`
+	Sha256     string           `db:"sha_256" json:"sha256"`
 	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
 }

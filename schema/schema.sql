@@ -89,9 +89,10 @@ Website Ingest
 CREATE TABLE website(
     id BIGSERIAL PRIMARY KEY,
     customer_id BIGINT NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
-    base_url TEXT NOT NULL,
-    site_map TEXT NOT NULL, -- url of the base sitemap
-    ignore_rules TEXT[] NOT NULL DEFAULT '{}', -- paths that should be ignored
+    protocol TEXT NOT NULL DEFAULT 'https',
+    domain TEXT NOT NULL,
+    blacklist TEXT[] NOT NULL DEFAULT '{}', -- regex patterns that are disallowed
+    whitelist TEXT[] NOT NULL DEFAULT '{}', -- regex patterns that are allowed
 
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -103,6 +104,7 @@ CREATE TABLE website_page(
     customer_id BIGINT NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     website_id BIGINT NOT NULL REFERENCES website(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
+    sha_256 CHAR(64) NOT NULL,
 
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP

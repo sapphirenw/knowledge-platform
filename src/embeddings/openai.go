@@ -84,7 +84,7 @@ func (e *OpenAIEmbeddings) ReportUsage(ctx context.Context, txn pgx.Tx, customer
 	// insert all internal token records
 	for idx, item := range e.tokenRecords {
 		e.logger.InfoContext(ctx, "Posting to database ...", "index", idx)
-		_, err := model.CreateTokenUsage(ctx, queries.CreateTokenUsageParams{
+		_, err := model.CreateTokenUsage(ctx, &queries.CreateTokenUsageParams{
 			ID:           utils.GoogleUUIDToPGXUUID(item.ID),
 			CustomerID:   customer.ID,
 			Model:        e.model,

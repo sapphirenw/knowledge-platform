@@ -14,16 +14,22 @@ import (
 )
 
 func Handler(mux chi.Router) {
-	mux.Get("/", customerHandler(GetCustomer))
-	mux.Post("/generatePresignedUrl", customerHandler(GeneratePresignedUrl))
+	mux.Get("/", customerHandler(getCustomer))
 
 	// documents
-	mux.Get("/documents/{documentId}", customerHandler(NotifyOfSuccessfulUpload))
-	mux.Put("/documents/{documentId}/validate", customerHandler(NotifyOfSuccessfulUpload))
+	mux.Post("/generatePresignedUrl", customerHandler(generatePresignedUrl))
+	mux.Get("/documents/{documentId}", customerHandler(notifyOfSuccessfulUpload))
+	mux.Put("/documents/{documentId}/validate", customerHandler(notifyOfSuccessfulUpload))
 
 	// folders
-	mux.Get("/root", customerHandler(ListCustomerFolder))
-	mux.Get("/folders/{folderId}", customerHandler(ListCustomerFolder))
+	mux.Get("/root", customerHandler(listCustomerFolder))
+	mux.Get("/folders/{folderId}", customerHandler(listCustomerFolder))
+
+	// websites
+	mux.Get("/websites", customerHandler(getWebsites))
+	mux.Post("/websites", customerHandler(handleWesbite))
+	mux.Get("/websites/{websiteId}", customerHandler(getWebsite))
+	mux.Get("/websites/{websiteId}/pages", customerHandler(getWebsitePages))
 }
 
 // Custom handler that parses the customerId from the request, fetches the customer from the database
@@ -81,7 +87,67 @@ func customerHandler(
 	)
 }
 
-func GetCustomer(
+func parseDocumentFromRequest(
+	r *http.Request,
+	db queries.DBTX,
+) (*queries.Document, error) {
+	id := chi.URLParam(r, "documentId")
+	documentId, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid parameter: %v", id)
+	}
+
+	// get the document from the db
+	model := queries.New(db)
+	doc, err := model.GetDocument(r.Context(), documentId)
+	if err != nil {
+		return nil, fmt.Errorf("there was an issue getting the document: %v", err)
+	}
+
+	return doc, nil
+}
+
+func parseFolderFromRequest(
+	r *http.Request,
+	db queries.DBTX,
+) (*queries.Folder, error) {
+	id := chi.URLParam(r, "folderId")
+	folderId, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid parameter: %v", id)
+	}
+
+	// get the document from the db
+	model := queries.New(db)
+	folder, err := model.GetFolder(r.Context(), folderId)
+	if err != nil {
+		return nil, fmt.Errorf("there was an issue getting the folder: %v", err)
+	}
+
+	return folder, nil
+}
+
+func parseSiteFromRequest(
+	r *http.Request,
+	db queries.DBTX,
+) (*queries.Website, error) {
+	id := chi.URLParam(r, "websiteId")
+	websiteId, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid parameter: %v", id)
+	}
+
+	// get the document from the db
+	model := queries.New(db)
+	website, err := model.GetWebsite(r.Context(), websiteId)
+	if err != nil {
+		return nil, fmt.Errorf("there was an issue getting the folder: %v", err)
+	}
+
+	return website, nil
+}
+
+func getCustomer(
 	w http.ResponseWriter,
 	r *http.Request,
 	pool *pgxpool.Pool,
@@ -89,111 +155,4 @@ func GetCustomer(
 ) {
 	// return the customer
 	request.Encode(w, r, c.logger, http.StatusOK, c.Customer)
-}
-
-func ListCustomerFolder(
-	w http.ResponseWriter,
-	r *http.Request,
-	pool *pgxpool.Pool,
-	c *Customer,
-) {
-	var err error
-	var folder *queries.Folder
-
-	// if the param was passed then get the folder
-	if chi.URLParam(r, "folderId") != "" {
-		// parse the folder from the query args
-		folder, err = parseFolderFromRequest(r, pool)
-		if err != nil {
-			c.logger.ErrorContext(r.Context(), "Error getting folder", "error", err)
-			http.Error(w, "There was an issue getting the folder", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	// fetch the data inside the customer's folder
-	response, err := c.ListFolderContents(r.Context(), pool, folder)
-	if err != nil {
-		c.logger.ErrorContext(r.Context(), "Error listing folder contents", "error", err)
-		http.Error(w, "There was an internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	request.Encode(w, r, c.logger, http.StatusOK, response)
-}
-
-func GeneratePresignedUrl(
-	w http.ResponseWriter,
-	r *http.Request,
-	pool *pgxpool.Pool,
-	c *Customer,
-) {
-	// parse the body
-	body, valid := request.Decode[generatePresignedUrlRequest](w, r, c.logger)
-	if !valid {
-		return
-	}
-
-	// use the customer to generate the presigned url
-	response, err := c.GeneratePresignedUrl(r.Context(), pool, &body)
-	if err != nil {
-		c.logger.ErrorContext(r.Context(), "generating the presigned url", "error", err)
-		http.Error(w, "There was an issue generating the presigned url", http.StatusInternalServerError)
-		return
-	}
-
-	// return the response to the user
-	request.Encode(w, r, c.logger, http.StatusOK, response)
-}
-
-func NotifyOfSuccessfulUpload(
-	w http.ResponseWriter,
-	r *http.Request,
-	pool *pgxpool.Pool,
-	c *Customer,
-) {
-	// parse the documentId
-	idStr := chi.URLParam(r, "documentId")
-	documentId, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		c.logger.Error("Invalid documentId", "documentId", idStr)
-		http.Error(w, fmt.Sprintf("Invalid documentId: %s", idStr), http.StatusBadRequest)
-		return
-	}
-
-	// start the transaction
-	tx, err := pool.Begin(r.Context())
-	if err != nil {
-		c.logger.Error("failed to start transaction", "error", err)
-		http.Error(w, "There was a database issue", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Commit(r.Context())
-
-	// send the validation request against the customer
-	if err = c.NotifyOfSuccessfulUpload(r.Context(), tx, documentId); err != nil {
-		tx.Rollback(r.Context())
-		c.logger.Error("failed to validate the document record", "error", err)
-		http.Error(w, "There was a database issue", http.StatusInternalServerError)
-		return
-	}
-
-	// let the user know the request was successful
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func GetDocument(
-	w http.ResponseWriter,
-	r *http.Request,
-	pool *pgxpool.Pool,
-	c *Customer,
-) {
-	doc, err := parseDocumentFromRequest(r, pool)
-	if err != nil {
-		c.logger.Error("failed to get the document", "error", err)
-		http.Error(w, "There was an internal server issue", http.StatusInternalServerError)
-		return
-	}
-
-	request.Encode(w, r, c.logger, http.StatusOK, doc)
 }

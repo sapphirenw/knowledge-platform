@@ -67,7 +67,7 @@ type CreateDocumentParams struct {
 //	    $1, $2, $3, $4, $5, $6
 //	)
 //	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at
-func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (*Document, error) {
+func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, createDocument,
 		arg.ParentID,
 		arg.CustomerID,
@@ -114,7 +114,7 @@ type CreateFolderParams struct {
 //	    $1, $2, $3
 //	)
 //	RETURNING id, parent_id, customer_id, title, created_at, updated_at
-func (q *Queries) CreateFolder(ctx context.Context, arg CreateFolderParams) (*Folder, error) {
+func (q *Queries) CreateFolder(ctx context.Context, arg *CreateFolderParams) (*Folder, error) {
 	row := q.db.QueryRow(ctx, createFolder, arg.ParentID, arg.CustomerID, arg.Title)
 	var i Folder
 	err := row.Scan(
@@ -199,7 +199,7 @@ type CreateTokenUsageParams struct {
 //	    output_tokens = EXCLUDED.output_tokens,
 //	    total_tokens = EXCLUDED.total_tokens
 //	RETURNING id, customer_id, model, input_tokens, output_tokens, total_tokens, created_at
-func (q *Queries) CreateTokenUsage(ctx context.Context, arg CreateTokenUsageParams) (*TokenUsage, error) {
+func (q *Queries) CreateTokenUsage(ctx context.Context, arg *CreateTokenUsageParams) (*TokenUsage, error) {
 	row := q.db.QueryRow(ctx, createTokenUsage,
 		arg.ID,
 		arg.CustomerID,
@@ -217,6 +217,97 @@ func (q *Queries) CreateTokenUsage(ctx context.Context, arg CreateTokenUsagePara
 		&i.OutputTokens,
 		&i.TotalTokens,
 		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const createWebsite = `-- name: CreateWebsite :one
+INSERT INTO website (
+    customer_id, protocol, domain, blacklist, whitelist
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at
+`
+
+type CreateWebsiteParams struct {
+	CustomerID int64    `db:"customer_id" json:"customerId"`
+	Protocol   string   `db:"protocol" json:"protocol"`
+	Domain     string   `db:"domain" json:"domain"`
+	Blacklist  []string `db:"blacklist" json:"blacklist"`
+	Whitelist  []string `db:"whitelist" json:"whitelist"`
+}
+
+// CreateWebsite
+//
+//	INSERT INTO website (
+//	    customer_id, protocol, domain, blacklist, whitelist
+//	) VALUES (
+//	    $1, $2, $3, $4, $5
+//	)
+//	RETURNING id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at
+func (q *Queries) CreateWebsite(ctx context.Context, arg *CreateWebsiteParams) (*Website, error) {
+	row := q.db.QueryRow(ctx, createWebsite,
+		arg.CustomerID,
+		arg.Protocol,
+		arg.Domain,
+		arg.Blacklist,
+		arg.Whitelist,
+	)
+	var i Website
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Protocol,
+		&i.Domain,
+		&i.Blacklist,
+		&i.Whitelist,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createWebsitePage = `-- name: CreateWebsitePage :one
+INSERT INTO website_page (
+    customer_id, website_id, url, sha_256
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING id, customer_id, website_id, url, sha_256, created_at, updated_at
+`
+
+type CreateWebsitePageParams struct {
+	CustomerID int64  `db:"customer_id" json:"customerId"`
+	WebsiteID  int64  `db:"website_id" json:"websiteId"`
+	Url        string `db:"url" json:"url"`
+	Sha256     string `db:"sha_256" json:"sha256"`
+}
+
+// CreateWebsitePage
+//
+//	INSERT INTO website_page (
+//	    customer_id, website_id, url, sha_256
+//	) VALUES (
+//	    $1, $2, $3, $4
+//	)
+//	RETURNING id, customer_id, website_id, url, sha_256, created_at, updated_at
+func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageParams) (*WebsitePage, error) {
+	row := q.db.QueryRow(ctx, createWebsitePage,
+		arg.CustomerID,
+		arg.WebsiteID,
+		arg.Url,
+		arg.Sha256,
+	)
+	var i WebsitePage
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.WebsiteID,
+		&i.Url,
+		&i.Sha256,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
@@ -320,7 +411,7 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID int64) 
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Document
+	items := []*Document{}
 	for rows.Next() {
 		var i Document
 		if err := rows.Scan(
@@ -359,7 +450,7 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.In
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Document
+	items := []*Document{}
 	for rows.Next() {
 		var i Document
 		if err := rows.Scan(
@@ -422,7 +513,7 @@ type GetFolderWithNameParams struct {
 //	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 //	WHERE customer_id = $1 AND title = $2
 //	LIMIT 1
-func (q *Queries) GetFolderWithName(ctx context.Context, arg GetFolderWithNameParams) (*Folder, error) {
+func (q *Queries) GetFolderWithName(ctx context.Context, arg *GetFolderWithNameParams) (*Folder, error) {
 	row := q.db.QueryRow(ctx, getFolderWithName, arg.CustomerID, arg.Title)
 	var i Folder
 	err := row.Scan(
@@ -451,7 +542,7 @@ func (q *Queries) GetFoldersByCustomer(ctx context.Context, customerID int64) ([
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Folder
+	items := []*Folder{}
 	for rows.Next() {
 		var i Folder
 		if err := rows.Scan(
@@ -487,7 +578,7 @@ func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID pgtype.Int8
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Folder
+	items := []*Folder{}
 	for rows.Next() {
 		var i Folder
 		if err := rows.Scan(
@@ -523,7 +614,7 @@ func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID int
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Document
+	items := []*Document{}
 	for rows.Next() {
 		var i Document
 		if err := rows.Scan(
@@ -562,7 +653,7 @@ func (q *Queries) GetRootFoldersByCustomer(ctx context.Context, customerID int64
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Folder
+	items := []*Folder{}
 	for rows.Next() {
 		var i Folder
 		if err := rows.Scan(
@@ -598,7 +689,7 @@ func (q *Queries) GetTokenUsage(ctx context.Context, customerID int64) ([]*Token
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*TokenUsage
+	items := []*TokenUsage{}
 	for rows.Next() {
 		var i TokenUsage
 		if err := rows.Scan(
@@ -635,7 +726,7 @@ func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, custome
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Document
+	items := []*Document{}
 	for rows.Next() {
 		var i Document
 		if err := rows.Scan(
@@ -648,6 +739,106 @@ func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, custome
 			&i.Sha256,
 			&i.Validated,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getWebsite = `-- name: GetWebsite :one
+SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
+WHERE id = $1
+`
+
+// GetWebsite
+//
+//	SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
+//	WHERE id = $1
+func (q *Queries) GetWebsite(ctx context.Context, id int64) (*Website, error) {
+	row := q.db.QueryRow(ctx, getWebsite, id)
+	var i Website
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Protocol,
+		&i.Domain,
+		&i.Blacklist,
+		&i.Whitelist,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getWebsitePagesBySite = `-- name: GetWebsitePagesBySite :many
+SELECT id, customer_id, website_id, url, sha_256, created_at, updated_at FROM website_page
+WHERE website_id = $1
+`
+
+// GetWebsitePagesBySite
+//
+//	SELECT id, customer_id, website_id, url, sha_256, created_at, updated_at FROM website_page
+//	WHERE website_id = $1
+func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID int64) ([]*WebsitePage, error) {
+	rows, err := q.db.Query(ctx, getWebsitePagesBySite, websiteID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*WebsitePage{}
+	for rows.Next() {
+		var i WebsitePage
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.WebsiteID,
+			&i.Url,
+			&i.Sha256,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getWebsitesByCustomer = `-- name: GetWebsitesByCustomer :many
+SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
+WHERE customer_id = $1
+`
+
+// GetWebsitesByCustomer
+//
+//	SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
+//	WHERE customer_id = $1
+func (q *Queries) GetWebsitesByCustomer(ctx context.Context, customerID int64) ([]*Website, error) {
+	rows, err := q.db.Query(ctx, getWebsitesByCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Website{}
+	for rows.Next() {
+		var i Website
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Protocol,
+			&i.Domain,
+			&i.Blacklist,
+			&i.Whitelist,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -674,7 +865,7 @@ func (q *Queries) ListCustomers(ctx context.Context) ([]*Customer, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Customer
+	items := []*Customer{}
 	for rows.Next() {
 		var i Customer
 		if err := rows.Scan(
@@ -742,7 +933,7 @@ type UpdateCustomerParams struct {
 //	    set name = $2
 //	WHERE id = $1
 //	RETURNING id, name, datastore, created_at, updated_at
-func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) error {
+func (q *Queries) UpdateCustomer(ctx context.Context, arg *UpdateCustomerParams) error {
 	_, err := q.db.Exec(ctx, updateCustomer, arg.ID, arg.Name)
 	return err
 }

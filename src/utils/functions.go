@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"math"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -78,4 +79,15 @@ func CleanInput(input string) string {
 func GenerateFingerprint(input []byte) string {
 	hash := sha256.Sum256(input)
 	return base64.StdEncoding.EncodeToString(hash[:])
+}
+
+// Parses the protocol and the domain name from the website
+func ParseWebsiteInformation(inputURL string) (protocol string, domain string, err error) {
+	u, err := url.Parse(inputURL)
+	if err != nil {
+		return "", "", err
+	}
+	domain = u.Hostname()
+	protocol = u.Scheme
+	return protocol, domain, nil
 }

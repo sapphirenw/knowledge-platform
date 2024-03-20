@@ -13,3 +13,8 @@ type listFolderContentsResponse struct {
 	Folders   []*queries.Folder   `json:"folders"`
 	Documents []*queries.Document `json:"documents"`
 }
+
+type handleWebsiteResponse struct {
+	Site  *queries.Website       `json:"site"`
+	Pages []*queries.WebsitePage `json:"pages"`
+}

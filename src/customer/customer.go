@@ -11,6 +11,8 @@ import (
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/document"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/utils"
+	"github.com/sapphirenw/ai-content-creation-api/src/webscrape"
 )
 
 // Wrapper around the `queries.Customer` object that represents the database object
@@ -87,7 +89,7 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *createFol
 
 	// create the folder
 	model := queries.New(txn)
-	folder, err := model.CreateFolder(ctx, queries.CreateFolderParams{
+	folder, err := model.CreateFolder(ctx, &queries.CreateFolderParams{
 		ParentID:   parentId,
 		CustomerID: c.ID,
 		Title:      args.Name,
@@ -166,7 +168,7 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 
 	// insert a record into the documents table
 	model := queries.New(db)
-	d, err := model.CreateDocument(ctx, queries.CreateDocumentParams{
+	d, err := model.CreateDocument(ctx, &queries.CreateDocumentParams{
 		ParentID:   parentId,
 		CustomerID: c.ID,
 		Filename:   body.Filename,
@@ -298,4 +300,83 @@ func (c *Customer) ReVectorizeDatastore(ctx context.Context) {
 	// 	// not an error worth failing on
 	// 	logger.ErrorContext(ctx, "There was an error reporting the usage", "error", err)
 	// }
+}
+
+/*
+Adds a website for the user, but does not scrape it.
+*/
+func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *handleWebsiteRequest) (*handleWebsiteResponse, error) {
+	logger := c.logger.With("domain", request.Domain)
+	logger.InfoContext(ctx, "Ingesting the domain...")
+
+	// parse the domain
+	protocol, domain, err := utils.ParseWebsiteInformation(request.Domain)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing the website: %v", err)
+	}
+
+	// create a site object
+	tmpSite := queries.Website{
+		CustomerID: c.ID,
+		Protocol:   protocol,
+		Domain:     domain,
+		Blacklist:  request.Blacklist,
+		Whitelist:  request.Whitelist,
+	}
+
+	// parse the pages from the site
+	urls, err := webscrape.ParseSitemap(ctx, logger, &tmpSite)
+	if err != nil {
+		return nil, fmt.Errorf("there was an issue parsing the sitemap: %v", err)
+	}
+
+	pages := make([]*queries.WebsitePage, len(urls))
+
+	// send back the parsed data if not an insertion request
+	if !request.Insert {
+		// create tmp pages
+		for i, item := range urls {
+			pages[i] = &queries.WebsitePage{
+				CustomerID: c.ID,
+				Url:        item,
+			}
+		}
+
+		return &handleWebsiteResponse{
+			Site:  &tmpSite,
+			Pages: pages,
+		}, nil
+	}
+
+	// insert the website
+	model := queries.New(db)
+	site, err := model.CreateWebsite(ctx, &queries.CreateWebsiteParams{
+		CustomerID: c.ID,
+		Protocol:   protocol,
+		Domain:     domain,
+		Blacklist:  request.Blacklist,
+		Whitelist:  request.Whitelist,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating the website: %v", err)
+	}
+
+	// insert the pages
+	for i, item := range urls {
+		page, err := model.CreateWebsitePage(ctx, &queries.CreateWebsitePageParams{
+			CustomerID: c.ID,
+			WebsiteID:  site.ID,
+			Url:        item,
+			Sha256:     utils.GenerateFingerprint([]byte(item)), // use a tmp hash until the content is actually ingested
+		})
+		if err != nil {
+			return nil, fmt.Errorf("there was an issue inserting the page: %v", err)
+		}
+		pages[i] = page
+	}
+
+	return &handleWebsiteResponse{
+		Site:  site,
+		Pages: pages,
+	}, nil
 }
