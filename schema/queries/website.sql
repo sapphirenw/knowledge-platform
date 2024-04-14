@@ -22,6 +22,12 @@ INSERT INTO website_page (
 )
 RETURNING *;
 
+-- name: UpdateWebsitePageSignature :one
+UPDATE website_page SET
+    sha_256 = $2
+WHERE id = $1
+RETURNING *;
+
 -- name: GetWebsitePagesBySite :many
 SELECT * FROM website_page
 WHERE website_id = $1;

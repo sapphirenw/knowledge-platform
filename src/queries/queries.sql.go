@@ -937,3 +937,36 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg *UpdateCustomerParams)
 	_, err := q.db.Exec(ctx, updateCustomer, arg.ID, arg.Name)
 	return err
 }
+
+const updateWebsitePageSignature = `-- name: UpdateWebsitePageSignature :one
+UPDATE website_page SET
+    sha_256 = $2
+WHERE id = $1
+RETURNING id, customer_id, website_id, url, sha_256, created_at, updated_at
+`
+
+type UpdateWebsitePageSignatureParams struct {
+	ID     int64  `db:"id" json:"id"`
+	Sha256 string `db:"sha_256" json:"sha256"`
+}
+
+// UpdateWebsitePageSignature
+//
+//	UPDATE website_page SET
+//	    sha_256 = $2
+//	WHERE id = $1
+//	RETURNING id, customer_id, website_id, url, sha_256, created_at, updated_at
+func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWebsitePageSignatureParams) (*WebsitePage, error) {
+	row := q.db.QueryRow(ctx, updateWebsitePageSignature, arg.ID, arg.Sha256)
+	var i WebsitePage
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.WebsiteID,
+		&i.Url,
+		&i.Sha256,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}

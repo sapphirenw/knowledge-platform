@@ -186,7 +186,6 @@ func openAIEmbed(ctx context.Context, logger *slog.Logger, userId string, model 
 			default:
 				return nil, fmt.Errorf("there was an unknown error: %s", string(body))
 			}
-
 		}
 
 		if attempt < retries-1 {

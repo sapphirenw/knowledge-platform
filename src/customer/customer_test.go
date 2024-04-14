@@ -11,6 +11,7 @@ import (
 
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
 	"github.com/sapphirenw/ai-content-creation-api/src/document"
+	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/stretchr/testify/assert"
@@ -198,5 +199,62 @@ func TestCustomerUploadDocument(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 		return
+	}
+}
+
+func TestVectorizeWebsite(t *testing.T) {
+	ctx := context.TODO()
+	logger := utils.DefaultLogger()
+
+	// get the db pool
+	pool, err := db.GetPool()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// start a txn
+	txn, err := pool.Begin(ctx)
+	if err != nil {
+		t.Error(t)
+	}
+	defer txn.Commit(ctx)
+
+	// create the wrapper customer object
+	customer, err := NewCustomer(ctx, logger, testingutils.TEST_CUSTOMER_ID, txn)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// ingest a website
+	// res, err := customer.HandleWebsite(ctx, txn, &handleWebsiteRequest{
+	// 	Domain:    "https://crosschecksports.com",
+	// 	Whitelist: []string{},
+	// 	Blacklist: []string{},
+	// 	Insert:    true,
+	// })
+	// if err != nil {
+	// 	t.Error(err)
+	// }
+	site := &queries.Website{
+		ID:         8,
+		CustomerID: customer.ID,
+		Protocol:   "https",
+		Domain:     "crosschecksports.com",
+	}
+
+	// test on the ingested site
+	result, err := customer.VectorizeWebsite(ctx, txn, site)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if result == nil {
+		fmt.Println("None of the pages changed")
+	}
+
+	for _, item := range result {
+		fmt.Println("Website:", item.page.Url, "VECTORS:", len(item.vectors))
 	}
 }

@@ -5,11 +5,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/document"
+	"github.com/sapphirenw/ai-content-creation-api/src/embeddings"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/sapphirenw/ai-content-creation-api/src/webscrape"
@@ -379,4 +381,99 @@ func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *
 		Site:  site,
 		Pages: pages,
 	}, nil
+}
+
+func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queries.Website) ([]*vectorizeWebsiteResult, error) {
+	logger := c.logger.With("site.ID", site.ID, "site.Domain", site.Domain)
+	logger.InfoContext(ctx, "Parsing site")
+
+	// get the pages
+	model := queries.New(txn)
+	pages, err := model.GetWebsitePagesBySite(ctx, site.ID)
+	if err != nil {
+		return nil, fmt.Errorf("there was an issue fetching the sites: %v", err)
+	}
+
+	// loop and perform the vectorization
+	var wg sync.WaitGroup
+
+	// create a results slice for the data
+	results := make([]*vectorizeWebsiteResult, len(pages))
+	errs := make(chan error, len(pages))
+
+	for i, item := range pages {
+		wg.Add(1)
+		go func(index int, page *queries.WebsitePage) {
+			defer wg.Done()
+			pLogger := logger.With("page", page.Url)
+
+			// scrape the webpage
+			content, err := webscrape.ScrapeSingle(ctx, pLogger, page)
+			if err != nil {
+				errs <- fmt.Errorf("error scraping the site: %v", err)
+				return
+			}
+
+			// create a signature to compare the old vs new
+			sig := utils.GenerateFingerprint(content)
+			if page.Sha256 == sig {
+				pLogger.InfoContext(ctx, "This website page has not changed")
+				return
+			} else {
+				pLogger.InfoContext(ctx, "The signatures do not match", "oldSHA256", page.Sha256, "newSHA256", sig)
+			}
+
+			// embed the content
+			emb := embeddings.NewOpenAIEmbeddings(fmt.Sprintf("%d", c.ID), &embeddings.OpenAIEmbeddingsOpts{
+				Logger: pLogger,
+			})
+			res, err := emb.Embed(ctx, string(content))
+			if err != nil {
+				errs <- fmt.Errorf("error embedding the content: %v", err)
+				return
+			}
+
+			// write to index in the list
+			results[index] = &vectorizeWebsiteResult{
+				page:    page,
+				sha256:  sig,
+				vectors: res,
+			}
+		}(i, item)
+	}
+
+	// wait for the routines to finish
+	wg.Wait()
+	close(errs)
+
+	// parse the errors
+	var runtimeErr error
+	for err := range errs {
+		runtimeErr = err
+		logger.ErrorContext(ctx, "there was an error vectorizing data", "error", runtimeErr)
+	}
+	if runtimeErr != nil {
+		return nil, fmt.Errorf("there was an issue during vecorization: %v", runtimeErr)
+	}
+
+	// update any website page hashes that changed
+	for _, item := range results {
+		// ignore pages that did not change
+		if item == nil {
+			continue
+		}
+
+		logger.InfoContext(ctx, "Updating the web page signature", "page", item.page.Url)
+		newPage, err := model.UpdateWebsitePageSignature(ctx, &queries.UpdateWebsitePageSignatureParams{
+			ID:     item.page.ID,
+			Sha256: item.sha256,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("there was an issue updating the page sha256: %v", err)
+		}
+		item.page = newPage
+	}
+
+	// return the results to the consumer
+	return results, nil
 }

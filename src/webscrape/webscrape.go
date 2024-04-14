@@ -83,6 +83,46 @@ func Scrape(
 	return &res, nil
 }
 
+func ScrapeSingle(
+	ctx context.Context,
+	logger *slog.Logger,
+	page *queries.WebsitePage,
+) ([]byte, error) {
+	var res []byte
+	var err error
+
+	// converter and scraper
+	converter := md.NewConverter("", true, nil)
+	scraper := colly.NewCollector()
+
+	// parse the bodies from the webpage
+	scraper.OnHTML("html", func(e *colly.HTMLElement) {
+		// parse the markdown from the html elements
+		markdown, err := converter.ConvertBytes(e.Response.Body)
+		if err != nil {
+			logger.ErrorContext(ctx, "Error parsing the markdown from the html", "error", err)
+			return
+		}
+
+		// return
+		res = markdown
+	})
+
+	// error handler
+	scraper.OnError(func(r *colly.Response, err error) {
+
+		logger.ErrorContext(ctx, "There was an issue scraping the url", "url", r.Request.URL, "statusCode", r.StatusCode)
+	})
+
+	scraper.OnRequest(func(r *colly.Request) {
+		logger.DebugContext(ctx, "Visiting url", "url", r.URL)
+	})
+
+	scraper.Visit(page.Url)
+
+	return res, err
+}
+
 func normalizeURL(u *url.URL) (string, error) {
 	// Ensure the path ends with a "/" if it's not empty and doesn't already have one.
 	if u.Path != "" && !strings.HasSuffix(u.Path, "/") {
