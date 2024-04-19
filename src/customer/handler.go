@@ -15,15 +15,17 @@ import (
 
 func Handler(mux chi.Router) {
 	mux.Get("/", customerHandler(getCustomer))
+	mux.Post("/purgeDatastore", customerHandler(purgeDatastore))
 
 	// documents
 	mux.Post("/generatePresignedUrl", customerHandler(generatePresignedUrl))
-	mux.Get("/documents/{documentId}", customerHandler(notifyOfSuccessfulUpload))
+	mux.Get("/documents/{documentId}", customerHandler(getDocument))
 	mux.Put("/documents/{documentId}/validate", customerHandler(notifyOfSuccessfulUpload))
 
 	// folders
 	mux.Get("/root", customerHandler(listCustomerFolder))
 	mux.Get("/folders/{folderId}", customerHandler(listCustomerFolder))
+	mux.Post("/folders", customerHandler(createFolder))
 
 	// websites
 	mux.Get("/websites", customerHandler(getWebsites))

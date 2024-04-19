@@ -26,12 +26,12 @@ func (d *TODODocstore) UploadDocument(ctx context.Context, customer *queries.Cus
 	return "", nil
 }
 
-func (d *TODODocstore) GetDocument(ctx context.Context, customer *queries.Customer, filename string) (*document.Doc, error) {
+func (d *TODODocstore) GetDocument(ctx context.Context, customer *queries.Customer, parentId *int64, filename string) (*document.Doc, error) {
 	d.logger.InfoContext(ctx, "TODO -- GetDocument")
 	return nil, nil
 }
 
-func (d *TODODocstore) DeleteDocument(ctx context.Context, customer *queries.Customer, filename string) error {
+func (d *TODODocstore) DeleteDocument(ctx context.Context, customer *queries.Customer, parentId *int64, filename string) error {
 	d.logger.InfoContext(ctx, "TODO -- DeleteDocument")
 	return nil
 }

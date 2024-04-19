@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -71,7 +73,7 @@ func (c *Customer) GetDocstore(ctx context.Context) (docstore.Docstore, error) {
 }
 
 // Creates a new folder tied to the customer with an optional parent.
-func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *createFolderRequest) (*queries.Folder, error) {
+func (c *Customer) CreateFolder(ctx context.Context, txn queries.DBTX, args *createFolderRequest) (*queries.Folder, error) {
 	if args == nil {
 		return nil, fmt.Errorf("the arguments cannot be nil")
 	}
@@ -83,9 +85,9 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *createFol
 
 	// parse the owner if applicable
 	var parentId pgtype.Int8
-	if args.Owner != nil {
-		logger = c.logger.With("folder.Owner", args.Owner.ID)
-		parentId.Scan(args.Owner.ID)
+	if args.Owner != 0 {
+		logger = c.logger.With("folder.Owner", args.Owner)
+		parentId.Scan(args.Owner)
 	}
 	logger.InfoContext(ctx, "Creating a new folder ...")
 
@@ -97,6 +99,11 @@ func (c *Customer) CreateFolder(ctx context.Context, txn pgx.Tx, args *createFol
 		Title:      args.Name,
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "violates unique constraint") {
+			logger.InfoContext(ctx, "The folder already exists, returning to the customer", "id", folder.ID)
+			// the folder already exists in this location, return the folder
+			return folder, nil
+		}
 		return nil, fmt.Errorf("there was an issue creating the folder: %v", err)
 	}
 	logger.InfoContext(ctx, "Successfully created folder", "id", folder.ID)
@@ -184,6 +191,7 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 
 	// generate the pre-signed url
 	url, err := store.GeneratePresignedUrl(ctx, c.Customer, &docstore.UploadUrlInput{
+		ParentId:  body.ParentId,
 		Filename:  body.Filename,
 		Mime:      body.Mime,
 		Signature: body.Signature,
@@ -476,4 +484,50 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queri
 
 	// return the results to the consumer
 	return results, nil
+}
+
+func (c *Customer) PurgeDatastore(ctx context.Context, txn queries.DBTX, request *purgeDatastoreRequest) error {
+	var err error
+	logger := c.logger.With()
+
+	// parse the request (default is )
+	timestamp := time.Now().UTC().Add(time.Minute * -10)
+	if request.Timestamp != nil {
+		// parse the time
+		time, err := time.Parse("2006-01-02 15:04:05", *request.Timestamp)
+		if err != nil {
+			return fmt.Errorf("error parsing the time: %s", err)
+		}
+		timestamp = time
+	}
+	// encode into sql type
+	var pgtime pgtype.Timestamp
+	err = pgtime.Scan(timestamp)
+	if err != nil {
+		return fmt.Errorf("error encoding the timestamp into an sql type: %s", err)
+	}
+
+	logger.InfoContext(ctx, "Purging all records before timestamp ...", "timestamp", timestamp)
+	model := queries.New(txn)
+
+	// purge all files
+	err = model.DeleteDocumentsOlderThan(ctx, &queries.DeleteDocumentsOlderThanParams{
+		CustomerID: c.ID,
+		UpdatedAt:  pgtime,
+	})
+	if err != nil {
+		return fmt.Errorf("error deleting documents: %s", err)
+	}
+
+	// purge all folders
+	err = model.DeleteFoldersOlderThan(ctx, &queries.DeleteFoldersOlderThanParams{
+		CustomerID: c.ID,
+		UpdatedAt:  pgtime,
+	})
+	if err != nil {
+		return fmt.Errorf("error deleting folders: %s", err)
+	}
+
+	logger.InfoContext(ctx, "Successfully purged datastore")
+	return nil
 }

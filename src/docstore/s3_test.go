@@ -37,7 +37,7 @@ func TestS3Docstore(t *testing.T) {
 	}
 
 	// dummy doc
-	doc, err := document.NewDoc("helloworld.txt", []byte("This is some text from the document"))
+	doc, err := document.NewDoc(nil, "helloworld.txt", []byte("This is some text from the document"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -51,7 +51,7 @@ func TestS3Docstore(t *testing.T) {
 	fmt.Println("URL:", url)
 
 	// get the document
-	retrievedDoc, err := ds.GetDocument(ctx, customer, doc.Filename)
+	retrievedDoc, err := ds.GetDocument(ctx, customer, doc.ParentId, doc.Filename)
 	if err != nil {
 		t.Error(err)
 	}
@@ -60,6 +60,6 @@ func TestS3Docstore(t *testing.T) {
 	assert.Equal(t, doc.Data, retrievedDoc.Data)
 
 	// delete the document
-	err = ds.DeleteDocument(ctx, customer, doc.Filename)
+	err = ds.DeleteDocument(ctx, customer, doc.ParentId, doc.Filename)
 	assert.Nil(t, err)
 }

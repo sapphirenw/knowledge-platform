@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -57,6 +58,11 @@ func generatePresignedUrl(
 	// use the customer to generate the presigned url
 	response, err := c.GeneratePresignedUrl(r.Context(), pool, &body)
 	if err != nil {
+		if strings.Contains(err.Error(), "violates unique constraint") {
+			// this file already exists
+			request.Encode(w, r, c.logger, http.StatusConflict, "this file already exists")
+			return
+		}
 		c.logger.ErrorContext(r.Context(), "generating the presigned url", "error", err)
 		http.Error(w, "There was an issue generating the presigned url", http.StatusInternalServerError)
 		return
@@ -116,4 +122,68 @@ func getDocument(
 	}
 
 	request.Encode(w, r, c.logger, http.StatusOK, doc)
+}
+
+func createFolder(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	// parse the body
+	body, valid := request.Decode[*createFolderRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	// start the transaction
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		c.logger.Error("failed to start transaction", "error", err)
+		http.Error(w, "There was a database issue", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	response, err := c.CreateFolder(r.Context(), tx, body)
+	if err != nil {
+		c.logger.Error("failed to create the folder", "error", err)
+		http.Error(w, "There was an internal server issue", http.StatusInternalServerError)
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, response)
+}
+
+func purgeDatastore(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	// parse the body
+	body, valid := request.Decode[*purgeDatastoreRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	// start the transaction
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		c.logger.Error("failed to start transaction", "error", err)
+		http.Error(w, "There was a database issue", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	// send the purge request
+	if err = c.PurgeDatastore(r.Context(), tx, body); err != nil {
+		tx.Rollback(r.Context())
+		c.logger.Error("failed to purge the datastore", "error", err)
+		http.Error(w, "There was an internal issue", http.StatusInternalServerError)
+		return
+	}
+
+	// let the user know the request was successful
+	w.WriteHeader(http.StatusNoContent)
 }

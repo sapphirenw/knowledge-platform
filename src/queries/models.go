@@ -27,6 +27,7 @@ type Document struct {
 	Sha256     string           `db:"sha_256" json:"sha256"`
 	Validated  bool             `db:"validated" json:"validated"`
 	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
 }
 
 type DocumentVector struct {

@@ -2,8 +2,7 @@ package customer
 
 import (
 	"context"
-
-	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"time"
 )
 
 type generatePresignedUrlRequest struct {
@@ -32,15 +31,12 @@ func (r generatePresignedUrlRequest) Valid(ctx context.Context) map[string]strin
 }
 
 type createFolderRequest struct {
-	Owner *queries.Folder
+	Owner int64
 	Name  string
 }
 
 func (r *createFolderRequest) Valid(ctx context.Context) map[string]string {
 	p := make(map[string]string, 0)
-	if r.Owner == nil {
-		p["owner"] = "cannot be nil"
-	}
 	if r.Name == "" {
 		p["name"] = "cannot be empty"
 	}
@@ -58,6 +54,22 @@ func (r handleWebsiteRequest) Valid(ctx context.Context) map[string]string {
 	p := make(map[string]string, 0)
 	if r.Domain == "" {
 		p["domain"] = "cannot be empty"
+	}
+	return p
+}
+
+type purgeDatastoreRequest struct {
+	Timestamp *string `json:"timestamp"`
+}
+
+func (r purgeDatastoreRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string, 0)
+	if r.Timestamp != nil {
+		// ensure the correct format was passed
+		_, err := time.Parse("2006-01-02 15:04:05", *r.Timestamp)
+		if err != nil {
+			p["timestamp"] = "The timestamp:" + *r.Timestamp + "is not valid"
+		}
 	}
 	return p
 }

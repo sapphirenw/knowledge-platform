@@ -11,9 +11,24 @@ Convenience powerful struct that parses raw data to provide consistency in how t
 input data is parsed, and what some metadata about the file is.
 */
 type Doc struct {
+	ParentId *int64
 	Filename string
 	Filetype Filetype
 	Data     []byte
+}
+
+func NewDoc(parentId *int64, filename string, data []byte) (*Doc, error) {
+	filetype, err := parseFileType(filename)
+	if err != nil {
+		return nil, fmt.Errorf("there was an issue parsing the filetype: %v", err)
+	}
+
+	return &Doc{
+		ParentId: parentId,
+		Filename: filename,
+		Filetype: filetype,
+		Data:     data,
+	}, nil
 }
 
 // Get the size this document takes up on disk in bytes

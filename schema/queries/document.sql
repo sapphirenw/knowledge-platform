@@ -8,7 +8,7 @@ WHERE customer_id = $1 AND validated = true;
 
 -- name: GetDocumentsFromParent :many
 SELECT * FROM document
-where parent_id = $1 and validated = true;
+WHERE parent_id = $1 AND validated = true;
 
 -- name: GetRootDocumentsByCustomer :many
 SELECT * FROM document
@@ -24,6 +24,8 @@ INSERT INTO document (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
+ON CONFLICT (customer_id, COALESCE(parent_id, -1), filename) DO UPDATE
+SET updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 
 -- name: MarkDocumentAsUploaded :one
@@ -31,3 +33,13 @@ UPDATE document
 SET validated = true
 WHERE id = $1
 RETURNING *;
+
+-- name: DeleteDocumentsOlderThan :exec
+DELETE FROM document
+WHERE customer_id = $1
+AND updated_at < $2;
+
+-- name: GetDocumentsOlderThan :exec
+SELECT * FROM document
+WHERE customer_id = $1
+AND updated_at < $2;

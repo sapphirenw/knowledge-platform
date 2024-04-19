@@ -40,7 +40,7 @@ func parseFile(filename string) error {
 		return fmt.Errorf("there was an issue opening the file: %v", err)
 	}
 
-	doc, err := NewDoc(filename, data)
+	doc, err := NewDoc(nil, filename, data)
 	if err != nil {
 		return fmt.Errorf("there was an issue creating the document: %v", err)
 	}

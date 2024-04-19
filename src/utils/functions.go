@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"math"
@@ -81,6 +82,12 @@ func GenerateFingerprint(input []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
+func GenerateRandomFingerprint() string {
+	input := []byte(GenerateRandomString(64))
+	hash := sha256.Sum256(input)
+	return hex.EncodeToString(hash[:])
+}
+
 // Parses the protocol and the domain name from the website
 func ParseWebsiteInformation(inputURL string) (protocol string, domain string, err error) {
 	u, err := url.Parse(inputURL)
@@ -90,4 +97,16 @@ func ParseWebsiteInformation(inputURL string) (protocol string, domain string, e
 	domain = u.Hostname()
 	protocol = u.Scheme
 	return protocol, domain, nil
+}
+
+func GenerateRandomString(n int) string {
+	const letters = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return ""
+	}
+	for i, b := range bytes {
+		bytes[i] = letters[b%byte(len(letters))]
+	}
+	return string(bytes)
 }

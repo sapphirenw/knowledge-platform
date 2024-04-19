@@ -10,8 +10,8 @@ import (
 type Docstore interface {
 	// Uploads a document and returns the url of the document
 	UploadDocument(ctx context.Context, customer *queries.Customer, doc *document.Doc) (string, error)
-	GetDocument(ctx context.Context, customer *queries.Customer, filename string) (*document.Doc, error)
-	DeleteDocument(ctx context.Context, customer *queries.Customer, filename string) error
+	GetDocument(ctx context.Context, customer *queries.Customer, parentId *int64, filename string) (*document.Doc, error)
+	DeleteDocument(ctx context.Context, customer *queries.Customer, parentId *int64, filename string) error
 
 	// Requests a pre-signed url a client can use to upload documents
 	GeneratePresignedUrl(ctx context.Context, customer *queries.Customer, input *UploadUrlInput) (string, error)
@@ -21,6 +21,7 @@ type Docstore interface {
 }
 
 type UploadUrlInput struct {
+	ParentId  *int64 `json:"parentId"`
 	Filename  string `json:"filename"`
 	Mime      string `json:"mime"`
 	Signature string `json:"signature"`

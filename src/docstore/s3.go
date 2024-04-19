@@ -58,7 +58,7 @@ func (d *S3Docstore) UploadDocument(ctx context.Context, customer *queries.Custo
 	}
 
 	// create a unique id
-	documentId := createUniqueFileId(customer, doc.Filename)
+	documentId := createUniqueFileId(customer, doc.Filename, doc.ParentId)
 	d.logger.InfoContext(ctx, "Uploading file", "filename", doc.Filename, "filetype", doc.Filetype)
 
 	// upload with a docid
@@ -76,8 +76,8 @@ func (d *S3Docstore) UploadDocument(ctx context.Context, customer *queries.Custo
 	return result.Location, nil
 }
 
-func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer, filename string) (*document.Doc, error) {
-	d.logger.InfoContext(ctx, "Donwloading file from s3...", "filename", filename)
+func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer, parentId *int64, filename string) (*document.Doc, error) {
+	d.logger.InfoContext(ctx, "Donwloading file from s3...", "parentId", parentId, "filename", filename)
 
 	if d.downloader == nil {
 		d.downloader = manager.NewDownloader(d.client)
@@ -86,7 +86,7 @@ func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer
 	buffer := manager.NewWriteAtBuffer([]byte{})
 
 	// upload with a unqiue identifier
-	fileId := createUniqueFileId(customer, filename)
+	fileId := createUniqueFileId(customer, filename, parentId)
 	_, err := d.downloader.Download(context.TODO(), buffer, &s3.GetObjectInput{
 		Bucket: aws.String(d.bucket),
 		Key:    aws.String(fileId),
@@ -95,15 +95,19 @@ func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer
 		return nil, fmt.Errorf("there was an issue downloading the file from s3: %v", err)
 	}
 
-	d.logger.InfoContext(ctx, "Successfully downloaded file", "filename", filename)
+	doc, err := document.NewDoc(parentId, parseUniqueFileId(fileId), buffer.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("error decoding document: %s", err)
+	}
 
-	return document.NewDoc(parseUniqueFileId(customer, fileId), buffer.Bytes())
+	d.logger.InfoContext(ctx, "Successfully downloaded file", "parentId", parentId, "filename", filename)
+	return doc, nil
 }
 
-func (d *S3Docstore) DeleteDocument(ctx context.Context, customer *queries.Customer, filename string) error {
+func (d *S3Docstore) DeleteDocument(ctx context.Context, customer *queries.Customer, parentId *int64, filename string) error {
 	d.logger.InfoContext(ctx, "Deleting file ...", "filename", filename)
 
-	fileId := createUniqueFileId(customer, filename)
+	fileId := createUniqueFileId(customer, filename, parentId)
 	_, err := d.client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
 		Bucket: aws.String(d.bucket),
 		Key:    aws.String(fileId),
@@ -118,11 +122,12 @@ func (d *S3Docstore) DeleteDocument(ctx context.Context, customer *queries.Custo
 }
 
 func (d *S3Docstore) GeneratePresignedUrl(ctx context.Context, customer *queries.Customer, input *UploadUrlInput) (string, error) {
+	documentId := createUniqueFileId(customer, input.Filename, input.ParentId)
 	// Set the desired parameters for the pre-signed URL
 	presignClient := s3.NewPresignClient(d.client)
 	params := &s3.PutObjectInput{
 		Bucket:         aws.String(d.bucket),
-		Key:            aws.String(input.Filename),
+		Key:            &documentId,
 		ContentType:    aws.String(input.Mime),
 		ChecksumSHA256: aws.String(input.Signature),
 	}

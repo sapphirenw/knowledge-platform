@@ -51,6 +51,9 @@ CREATE TABLE folder(
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+-- index for maintaining unique folder names inside the same folder
+CREATE UNIQUE INDEX idx_unique_folder_title_all
+ON folder (customer_id, COALESCE(parent_id, -1), title);
 
 CREATE TABLE document(
     id BIGSERIAL PRIMARY KEY,
@@ -63,8 +66,14 @@ CREATE TABLE document(
     sha_256 CHAR(64) NOT NULL, -- a fingerprint of the document's contents
     validated BOOLEAN NOT NULL DEFAULT false, -- whether the object exists in datastore
 
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    CONSTRAINT idx_unique_sha UNIQUE (customer_id, sha_256), -- no files can have same content anywhere
+
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+-- index for maintaining unique filenames inside the same folder
+CREATE UNIQUE INDEX idx_unique_document_title_all
+ON document (customer_id, COALESCE(parent_id, -1), filename);
 
 -- vector objects that make up a document
 CREATE TABLE document_vector(
