@@ -36,6 +36,11 @@ func (d *TODODocstore) DeleteDocument(ctx context.Context, customer *queries.Cus
 	return nil
 }
 
+func (d *TODODocstore) DeleteRoot(ctx context.Context, customer *queries.Customer) error {
+	d.logger.InfoContext(ctx, "TODO -- DeleteRoot")
+	return nil
+}
+
 func (d *TODODocstore) GeneratePresignedUrl(ctx context.Context, customer *queries.Customer, input *UploadUrlInput) (string, error) {
 	return "", nil
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
-	"github.com/sapphirenw/ai-content-creation-api/src/document"
 	"github.com/sapphirenw/ai-content-creation-api/src/embeddings"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -24,7 +23,6 @@ import (
 type Customer struct {
 	*queries.Customer
 
-	// root   *queries.Folder
 	logger *slog.Logger
 }
 
@@ -54,6 +52,14 @@ func (c *Customer) GetDocstore(ctx context.Context) (docstore.Docstore, error) {
 	default:
 		return docstore.NewTODODocstore(c.logger)
 	}
+}
+
+func (c *Customer) GetEmbeddings(ctx context.Context) embeddings.Embeddings {
+	emb := embeddings.NewOpenAIEmbeddings(fmt.Sprintf("%d", c.ID), &embeddings.OpenAIEmbeddingsOpts{
+		Logger: c.logger,
+	})
+
+	return emb
 }
 
 // Creates a new folder tied to the customer with an optional parent.
@@ -215,88 +221,6 @@ func (c *Customer) NotifyOfSuccessfulUpload(ctx context.Context, db queries.DBTX
 }
 
 /*
-Deletes a document from the datastore and its vectorization data.
-*/
-func (c *Customer) DeleteDocument(ctx context.Context, doc *document.Doc) {
-
-}
-
-/*
-Performs a complete re-vectorization of all the objects that have changed inside the
-document store. Compares the objects that are already inside the datastore and their
-sha256 values. If they are equal, then nothing is done. If they are not equal, the old
-object is deleted and then re-vectorized. If the object in the datastore does not exist
-anymore, the vector data is deleted. This operation is quite expensive from compute and
-api costs, so the customer should be wary to run this function often
-*/
-func (c *Customer) ReVectorizeDatastore(ctx context.Context) {
-	// fetch all documents from database
-
-	// loop over all documents
-
-	// query for document in s3
-
-	// if exists
-	// query vectors. If empty, vectorize. If not,
-	// compare fingerprints
-	// if different, re-vectorize
-	// if same, do nothing
-
-	// if not exists
-	// remove document from datastore
-
-	//
-	//
-	//
-
-	// create the embeddings
-	// em := embeddings.NewOpenAIEmbeddings(fmt.Sprint(c.ID), &embeddings.OpenAIEmbeddingsOpts{
-	// 	Logger: logger,
-	// })
-
-	// create embeddings for the document
-	// vectors, err := em.Embed(ctx, string(item.Data))
-	// if err != nil {
-	// 	// rollback
-	// 	logger.ErrorContext(ctx, "There was an error creating the vectors", "error", err)
-	// 	response[idx].Error = err
-	// 	err := tx.Rollback(ctx)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("CRITICAL failed to rollback: %v", err)
-	// 	}
-	// 	continue
-	// }
-
-	// // create vector objects for all the vectors retrieved
-	// for idx, v := range vectors {
-	// 	_, err := model.CreateVector(ctx, queries.CreateVectorParams{
-	// 		Raw:        v.Raw,
-	// 		Embeddings: v.Embedding,
-	// 		CustomerID: c.ID,
-	// 		DocumentID: doc.ID,
-	// 		Index:      int32(idx),
-	// 	})
-	// 	if err != nil {
-	// 		// rollback
-	// 		logger.ErrorContext(ctx, "There was an error inserting the vector", "vectorIndex", idx, "error", err)
-	// 		response[idx].Error = err
-	// 		err := tx.Rollback(ctx)
-	// 		if err != nil {
-	// 			return nil, fmt.Errorf("CRITICAL failed to rollback: %v", err)
-	// 		}
-	// 		continue
-	// 	}
-	// }
-
-	// create the model records for the user
-	// err = em.ReportUsage(ctx, tx, c.Customer)
-	// if err != nil {
-	// 	// not an error worth failing on
-	// 	logger.ErrorContext(ctx, "There was an error reporting the usage", "error", err)
-	// }
-}
-
-/*
 Adds a website for the user, but does not scrape it.
 */
 func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *handleWebsiteRequest) (*handleWebsiteResponse, error) {
@@ -404,9 +328,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queri
 	}
 
 	// create an embeddings object
-	emb := embeddings.NewOpenAIEmbeddings(fmt.Sprintf("%d", c.ID), &embeddings.OpenAIEmbeddingsOpts{
-		Logger: logger,
-	})
+	emb := c.GetEmbeddings(ctx)
 
 	// loop and perform the vectorization
 	var wg sync.WaitGroup
@@ -489,7 +411,11 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queri
 	return results, nil
 }
 
-func (c *Customer) PurgeDatastore(ctx context.Context, txn queries.DBTX, request *purgeDatastoreRequest) error {
+func (c *Customer) PurgeDatastore(
+	ctx context.Context,
+	txn queries.DBTX,
+	request *purgeDatastoreRequest,
+) error {
 	var err error
 	logger := c.logger.With()
 
@@ -609,5 +535,159 @@ func (c *Customer) PurgeDatastore(ctx context.Context, txn queries.DBTX, request
 	}
 
 	logger.InfoContext(ctx, "Successfully purged datastore")
+	return nil
+}
+
+func (c *Customer) VectorizeDatastore(
+	ctx context.Context,
+	txn queries.DBTX,
+) error {
+	logger := c.logger.With()
+	logger.InfoContext(ctx, "Vectorizing datastore ...")
+
+	// get the docstore
+	store, err := c.GetDocstore(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting the docstore: %s", err)
+	}
+
+	// get the embeddings
+	emb := c.GetEmbeddings(ctx)
+
+	// create the model object
+	model := queries.New(txn)
+
+	logger.InfoContext(ctx, "Getting all documents for the customer")
+
+	// get all documents
+	docs, err := model.GetDocumentsByCustomer(ctx, c.ID)
+	if err != nil {
+		return fmt.Errorf("error getting all the documents: %s", err)
+	}
+
+	// create a type to store the embeddings data
+	type embeddingResponse struct {
+		dbDoc   *queries.Document
+		vectors []*embeddings.EmbeddingsData
+	}
+
+	// create an array for the results to be stored in
+	vectors := make([]*embeddingResponse, len(docs))
+
+	logger.InfoContext(ctx, "Processing all documents ...", "length", len(docs))
+
+	// process all docs in paralell
+	var wg sync.WaitGroup
+	errCh := make(chan error)
+
+	for i, item := range docs {
+		wg.Add(1)
+		go func(index int, doc queries.Document) {
+			defer wg.Done()
+			l := logger.With("doc", doc)
+
+			// get the document from the remote docstore
+			l.InfoContext(ctx, "Fetching document from datastore ...")
+			d, err := store.GetDocument(ctx, c.Customer, &doc.ParentID.Int64, doc.Filename)
+			if err != nil {
+				l.ErrorContext(ctx, "there was an issue getting the remote document: %s", err)
+				errCh <- err
+				return
+			}
+
+			// get the cleaned data from the document and a parser
+			cleaned, err := d.GetCleanedData()
+			if err != nil {
+				l.ErrorContext(ctx, "error cleaning the raw data: %s", err)
+				errCh <- err
+				return
+			}
+
+			// embed the content
+			l.InfoContext(ctx, "Embedding the document ...")
+			res, err := emb.Embed(ctx, cleaned)
+			if err != nil {
+				l.ErrorContext(ctx, "error embedding the content: %v", err)
+				errCh <- err
+				return
+			}
+
+			// add to the result
+			vectors[index] = &embeddingResponse{
+				dbDoc:   &doc,
+				vectors: res,
+			}
+
+			l.InfoContext(ctx, "Successfully processed document")
+		}(i, *item)
+	}
+
+	// wait for threads
+	wg.Wait()
+	close(errCh)
+
+	logger.InfoContext(ctx, "Successfully processed all documents")
+
+	// check for errors. If one exists in the channel, something went wrong
+	for err := range errCh {
+		return fmt.Errorf("error vectorizing the data: %s", err)
+	}
+
+	// loop over the results and insert the vectors into the database
+	logger.InfoContext(ctx, "Inserting all documents into the database")
+	for _, item := range vectors {
+		// skip errors, though this should not be hit
+		if item == nil {
+			continue
+		}
+
+		// loop over all vector results
+		for index, vec := range item.vectors {
+			// create raw vector object
+			vecId, err := model.CreateVector(ctx, &queries.CreateVectorParams{
+				Raw:        vec.Raw,
+				Embeddings: vec.Embedding,
+				CustomerID: c.ID,
+			})
+			if err != nil {
+				return fmt.Errorf("error inserting the vector object: %s", err)
+			}
+
+			// create a reference to the vector onto the document
+			_, err = model.CreateDocumentVector(ctx, &queries.CreateDocumentVectorParams{
+				DocumentID:    item.dbDoc.ID,
+				VectorStoreID: vecId,
+				CustomerID:    c.ID,
+				Index:         int32(index),
+			})
+			if err != nil {
+				return fmt.Errorf("error creating document vector relationship: %s", err)
+			}
+		}
+	}
+
+	logger.InfoContext(ctx, "Successfully vectorized the datastore")
+
+	return nil
+}
+
+// Deletes ALL objects from the remote datastore. This is more for use in tests
+// to quickly delete all objects from the datastore
+func (c *Customer) DeleteRemoteDatastore(ctx context.Context) error {
+	c.logger.InfoContext(ctx, "Deleting all objects from the remote datastore")
+
+	// get the datastore
+	store, err := c.GetDocstore(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting docstore: %s", err)
+	}
+
+	// send request, all customers have a root folder with the id
+	if err := store.DeleteRoot(ctx, c.Customer); err != nil {
+		return fmt.Errorf("error deleting the root document")
+	}
+
+	c.logger.InfoContext(ctx, "Successfully deleted all objects in remote datastore for the customer")
+
 	return nil
 }

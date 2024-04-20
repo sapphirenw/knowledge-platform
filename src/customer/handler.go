@@ -16,6 +16,8 @@ import (
 func Handler(mux chi.Router) {
 	mux.Get("/", customerHandler(getCustomer))
 	mux.Post("/purgeDatastore", customerHandler(purgeDatastore))
+	mux.Delete("/datastore", customerHandler(deleteRemoteDatastore))
+	mux.Put("/datastore/vectorize", customerHandler(vectorizeDatastore))
 
 	// documents
 	mux.Post("/generatePresignedUrl", customerHandler(generatePresignedUrl))

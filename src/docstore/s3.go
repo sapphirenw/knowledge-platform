@@ -92,7 +92,7 @@ func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer
 		Key:    aws.String(fileId),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("there was an issue downloading the file from s3: %v", err)
+		return nil, fmt.Errorf("there was an issue downloading the file from s3: %v | fileId=%s", err, fileId)
 	}
 
 	doc, err := document.NewDoc(parentId, parseUniqueFileId(fileId), buffer.Bytes())
@@ -121,7 +121,45 @@ func (d *S3Docstore) DeleteDocument(ctx context.Context, customer *queries.Custo
 	return nil
 }
 
-func (d *S3Docstore) GeneratePresignedUrl(ctx context.Context, customer *queries.Customer, input *UploadUrlInput) (string, error) {
+func (d *S3Docstore) DeleteRoot(ctx context.Context, customer *queries.Customer) error {
+	d.logger.InfoContext(ctx, "Deleting all documents for the customer", "customer.ID", customer.ID)
+
+	prefix := fmt.Sprintf("%d/", customer.ID)
+	listInput := &s3.ListObjectsV2Input{
+		Bucket: aws.String(d.bucket),
+		Prefix: aws.String(prefix),
+	}
+
+	// Iterate through the list of objects
+	objects, err := d.client.ListObjectsV2(context.TODO(), listInput)
+	if err != nil {
+		return fmt.Errorf("error listing all objects: %s", err)
+	}
+
+	d.logger.InfoContext(ctx, "Successfully found all objects", "length", len(objects.Contents))
+
+	for _, object := range objects.Contents {
+		// Delete each object
+		delInput := &s3.DeleteObjectInput{
+			Bucket: aws.String(d.bucket),
+			Key:    object.Key,
+		}
+		_, err := d.client.DeleteObject(context.TODO(), delInput)
+		if err != nil {
+			return fmt.Errorf("failed to delete object: %s", err)
+		}
+	}
+
+	d.logger.InfoContext(ctx, "Successfully deleted root folder")
+
+	return nil
+}
+
+func (d *S3Docstore) GeneratePresignedUrl(
+	ctx context.Context,
+	customer *queries.Customer,
+	input *UploadUrlInput,
+) (string, error) {
 	documentId := createUniqueFileId(customer, input.Filename, input.ParentId)
 	// Set the desired parameters for the pre-signed URL
 	presignClient := s3.NewPresignClient(d.client)

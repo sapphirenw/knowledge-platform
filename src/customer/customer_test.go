@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
 	"github.com/sapphirenw/ai-content-creation-api/src/document"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -19,29 +21,12 @@ import (
 )
 
 func TestCustomerFolderStructure(t *testing.T) {
-	ctx := context.TODO()
-	logger := utils.DefaultLogger()
-
-	// get the db pool
-	pool, err := db.GetPool()
+	ctx, _, txn, customer, err := initTest()
 	if err != nil {
 		t.Error(err)
 		return
-	}
-
-	// start a txn
-	txn, err := pool.Begin(ctx)
-	if err != nil {
-		t.Error(t)
 	}
 	defer txn.Rollback(ctx)
-
-	// get the customer
-	customer, err := NewCustomer(ctx, logger, testingutils.TEST_CUSTOMER_ID, txn)
-	if err != nil {
-		t.Error(err)
-		return
-	}
 
 	// create 2 folders in the root
 	f1, err := customer.CreateFolder(ctx, txn, &createFolderRequest{
@@ -99,29 +84,12 @@ func TestCustomerFolderStructure(t *testing.T) {
 }
 
 func TestCustomerUploadDocument(t *testing.T) {
-	ctx := context.TODO()
-	logger := utils.DefaultLogger()
-
-	// get the db pool
-	pool, err := db.GetPool()
+	ctx, _, txn, customer, err := initTest()
 	if err != nil {
 		t.Error(err)
 		return
-	}
-
-	// start a txn
-	txn, err := pool.Begin(ctx)
-	if err != nil {
-		t.Error(t)
 	}
 	defer txn.Rollback(ctx)
-
-	// create the wrapper customer object
-	customer, err := NewCustomer(ctx, logger, testingutils.TEST_CUSTOMER_ID, txn)
-	if err != nil {
-		t.Error(err)
-		return
-	}
 
 	// create a doc
 	filename := "file1.txt"
@@ -204,29 +172,12 @@ func TestCustomerUploadDocument(t *testing.T) {
 }
 
 func TestVectorizeWebsite(t *testing.T) {
-	ctx := context.TODO()
-	logger := utils.DefaultLogger()
-
-	// get the db pool
-	pool, err := db.GetPool()
+	ctx, _, txn, customer, err := initTest()
 	if err != nil {
 		t.Error(err)
 		return
-	}
-
-	// start a txn
-	txn, err := pool.Begin(ctx)
-	if err != nil {
-		t.Error(t)
 	}
 	defer txn.Commit(ctx)
-
-	// create the wrapper customer object
-	customer, err := NewCustomer(ctx, logger, testingutils.TEST_CUSTOMER_ID, txn)
-	if err != nil {
-		t.Error(err)
-		return
-	}
 
 	// ingest a website
 	// res, err := customer.HandleWebsite(ctx, txn, &handleWebsiteRequest{
@@ -403,4 +354,154 @@ func TestCustomerPurgeDatastore(t *testing.T) {
 		t.Error("documents should not be empty")
 		return
 	}
+}
+
+func TestCustomerVectorizeDatastore(t *testing.T) {
+	ctx, _, txn, c, err := initTest()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer txn.Rollback(ctx)
+
+	// populate the datastore
+	if err := populateDatastore(ctx, c, txn); err != nil {
+		t.Error(err)
+		return
+	}
+
+	// send the vectorization request
+	if err := c.VectorizeDatastore(ctx, txn); err != nil {
+		t.Error(err)
+		return
+	}
+
+	// delete all remote datastore objects
+	if err := c.DeleteRemoteDatastore(ctx); err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func initTest() (context.Context, *slog.Logger, pgx.Tx, *Customer, error) {
+	ctx := context.TODO()
+	logger := utils.DefaultLogger()
+
+	// get the db pool. Cannot use a transaction as the updated_at does not work properly
+	pool, err := db.GetPool()
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("error getting the db: %s", err)
+	}
+
+	// start a txn
+	txn, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("error starting the transaction: %s", err)
+	}
+
+	// create/query the customer
+	model := queries.New(txn)
+	_, err = model.CreateCustomerTest(ctx, &queries.CreateCustomerTestParams{
+		ID:   testingutils.TEST_CUSTOMER_ID,
+		Name: "test-customer",
+	})
+	if err != nil {
+		txn.Rollback(ctx)
+		return nil, nil, nil, nil, fmt.Errorf("error querying the customer: %s", err)
+	}
+
+	// create the wrapper customer object
+	c, err := NewCustomer(ctx, logger, testingutils.TEST_CUSTOMER_ID, pool)
+	if err != nil {
+		txn.Rollback(ctx)
+		return nil, nil, nil, nil, fmt.Errorf("error creating the customer object: %s", err)
+	}
+
+	return ctx, logger, txn, c, nil
+}
+
+func populateDatastore(ctx context.Context, c *Customer, txn queries.DBTX) error {
+	fmt.Println("Creating the document store ...")
+
+	// Specify the directory to read from.
+	directory := "../../resources"
+
+	// Read the contents of the directory.
+	files, err := os.ReadDir(directory)
+	if err != nil {
+		return fmt.Errorf("failed to read directory: %s", err)
+	}
+
+	// Map to store filenames and their contents.
+	docs := make([]*document.Doc, 0)
+
+	// Iterate over each file in the directory.
+	for _, file := range files {
+		filename := file.Name()
+		if !file.IsDir() {
+			data, err := os.ReadFile(directory + "/" + filename)
+			if err != nil {
+				return fmt.Errorf("error reading file: %s", err)
+			}
+			doc, err := document.NewDoc(nil, filename, data)
+			if err != nil {
+				return fmt.Errorf("error creating document: %s", err)
+			}
+			docs = append(docs, doc)
+		}
+	}
+
+	// create all documents
+	for _, doc := range docs {
+		preSignedResp, err := c.GeneratePresignedUrl(ctx, txn, &generatePresignedUrlRequest{
+			ParentId:  doc.ParentId,
+			Filename:  doc.Filename,
+			Mime:      string(doc.Filetype),
+			Signature: utils.GenerateFingerprint(doc.Data),
+			Size:      int64(doc.GetSizeInBytes()),
+		})
+		if err != nil {
+			return fmt.Errorf("error generating pre-signed url: %s", err)
+		}
+
+		// use the upload url to upload the doc
+		// decode the request url
+		url, err := base64.StdEncoding.DecodeString(preSignedResp.UploadUrl)
+		if err != nil {
+			return fmt.Errorf("failed to decode url: %s", err)
+		}
+
+		// create the upload request
+		request, err := http.NewRequest(preSignedResp.Method, string(url), bytes.NewReader(doc.Data))
+		if err != nil {
+			return fmt.Errorf("failed to create the request: %s", err)
+		}
+
+		// set the headers
+		request.Header.Set("Content-Type", string(doc.Filetype))
+		client := &http.Client{}
+
+		// send the request
+		response, err := client.Do(request)
+		if err != nil {
+			return fmt.Errorf("failed to send the request: %s", err)
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode != http.StatusOK {
+			fmt.Println("the status code was not 400")
+			fmt.Println(response.StatusCode)
+			fmt.Println(response)
+			return fmt.Errorf("the request failed")
+		}
+
+		// notify the server of the success
+		err = c.NotifyOfSuccessfulUpload(ctx, txn, preSignedResp.DocumentId)
+		if err != nil {
+			return fmt.Errorf("failed to notify of successful upload: %s", err)
+		}
+	}
+
+	fmt.Println("Successfully created datastore")
+	return nil
 }

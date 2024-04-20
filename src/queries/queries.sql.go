@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 const createCustomer = `-- name: CreateCustomer :one
@@ -30,6 +31,45 @@ RETURNING id, name, datastore, created_at, updated_at
 //	RETURNING id, name, datastore, created_at, updated_at
 func (q *Queries) CreateCustomer(ctx context.Context, name string) (*Customer, error) {
 	row := q.db.QueryRow(ctx, createCustomer, name)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Datastore,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createCustomerTest = `-- name: CreateCustomerTest :one
+INSERT INTO customer (
+    id, name
+) VALUES (
+    $1, $2
+)
+ON CONFLICT (id) DO UPDATE
+SET updated_at = CURRENT_TIMESTAMP
+RETURNING id, name, datastore, created_at, updated_at
+`
+
+type CreateCustomerTestParams struct {
+	ID   int64  `db:"id" json:"id"`
+	Name string `db:"name" json:"name"`
+}
+
+// CreateCustomerTest
+//
+//	INSERT INTO customer (
+//	    id, name
+//	) VALUES (
+//	    $1, $2
+//	)
+//	ON CONFLICT (id) DO UPDATE
+//	SET updated_at = CURRENT_TIMESTAMP
+//	RETURNING id, name, datastore, created_at, updated_at
+func (q *Queries) CreateCustomerTest(ctx context.Context, arg *CreateCustomerTestParams) (*Customer, error) {
+	row := q.db.QueryRow(ctx, createCustomerTest, arg.ID, arg.Name)
 	var i Customer
 	err := row.Scan(
 		&i.ID,
@@ -92,6 +132,49 @@ func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams)
 		&i.Validated,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createDocumentVector = `-- name: CreateDocumentVector :one
+INSERT INTO document_vector (
+    document_id, vector_store_id, customer_id, index
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING id, document_id, vector_store_id, customer_id, index, created_at
+`
+
+type CreateDocumentVectorParams struct {
+	DocumentID    int64 `db:"document_id" json:"documentId"`
+	VectorStoreID int64 `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    int64 `db:"customer_id" json:"customerId"`
+	Index         int32 `db:"index" json:"index"`
+}
+
+// CreateDocumentVector
+//
+//	INSERT INTO document_vector (
+//	    document_id, vector_store_id, customer_id, index
+//	) VALUES (
+//	    $1, $2, $3, $4
+//	)
+//	RETURNING id, document_id, vector_store_id, customer_id, index, created_at
+func (q *Queries) CreateDocumentVector(ctx context.Context, arg *CreateDocumentVectorParams) (*DocumentVector, error) {
+	row := q.db.QueryRow(ctx, createDocumentVector,
+		arg.DocumentID,
+		arg.VectorStoreID,
+		arg.CustomerID,
+		arg.Index,
+	)
+	var i DocumentVector
+	err := row.Scan(
+		&i.ID,
+		&i.DocumentID,
+		&i.VectorStoreID,
+		&i.CustomerID,
+		&i.Index,
+		&i.CreatedAt,
 	)
 	return &i, err
 }
@@ -234,6 +317,36 @@ func (q *Queries) CreateTokenUsage(ctx context.Context, arg *CreateTokenUsagePar
 	return &i, err
 }
 
+const createVector = `-- name: CreateVector :one
+INSERT INTO vector_store (
+    raw, embeddings, customer_id
+) VALUES (
+    $1, $2, $3
+)
+RETURNING id
+`
+
+type CreateVectorParams struct {
+	Raw        string          `db:"raw" json:"raw"`
+	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
+	CustomerID int64           `db:"customer_id" json:"customerId"`
+}
+
+// CreateVector
+//
+//	INSERT INTO vector_store (
+//	    raw, embeddings, customer_id
+//	) VALUES (
+//	    $1, $2, $3
+//	)
+//	RETURNING id
+func (q *Queries) CreateVector(ctx context.Context, arg *CreateVectorParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createVector, arg.Raw, arg.Embeddings, arg.CustomerID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createWebsite = `-- name: CreateWebsite :one
 INSERT INTO website (
     customer_id, protocol, domain, blacklist, whitelist
@@ -340,6 +453,49 @@ func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageP
 		&i.IsValid,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createWebsitePageVector = `-- name: CreateWebsitePageVector :one
+INSERT INTO website_page_vector (
+    website_page_id, vector_store_id, customer_id, index
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING id, website_page_id, vector_store_id, customer_id, index, created_at
+`
+
+type CreateWebsitePageVectorParams struct {
+	WebsitePageID int64 `db:"website_page_id" json:"websitePageId"`
+	VectorStoreID int64 `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    int64 `db:"customer_id" json:"customerId"`
+	Index         int32 `db:"index" json:"index"`
+}
+
+// CreateWebsitePageVector
+//
+//	INSERT INTO website_page_vector (
+//	    website_page_id, vector_store_id, customer_id, index
+//	) VALUES (
+//	    $1, $2, $3, $4
+//	)
+//	RETURNING id, website_page_id, vector_store_id, customer_id, index, created_at
+func (q *Queries) CreateWebsitePageVector(ctx context.Context, arg *CreateWebsitePageVectorParams) (*WebsitePageVector, error) {
+	row := q.db.QueryRow(ctx, createWebsitePageVector,
+		arg.WebsitePageID,
+		arg.VectorStoreID,
+		arg.CustomerID,
+		arg.Index,
+	)
+	var i WebsitePageVector
+	err := row.Scan(
+		&i.ID,
+		&i.WebsitePageID,
+		&i.VectorStoreID,
+		&i.CustomerID,
+		&i.Index,
+		&i.CreatedAt,
 	)
 	return &i, err
 }

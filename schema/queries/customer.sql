@@ -18,6 +18,16 @@ INSERT INTO customer (
 )
 RETURNING *;
 
+-- name: CreateCustomerTest :one
+INSERT INTO customer (
+    id, name
+) VALUES (
+    $1, $2
+)
+ON CONFLICT (id) DO UPDATE
+SET updated_at = CURRENT_TIMESTAMP
+RETURNING *;
+
 -- name: UpdateCustomer :exec
 UPDATE customer
     set name = $2
