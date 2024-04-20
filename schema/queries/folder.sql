@@ -35,9 +35,16 @@ INSERT INTO folder (
 ) VALUES (
     $1, $2, $3
 )
+ON CONFLICT (customer_id, COALESCE(parent_id, -1), title) DO UPDATE
+SET updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 
 -- name: DeleteFoldersOlderThan :exec
 DELETE FROM folder
+WHERE customer_id = $1
+AND updated_at < $2;
+
+-- name: GetFoldersOlderThan :many
+SELECT * FROM folder
 WHERE customer_id = $1
 AND updated_at < $2;

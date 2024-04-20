@@ -103,6 +103,8 @@ CREATE TABLE website(
     blacklist TEXT[] NOT NULL DEFAULT '{}', -- regex patterns that are disallowed
     whitelist TEXT[] NOT NULL DEFAULT '{}', -- regex patterns that are allowed
 
+    CONSTRAINT cnst_unique_website UNIQUE (customer_id, domain), -- websites are only allowed once
+
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -114,6 +116,9 @@ CREATE TABLE website_page(
     website_id BIGINT NOT NULL REFERENCES website(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
     sha_256 CHAR(64) NOT NULL,
+    is_valid BOOLEAN NOT NULL DEFAULT TRUE,
+
+    CONSTRAINT cnst_unique_website_page UNIQUE (customer_id, website_id, url), -- pages are only allowed once
 
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP

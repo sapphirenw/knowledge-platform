@@ -6,5 +6,5 @@ sql:
 	sqlc generate
 	rm ./schema/queries.sql
 
-dev:
+run:
 	go run ./src/*.go

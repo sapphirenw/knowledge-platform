@@ -83,6 +83,7 @@ type WebsitePage struct {
 	WebsiteID  int64            `db:"website_id" json:"websiteId"`
 	Url        string           `db:"url" json:"url"`
 	Sha256     string           `db:"sha_256" json:"sha256"`
+	IsValid    bool             `db:"is_valid" json:"isValid"`
 	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
 }

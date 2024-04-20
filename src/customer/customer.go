@@ -39,22 +39,6 @@ func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, db queries.
 		return nil, err
 	}
 
-	// get the root folder
-	// f, err := model.GetCustomerRootFolder(ctx, c.ID)
-	// if err != nil {
-	// 	if err.Error() == "no rows in result set" {
-	// 		// attempt to create a new root folder
-	// 		logger.InfoContext(ctx, "No root folder was found, attempting to create one...")
-	// 		f, err = model.CreateFolderRoot(ctx, c.ID)
-	// 		if err != nil {
-	// 			return nil, fmt.Errorf("failed to create the root folder: %v", err)
-	// 		}
-	// 		logger.InfoContext(ctx, "Successfully created the root folder")
-	// 	} else {
-	// 		return nil, fmt.Errorf("could not get the root folder: %v", err)
-	// 	}
-	// }
-
 	return &Customer{
 		Customer: c,
 		// root:     f,
@@ -172,7 +156,7 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 
 	var parentId pgtype.Int8
 	if body.ParentId != nil {
-		parentId.Scan(body.ParentId)
+		parentId.Scan(*body.ParentId)
 	}
 
 	// insert a record into the documents table
@@ -371,6 +355,15 @@ func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *
 		return nil, fmt.Errorf("error creating the website: %v", err)
 	}
 
+	// set all existing pages to  not valid, the create call will re-set
+	// to valid if the page already exists, and default is TRUE
+	if err := model.SetWebsitePagesNotValid(ctx, &queries.SetWebsitePagesNotValidParams{
+		CustomerID: c.ID,
+		WebsiteID:  site.ID,
+	}); err != nil {
+		return nil, fmt.Errorf("err setting website pages to not valid: %s", err)
+	}
+
 	// insert the pages
 	for i, item := range urls {
 		page, err := model.CreateWebsitePage(ctx, &queries.CreateWebsitePageParams{
@@ -383,6 +376,14 @@ func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *
 			return nil, fmt.Errorf("there was an issue inserting the page: %v", err)
 		}
 		pages[i] = page
+	}
+
+	// delete the records that are not valid, these are the stale records
+	if err := model.DeleteWebsitePagesNotValid(ctx, &queries.DeleteWebsitePagesNotValidParams{
+		CustomerID: c.ID,
+		WebsiteID:  site.ID,
+	}); err != nil {
+		return nil, fmt.Errorf("error deleting stale records: %s", err)
 	}
 
 	return &handleWebsiteResponse{
@@ -401,6 +402,11 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queri
 	if err != nil {
 		return nil, fmt.Errorf("there was an issue fetching the sites: %v", err)
 	}
+
+	// create an embeddings object
+	emb := embeddings.NewOpenAIEmbeddings(fmt.Sprintf("%d", c.ID), &embeddings.OpenAIEmbeddingsOpts{
+		Logger: logger,
+	})
 
 	// loop and perform the vectorization
 	var wg sync.WaitGroup
@@ -432,9 +438,6 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queri
 			}
 
 			// embed the content
-			emb := embeddings.NewOpenAIEmbeddings(fmt.Sprintf("%d", c.ID), &embeddings.OpenAIEmbeddingsOpts{
-				Logger: pLogger,
-			})
 			res, err := emb.Embed(ctx, string(content))
 			if err != nil {
 				errs <- fmt.Errorf("error embedding the content: %v", err)
@@ -490,6 +493,12 @@ func (c *Customer) PurgeDatastore(ctx context.Context, txn queries.DBTX, request
 	var err error
 	logger := c.logger.With()
 
+	// get the datastore
+	docstore, err := c.GetDocstore(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting the docstore: %s", err)
+	}
+
 	// parse the request (default is )
 	timestamp := time.Now().UTC().Add(time.Minute * -10)
 	if request.Timestamp != nil {
@@ -507,8 +516,79 @@ func (c *Customer) PurgeDatastore(ctx context.Context, txn queries.DBTX, request
 		return fmt.Errorf("error encoding the timestamp into an sql type: %s", err)
 	}
 
-	logger.InfoContext(ctx, "Purging all records before timestamp ...", "timestamp", timestamp)
 	model := queries.New(txn)
+
+	// get all documents older than
+	docs, err := model.GetDocumentsOlderThan(ctx, &queries.GetDocumentsOlderThanParams{
+		CustomerID: c.ID,
+		UpdatedAt:  pgtime,
+	})
+	if err != nil {
+		return fmt.Errorf("error getting documents: %s", err)
+	}
+
+	logger.InfoContext(ctx, "Attempting to delete all documents from remote datastore", "length", len(docs))
+
+	// delete in go-routines
+	var wg sync.WaitGroup
+	failedDocIds := make(chan int64)
+	for _, item := range docs {
+		wg.Add(1)
+		go func(doc queries.Document) {
+			defer wg.Done()
+			l := logger.With("doc", doc)
+			l.InfoContext(ctx, "Attempting to delete from datastore")
+			if err := docstore.DeleteDocument(ctx, c.Customer, &doc.ParentID.Int64, doc.Filename); err != nil {
+				l.ErrorContext(ctx, "error deleting from datastore", "error", err)
+				failedDocIds <- doc.ID
+				return
+			}
+			l.InfoContext(ctx, "successfully deleted from datastore")
+		}(*item)
+	}
+
+	wg.Wait()
+	close(failedDocIds)
+
+	logger.InfoContext(ctx, "Successfully deleted documents")
+
+	// TODO -- add some better error handling here. For now, ignore failed state in S3
+	// for id := range failedDocIds {
+
+	// }
+
+	// get all folders older than
+	folders, err := model.GetFoldersOlderThan(ctx, &queries.GetFoldersOlderThanParams{
+		CustomerID: c.ID,
+		UpdatedAt:  pgtime,
+	})
+	if err != nil {
+		return fmt.Errorf("error getting folders: %s", err)
+	}
+
+	logger.InfoContext(ctx, "Attempting to delete all folders from remote datastore", "length", len(folders))
+
+	failedFolderIds := make(chan int64)
+	for _, item := range folders {
+		wg.Add(1)
+		go func(folder queries.Folder) {
+			defer wg.Done()
+			l := logger.With("folder", folder)
+			l.InfoContext(ctx, "Attempting to delete from datastore")
+			if err := docstore.DeleteDocument(ctx, c.Customer, &folder.ParentID.Int64, fmt.Sprintf("%d", folder.ID)); err != nil {
+				l.ErrorContext(ctx, "error deleting from datastore", "error", err)
+				failedFolderIds <- folder.ID
+				return
+			}
+			l.InfoContext(ctx, "successfully deleted from datastore")
+		}(*item)
+	}
+
+	wg.Wait()
+	close(failedFolderIds)
+
+	logger.InfoContext(ctx, "Successfully deleted folders")
+	logger.InfoContext(ctx, "Purging all records from DB before timestamp ...", "timestamp", timestamp)
 
 	// purge all files
 	err = model.DeleteDocumentsOlderThan(ctx, &queries.DeleteDocumentsOlderThanParams{

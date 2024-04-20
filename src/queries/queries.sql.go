@@ -102,6 +102,8 @@ INSERT INTO folder (
 ) VALUES (
     $1, $2, $3
 )
+ON CONFLICT (customer_id, COALESCE(parent_id, -1), title) DO UPDATE
+SET updated_at = CURRENT_TIMESTAMP
 RETURNING id, parent_id, customer_id, title, created_at, updated_at
 `
 
@@ -118,6 +120,8 @@ type CreateFolderParams struct {
 //	) VALUES (
 //	    $1, $2, $3
 //	)
+//	ON CONFLICT (customer_id, COALESCE(parent_id, -1), title) DO UPDATE
+//	SET updated_at = CURRENT_TIMESTAMP
 //	RETURNING id, parent_id, customer_id, title, created_at, updated_at
 func (q *Queries) CreateFolder(ctx context.Context, arg *CreateFolderParams) (*Folder, error) {
 	row := q.db.QueryRow(ctx, createFolder, arg.ParentID, arg.CustomerID, arg.Title)
@@ -236,6 +240,11 @@ INSERT INTO website (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
+ON CONFLICT ON CONSTRAINT cnst_unique_website
+DO UPDATE SET
+    updated_at = CURRENT_TIMESTAMP,
+    blacklist = EXCLUDED.blacklist,
+    whitelist = EXCLUDED.whitelist
 RETURNING id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at
 `
 
@@ -254,6 +263,11 @@ type CreateWebsiteParams struct {
 //	) VALUES (
 //	    $1, $2, $3, $4, $5
 //	)
+//	ON CONFLICT ON CONSTRAINT cnst_unique_website
+//	DO UPDATE SET
+//	    updated_at = CURRENT_TIMESTAMP,
+//	    blacklist = EXCLUDED.blacklist,
+//	    whitelist = EXCLUDED.whitelist
 //	RETURNING id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at
 func (q *Queries) CreateWebsite(ctx context.Context, arg *CreateWebsiteParams) (*Website, error) {
 	row := q.db.QueryRow(ctx, createWebsite,
@@ -283,7 +297,11 @@ INSERT INTO website_page (
 ) VALUES (
     $1, $2, $3, $4
 )
-RETURNING id, customer_id, website_id, url, sha_256, created_at, updated_at
+ON CONFLICT ON CONSTRAINT cnst_unique_website_page
+DO UPDATE SET
+    updated_at = CURRENT_TIMESTAMP,
+    is_valid = TRUE
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at
 `
 
 type CreateWebsitePageParams struct {
@@ -300,7 +318,11 @@ type CreateWebsitePageParams struct {
 //	) VALUES (
 //	    $1, $2, $3, $4
 //	)
-//	RETURNING id, customer_id, website_id, url, sha_256, created_at, updated_at
+//	ON CONFLICT ON CONSTRAINT cnst_unique_website_page
+//	DO UPDATE SET
+//	    updated_at = CURRENT_TIMESTAMP,
+//	    is_valid = TRUE
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at
 func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageParams) (*WebsitePage, error) {
 	row := q.db.QueryRow(ctx, createWebsitePage,
 		arg.CustomerID,
@@ -315,6 +337,7 @@ func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageP
 		&i.WebsiteID,
 		&i.Url,
 		&i.Sha256,
+		&i.IsValid,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -374,6 +397,50 @@ type DeleteFoldersOlderThanParams struct {
 //	AND updated_at < $2
 func (q *Queries) DeleteFoldersOlderThan(ctx context.Context, arg *DeleteFoldersOlderThanParams) error {
 	_, err := q.db.Exec(ctx, deleteFoldersOlderThan, arg.CustomerID, arg.UpdatedAt)
+	return err
+}
+
+const deleteWebsitePagesNotValid = `-- name: DeleteWebsitePagesNotValid :exec
+DELETE FROM website_page
+WHERE customer_id = $1
+AND website_id = $2
+AND is_valid = FALSE
+`
+
+type DeleteWebsitePagesNotValidParams struct {
+	CustomerID int64 `db:"customer_id" json:"customerId"`
+	WebsiteID  int64 `db:"website_id" json:"websiteId"`
+}
+
+// DeleteWebsitePagesNotValid
+//
+//	DELETE FROM website_page
+//	WHERE customer_id = $1
+//	AND website_id = $2
+//	AND is_valid = FALSE
+func (q *Queries) DeleteWebsitePagesNotValid(ctx context.Context, arg *DeleteWebsitePagesNotValidParams) error {
+	_, err := q.db.Exec(ctx, deleteWebsitePagesNotValid, arg.CustomerID, arg.WebsiteID)
+	return err
+}
+
+const deleteWebsitePagesOlderThan = `-- name: DeleteWebsitePagesOlderThan :exec
+DELETE FROM website_page
+WHERE customer_id = $1
+AND updated_at < $2
+`
+
+type DeleteWebsitePagesOlderThanParams struct {
+	CustomerID int64            `db:"customer_id" json:"customerId"`
+	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+}
+
+// DeleteWebsitePagesOlderThan
+//
+//	DELETE FROM website_page
+//	WHERE customer_id = $1
+//	AND updated_at < $2
+func (q *Queries) DeleteWebsitePagesOlderThan(ctx context.Context, arg *DeleteWebsitePagesOlderThanParams) error {
+	_, err := q.db.Exec(ctx, deleteWebsitePagesOlderThan, arg.CustomerID, arg.UpdatedAt)
 	return err
 }
 
@@ -528,7 +595,7 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.In
 	return items, nil
 }
 
-const getDocumentsOlderThan = `-- name: GetDocumentsOlderThan :exec
+const getDocumentsOlderThan = `-- name: GetDocumentsOlderThan :many
 SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
 WHERE customer_id = $1
 AND updated_at < $2
@@ -544,9 +611,35 @@ type GetDocumentsOlderThanParams struct {
 //	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
 //	WHERE customer_id = $1
 //	AND updated_at < $2
-func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOlderThanParams) error {
-	_, err := q.db.Exec(ctx, getDocumentsOlderThan, arg.CustomerID, arg.UpdatedAt)
-	return err
+func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOlderThanParams) ([]*Document, error) {
+	rows, err := q.db.Query(ctx, getDocumentsOlderThan, arg.CustomerID, arg.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Document{}
+	for rows.Next() {
+		var i Document
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.CustomerID,
+			&i.Filename,
+			&i.Type,
+			&i.SizeBytes,
+			&i.Sha256,
+			&i.Validated,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getFolder = `-- name: GetFolder :one
@@ -649,6 +742,49 @@ WHERE parent_id = $1
 //	WHERE parent_id = $1
 func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID pgtype.Int8) ([]*Folder, error) {
 	rows, err := q.db.Query(ctx, getFoldersFromParent, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Folder{}
+	for rows.Next() {
+		var i Folder
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.CustomerID,
+			&i.Title,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFoldersOlderThan = `-- name: GetFoldersOlderThan :many
+SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+WHERE customer_id = $1
+AND updated_at < $2
+`
+
+type GetFoldersOlderThanParams struct {
+	CustomerID int64            `db:"customer_id" json:"customerId"`
+	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+}
+
+// GetFoldersOlderThan
+//
+//	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
+//	WHERE customer_id = $1
+//	AND updated_at < $2
+func (q *Queries) GetFoldersOlderThan(ctx context.Context, arg *GetFoldersOlderThanParams) ([]*Folder, error) {
+	rows, err := q.db.Query(ctx, getFoldersOlderThan, arg.CustomerID, arg.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -853,13 +989,13 @@ func (q *Queries) GetWebsite(ctx context.Context, id int64) (*Website, error) {
 }
 
 const getWebsitePagesBySite = `-- name: GetWebsitePagesBySite :many
-SELECT id, customer_id, website_id, url, sha_256, created_at, updated_at FROM website_page
+SELECT id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at FROM website_page
 WHERE website_id = $1
 `
 
 // GetWebsitePagesBySite
 //
-//	SELECT id, customer_id, website_id, url, sha_256, created_at, updated_at FROM website_page
+//	SELECT id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at FROM website_page
 //	WHERE website_id = $1
 func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID int64) ([]*WebsitePage, error) {
 	rows, err := q.db.Query(ctx, getWebsitePagesBySite, websiteID)
@@ -876,6 +1012,7 @@ func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID int64) ([
 			&i.WebsiteID,
 			&i.Url,
 			&i.Sha256,
+			&i.IsValid,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -993,6 +1130,27 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id int64) (*Docume
 	return &i, err
 }
 
+const setWebsitePagesNotValid = `-- name: SetWebsitePagesNotValid :exec
+UPDATE website_page SET is_valid = FALSE
+WHERE customer_id = $1
+AND website_id = $2
+`
+
+type SetWebsitePagesNotValidParams struct {
+	CustomerID int64 `db:"customer_id" json:"customerId"`
+	WebsiteID  int64 `db:"website_id" json:"websiteId"`
+}
+
+// SetWebsitePagesNotValid
+//
+//	UPDATE website_page SET is_valid = FALSE
+//	WHERE customer_id = $1
+//	AND website_id = $2
+func (q *Queries) SetWebsitePagesNotValid(ctx context.Context, arg *SetWebsitePagesNotValidParams) error {
+	_, err := q.db.Exec(ctx, setWebsitePagesNotValid, arg.CustomerID, arg.WebsiteID)
+	return err
+}
+
 const updateCustomer = `-- name: UpdateCustomer :exec
 UPDATE customer
     set name = $2
@@ -1020,7 +1178,7 @@ const updateWebsitePageSignature = `-- name: UpdateWebsitePageSignature :one
 UPDATE website_page SET
     sha_256 = $2
 WHERE id = $1
-RETURNING id, customer_id, website_id, url, sha_256, created_at, updated_at
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at
 `
 
 type UpdateWebsitePageSignatureParams struct {
@@ -1033,7 +1191,7 @@ type UpdateWebsitePageSignatureParams struct {
 //	UPDATE website_page SET
 //	    sha_256 = $2
 //	WHERE id = $1
-//	RETURNING id, customer_id, website_id, url, sha_256, created_at, updated_at
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at
 func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWebsitePageSignatureParams) (*WebsitePage, error) {
 	row := q.db.QueryRow(ctx, updateWebsitePageSignature, arg.ID, arg.Sha256)
 	var i WebsitePage
@@ -1043,6 +1201,7 @@ func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWeb
 		&i.WebsiteID,
 		&i.Url,
 		&i.Sha256,
+		&i.IsValid,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

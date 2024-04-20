@@ -39,7 +39,7 @@ DELETE FROM document
 WHERE customer_id = $1
 AND updated_at < $2;
 
--- name: GetDocumentsOlderThan :exec
+-- name: GetDocumentsOlderThan :many
 SELECT * FROM document
 WHERE customer_id = $1
 AND updated_at < $2;

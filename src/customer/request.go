@@ -6,11 +6,11 @@ import (
 )
 
 type generatePresignedUrlRequest struct {
+	ParentId  *int64 `json:"parentId,omitempty"`
 	Filename  string `json:"filename"`
 	Mime      string `json:"mime"`
 	Signature string `json:"signature"`
 	Size      int64  `json:"size"`
-	ParentId  *int64 `json:"parentId,omitempty"`
 }
 
 func (r generatePresignedUrlRequest) Valid(ctx context.Context) map[string]string {
