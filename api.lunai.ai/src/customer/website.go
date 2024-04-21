@@ -102,3 +102,62 @@ func handleWesbite(
 
 	request.Encode(w, r, c.logger, http.StatusOK, site)
 }
+
+func vectorizeWebsite(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	site, err := parseSiteFromRequest(r, pool)
+	if err != nil {
+		c.logger.Error("failed to get the website", "error", err)
+		http.Error(w, "There was an internal server issue", http.StatusInternalServerError)
+		return
+	}
+
+	// create a transaction
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		c.logger.Error("failed to start transaction", "error", err)
+		http.Error(w, "There was a database issue", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	if err := c.VectorizeWebsite(r.Context(), tx, site); err != nil {
+		// rollback
+		tx.Rollback(r.Context())
+		c.logger.Error("failed to vecorize website", "error", err)
+		http.Error(w, "There was an internal issue", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func vectorizeAllWebsites(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	// create a transaction
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		c.logger.Error("failed to start transaction", "error", err)
+		http.Error(w, "There was a database issue", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	if err := c.VectorizeAllWebsites(r.Context(), tx); err != nil {
+		// rollback
+		tx.Rollback(r.Context())
+		c.logger.Error("failed to vecorize websites", "error", err)
+		http.Error(w, "There was an internal issue", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -197,18 +197,9 @@ func TestVectorizeWebsite(t *testing.T) {
 	}
 
 	// test on the ingested site
-	result, err := customer.VectorizeWebsite(ctx, txn, site)
-	if err != nil {
+	if err := customer.VectorizeWebsite(ctx, txn, site); err != nil {
 		t.Error(err)
 		return
-	}
-
-	if result == nil {
-		fmt.Println("None of the pages changed")
-	}
-
-	for _, item := range result {
-		fmt.Println("Website:", item.page.Url, "VECTORS:", len(item.vectors))
 	}
 }
 

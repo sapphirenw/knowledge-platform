@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/embeddings"
@@ -316,16 +315,18 @@ func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *
 	}, nil
 }
 
-func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queries.Website) ([]*vectorizeWebsiteResult, error) {
+func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site *queries.Website) error {
 	logger := c.logger.With("site.ID", site.ID, "site.Domain", site.Domain)
-	logger.InfoContext(ctx, "Parsing site")
+	logger.InfoContext(ctx, "Parsing site ...")
 
 	// get the pages
 	model := queries.New(txn)
 	pages, err := model.GetWebsitePagesBySite(ctx, site.ID)
 	if err != nil {
-		return nil, fmt.Errorf("there was an issue fetching the sites: %v", err)
+		return fmt.Errorf("there was an issue fetching the sites: %v", err)
 	}
+
+	logger.InfoContext(ctx, "Creating embeddings for each page ...")
 
 	// create an embeddings object
 	emb := c.GetEmbeddings(ctx)
@@ -343,6 +344,8 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queri
 			defer wg.Done()
 			pLogger := logger.With("page", page.Url)
 
+			pLogger.InfoContext(ctx, "Scraping the page ...")
+
 			// scrape the webpage
 			content, err := webscrape.ScrapeSingle(ctx, pLogger, page)
 			if err != nil {
@@ -359,6 +362,8 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queri
 				pLogger.InfoContext(ctx, "The signatures do not match", "oldSHA256", page.Sha256, "newSHA256", sig)
 			}
 
+			pLogger.InfoContext(ctx, "Vecorizing the content ...")
+
 			// embed the content
 			res, err := emb.Embed(ctx, string(content))
 			if err != nil {
@@ -372,8 +377,12 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queri
 				sha256:  sig,
 				vectors: res,
 			}
+
+			pLogger.InfoContext(ctx, "Successfully processed page")
 		}(i, item)
 	}
+
+	logger.InfoContext(ctx, "Processed all pages")
 
 	// wait for the routines to finish
 	wg.Wait()
@@ -386,29 +395,85 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn pgx.Tx, site *queri
 		logger.ErrorContext(ctx, "there was an error vectorizing data", "error", runtimeErr)
 	}
 	if runtimeErr != nil {
-		return nil, fmt.Errorf("there was an issue during vecorization: %v", runtimeErr)
+		return fmt.Errorf("there was an issue during vecorization: %v", runtimeErr)
 	}
 
-	// update any website page hashes that changed
+	logger.InfoContext(ctx, "Parsing the result ...")
+
+	// parse the results
 	for _, item := range results {
 		// ignore pages that did not change
 		if item == nil {
 			continue
 		}
 
-		logger.InfoContext(ctx, "Updating the web page signature", "page", item.page.Url)
+		plogger := logger.With("page", *item.page)
+
+		plogger.InfoContext(ctx, "Updating the web page signature")
 		newPage, err := model.UpdateWebsitePageSignature(ctx, &queries.UpdateWebsitePageSignatureParams{
 			ID:     item.page.ID,
 			Sha256: item.sha256,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("there was an issue updating the page sha256: %v", err)
+			return fmt.Errorf("there was an issue updating the page sha256: %v", err)
 		}
 		item.page = newPage
+
+		plogger.InfoContext(ctx, "Uploading page vectors ...")
+
+		// lastly upload the vectors to the datastore
+		for index, vec := range item.vectors {
+			// create raw vector object
+			vecId, err := model.CreateVector(ctx, &queries.CreateVectorParams{
+				Raw:        vec.Raw,
+				Embeddings: vec.Embedding,
+				CustomerID: c.ID,
+			})
+			if err != nil {
+				return fmt.Errorf("error inserting the vector object: %s", err)
+			}
+
+			// create a reference to the vector onto the document
+			_, err = model.CreateWebsitePageVector(ctx, &queries.CreateWebsitePageVectorParams{
+				WebsitePageID: item.page.ID,
+				VectorStoreID: vecId,
+				CustomerID:    c.ID,
+				Index:         int32(index),
+			})
+			if err != nil {
+				return fmt.Errorf("error creating document vector relationship: %s", err)
+			}
+		}
+
+		plogger.InfoContext(ctx, "Successfully uploaded page")
 	}
 
-	// return the results to the consumer
-	return results, nil
+	logger.InfoContext(ctx, "Successfully vectorized site")
+
+	return nil
+}
+
+func (c *Customer) VectorizeAllWebsites(ctx context.Context, txn queries.DBTX) error {
+	c.logger.InfoContext(ctx, "Querying all sites ...")
+	// get all the sites
+	model := queries.New(txn)
+	sites, err := model.GetWebsitesByCustomer(ctx, c.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get websites: %s", err)
+	}
+
+	c.logger.InfoContext(ctx, "Processing all sites ...")
+
+	// process all sites
+	for _, site := range sites {
+		if err := c.VectorizeWebsite(ctx, txn, site); err != nil {
+			return fmt.Errorf("error vectorizing site: %s", err)
+		}
+	}
+
+	c.logger.InfoContext(ctx, "Successfully vectorized all sites")
+
+	return nil
 }
 
 func (c *Customer) PurgeDatastore(
@@ -602,6 +667,16 @@ func (c *Customer) VectorizeDatastore(
 				errCh <- err
 				return
 			}
+
+			// TODO -- there is potential to get this to work
+			// see if the document changed
+			// sig := utils.GenerateFingerprint(d.Data)
+			// if doc.Sha256 == sig {
+			// 	l.InfoContext(ctx, "This document has not changed")
+			// 	return
+			// } else {
+			// 	l.InfoContext(ctx, "The signatures do not match", "old", doc.Sha256, "new", sig)
+			// }
 
 			// embed the content
 			l.InfoContext(ctx, "Embedding the document ...")

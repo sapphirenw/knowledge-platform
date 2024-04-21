@@ -15,14 +15,17 @@ import (
 
 func Handler(mux chi.Router) {
 	mux.Get("/", customerHandler(getCustomer))
-	mux.Post("/purgeDatastore", customerHandler(purgeDatastore))
+
+	// datastore
 	mux.Delete("/datastore", customerHandler(deleteRemoteDatastore))
-	mux.Put("/datastore/vectorize", customerHandler(vectorizeDatastore))
+	mux.Post("/datastore/purge", customerHandler(purgeDatastore))
 
 	// documents
+	mux.Put("/vectorizeDocuments", customerHandler(vectorizeDatastore))
 	mux.Post("/generatePresignedUrl", customerHandler(generatePresignedUrl))
 	mux.Get("/documents/{documentId}", customerHandler(getDocument))
 	mux.Put("/documents/{documentId}/validate", customerHandler(notifyOfSuccessfulUpload))
+	// mux.Put("/documents/{documentId}/vectorize", customerHandler(notifyOfSuccessfulUpload))
 
 	// folders
 	mux.Get("/root", customerHandler(listCustomerFolder))
@@ -32,8 +35,10 @@ func Handler(mux chi.Router) {
 	// websites
 	mux.Get("/websites", customerHandler(getWebsites))
 	mux.Post("/websites", customerHandler(handleWesbite))
+	mux.Put("/vectorizeWebsites", customerHandler(vectorizeAllWebsites))
 	mux.Get("/websites/{websiteId}", customerHandler(getWebsite))
 	mux.Get("/websites/{websiteId}/pages", customerHandler(getWebsitePages))
+	mux.Put("/websites/{websiteId}/vectorize", customerHandler(vectorizeWebsite))
 }
 
 // Custom handler that parses the customerId from the request, fetches the customer from the database
