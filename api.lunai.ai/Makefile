@@ -32,3 +32,7 @@ test-small: test-database test-docstore test-document test-utils test-webscrape
 
 test:
 	go test -v ./...
+
+coverage:
+	go test -v -coverprofile coverage.out ./...
+	go tool cover -html=coverage.out

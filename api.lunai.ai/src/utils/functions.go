@@ -83,9 +83,7 @@ func GenerateFingerprint(input []byte) string {
 }
 
 func GenerateRandomFingerprint() string {
-	input := []byte(GenerateRandomString(64))
-	hash := sha256.Sum256(input)
-	return hex.EncodeToString(hash[:])
+	return GenerateFingerprint([]byte(GenerateRandomString(64)))
 }
 
 // Parses the protocol and the domain name from the website
