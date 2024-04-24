@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/httplog/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
+	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
 )
@@ -23,8 +24,8 @@ func Handler(mux chi.Router) {
 	// documents
 	mux.Put("/vectorizeDocuments", customerHandler(vectorizeDatastore))
 	mux.Post("/generatePresignedUrl", customerHandler(generatePresignedUrl))
-	mux.Get("/documents/{documentId}", customerHandler(getDocument))
-	mux.Put("/documents/{documentId}/validate", customerHandler(notifyOfSuccessfulUpload))
+	mux.Get("/documents/{documentId}", documentHandler(getDocument))
+	mux.Put("/documents/{documentId}/validate", documentHandler(notifyOfSuccessfulUpload))
 	// mux.Put("/documents/{documentId}/vectorize", customerHandler(notifyOfSuccessfulUpload))
 
 	// folders
@@ -36,9 +37,9 @@ func Handler(mux chi.Router) {
 	mux.Get("/websites", customerHandler(getWebsites))
 	mux.Post("/websites", customerHandler(handleWesbite))
 	mux.Put("/vectorizeWebsites", customerHandler(vectorizeAllWebsites))
-	mux.Get("/websites/{websiteId}", customerHandler(getWebsite))
-	mux.Get("/websites/{websiteId}/pages", customerHandler(getWebsitePages))
-	mux.Put("/websites/{websiteId}/vectorize", customerHandler(vectorizeWebsite))
+	mux.Get("/websites/{websiteId}", websiteHandler(getWebsite))
+	mux.Get("/websites/{websiteId}/pages", websiteHandler(getWebsitePages))
+	mux.Put("/websites/{websiteId}/vectorize", websiteHandler(vectorizeWebsite))
 }
 
 // Custom handler that parses the customerId from the request, fetches the customer from the database
@@ -66,7 +67,7 @@ func customerHandler(
 			}
 
 			// grab a connection from the pool
-			pool, err := db.GetPool()
+			pool, err := db.GetPool(nil)
 			if err != nil {
 				l.ErrorContext(r.Context(), "Error getting the connection pool", "error", err)
 				http.Error(w, "There was an issue connecting to the database", http.StatusInternalServerError)
@@ -96,64 +97,80 @@ func customerHandler(
 	)
 }
 
-func parseDocumentFromRequest(
-	r *http.Request,
-	db queries.DBTX,
-) (*queries.Document, error) {
-	id := chi.URLParam(r, "documentId")
-	documentId, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid parameter: %v", id)
-	}
+func documentHandler(
+	handler func(
+		w http.ResponseWriter,
+		r *http.Request,
+		pool *pgxpool.Pool,
+		c *Customer,
+		doc *docstore.Document,
+	),
+) http.HandlerFunc {
+	return http.HandlerFunc(
+		customerHandler(func(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, c *Customer) {
+			docId := chi.URLParam(r, "documentId")
+			documentId, err := strconv.ParseInt(docId, 10, 64)
+			if err != nil {
+				c.logger.Error("Invalid documentId", "documentId", docId)
+				http.Error(w, fmt.Sprintf("Invalid documentId: %s", docId), http.StatusBadRequest)
+				return
+			}
 
-	// get the document from the db
-	model := queries.New(db)
-	doc, err := model.GetDocument(r.Context(), documentId)
-	if err != nil {
-		return nil, fmt.Errorf("there was an issue getting the document: %v", err)
-	}
+			// get the document from the db
+			model := queries.New(pool)
+			d, err := model.GetDocument(r.Context(), documentId)
+			if err != nil {
+				c.logger.Error("Error getting the document", "error", err)
+				http.Error(w, fmt.Sprintf("There was no document found with documentId: %s", docId), http.StatusNotFound)
+				return
+			}
 
-	return doc, nil
+			// parse as a docstore doc
+			doc, err := docstore.NewDocument(c.Customer, d)
+			if err != nil {
+				c.logger.Error("Error parsing as a docstore doc", "error", err)
+				http.Error(w, fmt.Sprintf("There was an internal issue: %s", err), http.StatusInternalServerError)
+				return
+			}
+
+			// pass to the handler
+			handler(w, r, pool, c, doc)
+		}),
+	)
 }
 
-func parseFolderFromRequest(
-	r *http.Request,
-	db queries.DBTX,
-) (*queries.Folder, error) {
-	id := chi.URLParam(r, "folderId")
-	folderId, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid parameter: %v", id)
-	}
+func websiteHandler(
+	handler func(
+		w http.ResponseWriter,
+		r *http.Request,
+		pool *pgxpool.Pool,
+		c *Customer,
+		site *queries.Website,
+	),
+) http.HandlerFunc {
+	return http.HandlerFunc(
+		customerHandler(func(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, c *Customer) {
+			id := chi.URLParam(r, "websiteId")
+			siteId, err := strconv.ParseInt(id, 10, 64)
+			if err != nil {
+				c.logger.Error("Invalid folderId", "siteId", id)
+				http.Error(w, fmt.Sprintf("Invalid siteId: %s", id), http.StatusBadRequest)
+				return
+			}
 
-	// get the document from the db
-	model := queries.New(db)
-	folder, err := model.GetFolder(r.Context(), folderId)
-	if err != nil {
-		return nil, fmt.Errorf("there was an issue getting the folder: %v", err)
-	}
+			// get the folder from the db
+			model := queries.New(pool)
+			site, err := model.GetWebsite(r.Context(), siteId)
+			if err != nil {
+				c.logger.Error("Error getting the website", "error", err)
+				http.Error(w, fmt.Sprintf("There was no site found with websiteId: %s", id), http.StatusNotFound)
+				return
+			}
 
-	return folder, nil
-}
-
-func parseSiteFromRequest(
-	r *http.Request,
-	db queries.DBTX,
-) (*queries.Website, error) {
-	id := chi.URLParam(r, "websiteId")
-	websiteId, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid parameter: %v", id)
-	}
-
-	// get the document from the db
-	model := queries.New(db)
-	website, err := model.GetWebsite(r.Context(), websiteId)
-	if err != nil {
-		return nil, fmt.Errorf("there was an issue getting the folder: %v", err)
-	}
-
-	return website, nil
+			// pass to the handler
+			handler(w, r, pool, c, site)
+		}),
+	)
 }
 
 func getCustomer(

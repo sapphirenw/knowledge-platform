@@ -1,65 +1,60 @@
 package docstore
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
+	"os"
 	"testing"
 
-	db "github.com/sapphirenw/ai-content-creation-api/src/database"
-	"github.com/sapphirenw/ai-content-creation-api/src/document"
-	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
-	"github.com/stretchr/testify/assert"
+	"github.com/sapphirenw/ai-content-creation-api/src/utils"
+	"github.com/stretchr/testify/require"
 )
 
 func TestS3Docstore(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
+	logger := utils.DefaultLogger()
+	store, err := NewS3Docstore(ctx, S3_BUCKET, logger)
+	require.NoError(t, err)
 
-	// create the database conn
-	pool, err := db.GetPool()
-	if err != nil {
-		t.Error(err)
+	// read a document
+	filename := "s3.txt"
+	data, err := os.ReadFile("../../resources/" + filename)
+	require.NoError(t, err)
+
+	filetype, err := ParseFileType(filename)
+	require.NoError(t, err)
+
+	// create a doc from this data
+	doc, err := NewDocumentFromRaw(1, nil, filename, data)
+	require.NoError(t, err)
+
+	// create the pre-signed url
+	url, err := store.GeneratePresignedUrl(ctx, doc)
+	require.NoError(t, err)
+
+	// create the upload request
+	request, err := http.NewRequest(store.GetUploadMethod(), string(url), bytes.NewReader(data))
+	require.NoError(t, err)
+
+	// set the headers
+	request.Header.Set("Content-Type", string(filetype))
+	client := &http.Client{}
+
+	// send the request
+	response, err := client.Do(request)
+	require.NoError(t, err)
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		fmt.Println("the status code was not 400")
+		fmt.Println(response.StatusCode)
+		fmt.Println(response)
+		t.FailNow()
 	}
-	txn, err := pool.Begin(ctx)
-	if err != nil {
-		t.Error(err)
-	}
 
-	// create the test customer
-	customer, err := testingutils.CreateTestCustomer(txn)
-	if err != nil {
-		t.Error(err)
-	}
-
-	// create the docstore object
-	ds, err := NewS3Docstore(ctx, S3_BUCKET, nil)
-	if err != nil {
-		t.Error(err)
-	}
-
-	// dummy doc
-	doc, err := document.NewDoc(nil, "helloworld.txt", []byte("This is some text from the document"))
-	if err != nil {
-		t.Error(err)
-	}
-
-	// insert the document
-	url, err := ds.UploadDocument(ctx, customer, doc)
-	if err != nil {
-		t.Error(err)
-	}
-
-	fmt.Println("URL:", url)
-
-	// get the document
-	retrievedDoc, err := ds.GetDocument(ctx, customer, doc.ParentId, doc.Filename)
-	if err != nil {
-		t.Error(err)
-	}
-	assert.Equal(t, doc.Filename, retrievedDoc.Filename)
-	assert.Equal(t, doc.Filetype, retrievedDoc.Filetype)
-	assert.Equal(t, doc.Data, retrievedDoc.Data)
-
-	// delete the document
-	err = ds.DeleteDocument(ctx, customer, doc.ParentId, doc.Filename)
-	assert.Nil(t, err)
+	// delete the doc
+	err = store.DeleteFile(ctx, doc.UniqueID)
+	require.NoError(t, err)
 }

@@ -15,7 +15,7 @@ func TestOpenAIEmbeddings(t *testing.T) {
 	input := "Hello world, this is a string that I am going to convert into an embedding!"
 
 	// create the database
-	pool, err := db.GetPool()
+	pool, err := db.GetPool(nil)
 	assert.Nil(t, err)
 	if err != nil {
 		return

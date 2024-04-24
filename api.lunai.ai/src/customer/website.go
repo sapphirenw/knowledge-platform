@@ -30,14 +30,8 @@ func getWebsite(
 	r *http.Request,
 	pool *pgxpool.Pool,
 	c *Customer,
+	site *queries.Website,
 ) {
-	site, err := parseSiteFromRequest(r, pool)
-	if err != nil {
-		c.logger.Error("failed to get the website", "error", err)
-		http.Error(w, "There was an internal server issue", http.StatusInternalServerError)
-		return
-	}
-
 	request.Encode(w, r, c.logger, http.StatusOK, site)
 }
 
@@ -46,14 +40,8 @@ func getWebsitePages(
 	r *http.Request,
 	pool *pgxpool.Pool,
 	c *Customer,
+	site *queries.Website,
 ) {
-	site, err := parseSiteFromRequest(r, pool)
-	if err != nil {
-		c.logger.Error("failed to get the website", "error", err)
-		http.Error(w, "There was an internal server issue", http.StatusInternalServerError)
-		return
-	}
-
 	// get the pages
 	model := queries.New(pool)
 	pages, err := model.GetWebsitePagesBySite(r.Context(), site.ID)
@@ -108,14 +96,8 @@ func vectorizeWebsite(
 	r *http.Request,
 	pool *pgxpool.Pool,
 	c *Customer,
+	site *queries.Website,
 ) {
-	site, err := parseSiteFromRequest(r, pool)
-	if err != nil {
-		c.logger.Error("failed to get the website", "error", err)
-		http.Error(w, "There was an internal server issue", http.StatusInternalServerError)
-		return
-	}
-
 	// create a transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {

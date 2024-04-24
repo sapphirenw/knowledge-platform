@@ -21,14 +21,7 @@ test-utils:
 test-webscrape:
 	go test -v ./src/webscrape/*.go
 test-customer:
-	go test -v ./src/webscrape/*.go
-
-# run all tests
-test-small: test-database test-docstore test-document test-utils test-webscrape
-	# run a subset of customer tests
-	go test -v ./src/customer/*.go -run TestCustomerFolderStructure
-	go test -v ./src/customer/*.go -run TestCustomerUploadDocument
-	go test -v ./src/customer/*.go -run TestCustomerPurgeDatastore
+	go test -v ./src/customer/*.go
 
 test:
 	go test -v ./...

@@ -8,9 +8,30 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
 )
+
+func parseFolderFromRequest(
+	r *http.Request,
+	db queries.DBTX,
+) (*queries.Folder, error) {
+	id := chi.URLParam(r, "folderId")
+	folderId, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid parameter: %v", id)
+	}
+
+	// get the document from the db
+	model := queries.New(db)
+	folder, err := model.GetFolder(r.Context(), folderId)
+	if err != nil {
+		return nil, fmt.Errorf("there was an issue getting the folder: %v", err)
+	}
+
+	return folder, nil
+}
 
 func listCustomerFolder(
 	w http.ResponseWriter,
@@ -19,21 +40,22 @@ func listCustomerFolder(
 	c *Customer,
 ) {
 	var err error
-	var folder *queries.Folder
+	var folderId *int64
 
 	// if the param was passed then get the folder
 	if chi.URLParam(r, "folderId") != "" {
 		// parse the folder from the query args
-		folder, err = parseFolderFromRequest(r, pool)
+		folder, err := parseFolderFromRequest(r, pool)
 		if err != nil {
 			c.logger.ErrorContext(r.Context(), "Error getting folder", "error", err)
 			http.Error(w, "There was an issue getting the folder", http.StatusInternalServerError)
 			return
 		}
+		folderId = &folder.ID
 	}
 
 	// fetch the data inside the customer's folder
-	response, err := c.ListFolderContents(r.Context(), pool, folder)
+	response, err := c.ListFolderContents(r.Context(), pool, folderId)
 	if err != nil {
 		c.logger.ErrorContext(r.Context(), "Error listing folder contents", "error", err)
 		http.Error(w, "There was an internal server error", http.StatusInternalServerError)
@@ -77,16 +99,8 @@ func notifyOfSuccessfulUpload(
 	r *http.Request,
 	pool *pgxpool.Pool,
 	c *Customer,
+	doc *docstore.Document,
 ) {
-	// parse the documentId
-	idStr := chi.URLParam(r, "documentId")
-	documentId, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		c.logger.Error("Invalid documentId", "documentId", idStr)
-		http.Error(w, fmt.Sprintf("Invalid documentId: %s", idStr), http.StatusBadRequest)
-		return
-	}
-
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
@@ -97,7 +111,7 @@ func notifyOfSuccessfulUpload(
 	defer tx.Commit(r.Context())
 
 	// send the validation request against the customer
-	if err = c.NotifyOfSuccessfulUpload(r.Context(), tx, documentId); err != nil {
+	if err = c.NotifyOfSuccessfulUpload(r.Context(), tx, doc.ID); err != nil {
 		tx.Rollback(r.Context())
 		c.logger.Error("failed to validate the document record", "error", err)
 		http.Error(w, "There was a database issue", http.StatusInternalServerError)
@@ -113,15 +127,9 @@ func getDocument(
 	r *http.Request,
 	pool *pgxpool.Pool,
 	c *Customer,
+	doc *docstore.Document,
 ) {
-	doc, err := parseDocumentFromRequest(r, pool)
-	if err != nil {
-		c.logger.Error("failed to get the document", "error", err)
-		http.Error(w, "There was an internal server issue", http.StatusInternalServerError)
-		return
-	}
-
-	request.Encode(w, r, c.logger, http.StatusOK, doc)
+	request.Encode(w, r, c.logger, http.StatusOK, doc.Document)
 }
 
 func createFolder(

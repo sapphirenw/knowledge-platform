@@ -14,6 +14,10 @@ INSERT INTO document_vector (
 )
 RETURNING *;
 
+-- name: ListDocumentVectors :many
+SELECT * FROM document_vector
+WHERE customer_id = $1;
+
 -- name: CreateWebsitePageVector :one
 INSERT INTO website_page_vector (
     website_page_id, vector_store_id, customer_id, index
@@ -21,3 +25,13 @@ INSERT INTO website_page_vector (
     $1, $2, $3, $4
 )
 RETURNING *;
+
+-- name: ListWebsitePageVectors :many
+SELECT * FROM website_page_vector
+WHERE customer_id = $1;
+
+-- name: QueryVectorStore :many
+SELECT * FROM vector_store
+WHERE customer_id = $1
+ORDER BY embeddings <=> $3
+LIMIT $2;

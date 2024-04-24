@@ -3,13 +3,11 @@ package docstore
 import (
 	"fmt"
 	"strings"
-
-	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 )
 
-func createUniqueFileId(customer *queries.Customer, filename string, parentId *int64) string {
+func createUniqueFileId(customerId int64, filename string, parentId *int64) string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("%d", customer.ID))
+	builder.WriteString(fmt.Sprintf("%d", customerId))
 	if parentId != nil && *parentId != 0 {
 		builder.WriteString(fmt.Sprintf("/%d", *parentId))
 	} else {

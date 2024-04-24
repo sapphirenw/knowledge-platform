@@ -73,3 +73,16 @@ func (r purgeDatastoreRequest) Valid(ctx context.Context) map[string]string {
 	}
 	return p
 }
+
+type createCustomerRequest struct {
+	Name string `json:"name"`
+}
+
+func (r createCustomerRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string, 0)
+	if r.Name == "" {
+		p["name"] = "cannot be empty"
+	}
+
+	return p
+}

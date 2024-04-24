@@ -1,4 +1,4 @@
-package document
+package docstore
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ const (
 	FT_unknown = "unknown"
 )
 
-func parseFileType(filename string) (Filetype, error) {
+func ParseFileType(filename string) (Filetype, error) {
 	items := strings.Split(filename, ".")
 	if len(items) < 2 {
 		return FT_none, fmt.Errorf("there is no extension on this file")

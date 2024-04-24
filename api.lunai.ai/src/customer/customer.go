@@ -25,6 +25,25 @@ type Customer struct {
 	logger *slog.Logger
 }
 
+func CreateCustomer(ctx context.Context, logger *slog.Logger, db queries.DBTX, request *createCustomerRequest) (*queries.Customer, error) {
+	if request == nil {
+		return nil, fmt.Errorf("request cannot be nil")
+	}
+	l := logger.With("request", *request)
+	l.InfoContext(ctx, "Creating a new customer ...")
+
+	model := queries.New(db)
+	customer, err := model.CreateCustomer(ctx, request.Name)
+	if err != nil {
+		return nil, fmt.Errorf("error creating the customer")
+	}
+
+	l.InfoContext(ctx, "Successfully created new customer", "customer", *customer)
+
+	return customer, nil
+}
+
+// grabs a customer from the database using the supplied id
 func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, db queries.DBTX) (*Customer, error) {
 	model := queries.New(db)
 
@@ -44,7 +63,7 @@ func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, db queries.
 }
 
 // Gets the docstore associated with the customer
-func (c *Customer) GetDocstore(ctx context.Context) (docstore.Docstore, error) {
+func (c *Customer) GetDocstore(ctx context.Context) (docstore.RemoteDocstore, error) {
 	switch c.Customer.Datastore {
 	case "s3":
 		return docstore.NewS3Docstore(ctx, docstore.S3_BUCKET, c.logger)
@@ -101,20 +120,21 @@ func (c *Customer) CreateFolder(ctx context.Context, txn queries.DBTX, args *cre
 }
 
 // Does an 'ls' on a folder
-func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, folder *queries.Folder) (*listFolderContentsResponse, error) {
+func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, folderId *int64) (*listFolderContentsResponse, error) {
 	logger := c.logger.With()
-	if folder != nil {
-		logger = logger.With("folder.ID", folder.ID, "folder.Title", folder.Title)
+	if folderId != nil {
+		logger = logger.With("folderId", *folderId)
 	}
 	logger.InfoContext(ctx, "Getting all children of the folder ...")
 
 	model := queries.New(db)
 
 	var err error
+	var folder *queries.Folder
 	var folders []*queries.Folder
 	var documents []*queries.Document
 
-	if folder == nil {
+	if folderId == nil {
 		// get root file information
 		folders, err = model.GetRootFoldersByCustomer(ctx, c.ID)
 		if err != nil {
@@ -125,12 +145,18 @@ func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, fold
 			return nil, fmt.Errorf("there was an issue getting the documents: %v", err)
 		}
 	} else {
+		// get self
+		folder, err = model.GetFolder(ctx, *folderId)
+		if err != nil {
+			return nil, fmt.Errorf("this folder does not exist: %s", err)
+		}
+
 		// get the information using the folder
-		folders, err = model.GetFoldersFromParent(ctx, pgtype.Int8{Int64: folder.ID, Valid: true})
+		folders, err = model.GetFoldersFromParent(ctx, pgtype.Int8{Int64: *folderId, Valid: true})
 		if err != nil {
 			return nil, fmt.Errorf("there was an issue getting the folders: %v", err)
 		}
-		documents, err = model.GetDocumentsFromParent(ctx, pgtype.Int8{Int64: folder.ID, Valid: true})
+		documents, err = model.GetDocumentsFromParent(ctx, pgtype.Int8{Int64: *folderId, Valid: true})
 		if err != nil {
 			return nil, fmt.Errorf("there was an issue getting the documents: %v", err)
 		}
@@ -178,14 +204,14 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 		return nil, fmt.Errorf("there was an issue creating the document: %v", err)
 	}
 
+	// create the document
+	doc, err := docstore.NewDocument(c.Customer, d)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the database document: %s", err)
+	}
+
 	// generate the pre-signed url
-	url, err := store.GeneratePresignedUrl(ctx, c.Customer, &docstore.UploadUrlInput{
-		ParentId:  body.ParentId,
-		Filename:  body.Filename,
-		Mime:      body.Mime,
-		Signature: body.Signature,
-		Size:      body.Size,
-	})
+	url, err := store.GeneratePresignedUrl(ctx, doc)
 	if err != nil {
 		return nil, fmt.Errorf("there was an issue generating the presigned url: %v", err)
 	}
@@ -485,7 +511,7 @@ func (c *Customer) PurgeDatastore(
 	logger := c.logger.With()
 
 	// get the datastore
-	docstore, err := c.GetDocstore(ctx)
+	store, err := c.GetDocstore(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting the docstore: %s", err)
 	}
@@ -528,8 +554,14 @@ func (c *Customer) PurgeDatastore(
 		go func(doc queries.Document) {
 			defer wg.Done()
 			l := logger.With("doc", doc)
+			dsDoc, err := docstore.NewDocument(c.Customer, &doc)
+			if err != nil {
+				l.ErrorContext(ctx, "failed to create the docstore doc", "error", err)
+				failedDocIds <- doc.ID
+				return
+			}
 			l.InfoContext(ctx, "Attempting to delete from datastore")
-			if err := docstore.DeleteDocument(ctx, c.Customer, &doc.ParentID.Int64, doc.Filename); err != nil {
+			if err := store.DeleteFile(ctx, dsDoc.UniqueID); err != nil {
 				l.ErrorContext(ctx, "error deleting from datastore", "error", err)
 				failedDocIds <- doc.ID
 				return
@@ -566,7 +598,7 @@ func (c *Customer) PurgeDatastore(
 			defer wg.Done()
 			l := logger.With("folder", folder)
 			l.InfoContext(ctx, "Attempting to delete from datastore")
-			if err := docstore.DeleteDocument(ctx, c.Customer, &folder.ParentID.Int64, fmt.Sprintf("%d", folder.ID)); err != nil {
+			if err := store.DeleteFile(ctx, fmt.Sprintf("%d", folder.ID)); err != nil {
 				l.ErrorContext(ctx, "error deleting from datastore", "error", err)
 				failedFolderIds <- folder.ID
 				return
@@ -632,7 +664,7 @@ func (c *Customer) VectorizeDatastore(
 
 	// create a type to store the embeddings data
 	type embeddingResponse struct {
-		dbDoc   *queries.Document
+		doc     *docstore.Document
 		vectors []*embeddings.EmbeddingsData
 	}
 
@@ -647,23 +679,22 @@ func (c *Customer) VectorizeDatastore(
 
 	for i, item := range docs {
 		wg.Add(1)
-		go func(index int, doc queries.Document) {
+		go func(index int, d queries.Document) {
 			defer wg.Done()
-			l := logger.With("doc", doc)
+			l := logger.With("doc", d)
 
-			// get the document from the remote docstore
-			l.InfoContext(ctx, "Fetching document from datastore ...")
-			d, err := store.GetDocument(ctx, c.Customer, &doc.ParentID.Int64, doc.Filename)
+			doc, err := docstore.NewDocument(c.Customer, &d)
 			if err != nil {
-				l.ErrorContext(ctx, "there was an issue getting the remote document: %s", err)
+				l.ErrorContext(ctx, "failed parsing the database doc: %s", err)
 				errCh <- err
 				return
 			}
 
 			// get the cleaned data from the document and a parser
-			cleaned, err := d.GetCleanedData()
+			l.InfoContext(ctx, "Fetching document from datastore ...")
+			cleaned, err := doc.GetCleanedContents(ctx, store)
 			if err != nil {
-				l.ErrorContext(ctx, "error cleaning the raw data: %s", err)
+				l.ErrorContext(ctx, "there was an issue getting the cleaned document: %s", err)
 				errCh <- err
 				return
 			}
@@ -689,7 +720,7 @@ func (c *Customer) VectorizeDatastore(
 
 			// add to the result
 			vectors[index] = &embeddingResponse{
-				dbDoc:   &doc,
+				doc:     doc,
 				vectors: res,
 			}
 
@@ -730,7 +761,7 @@ func (c *Customer) VectorizeDatastore(
 
 			// create a reference to the vector onto the document
 			_, err = model.CreateDocumentVector(ctx, &queries.CreateDocumentVectorParams{
-				DocumentID:    item.dbDoc.ID,
+				DocumentID:    item.doc.ID,
 				VectorStoreID: vecId,
 				CustomerID:    c.ID,
 				Index:         int32(index),
@@ -758,7 +789,7 @@ func (c *Customer) DeleteRemoteDatastore(ctx context.Context) error {
 	}
 
 	// send request, all customers have a root folder with the id
-	if err := store.DeleteRoot(ctx, c.Customer); err != nil {
+	if err := store.DeleteRoot(ctx, fmt.Sprintf("%d/", c.Customer.ID)); err != nil {
 		return fmt.Errorf("error deleting the root document")
 	}
 

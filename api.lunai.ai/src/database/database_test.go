@@ -8,7 +8,7 @@ import (
 )
 
 func TestDatabaseConnection(t *testing.T) {
-	p, err := GetPool()
+	p, err := GetPool(nil)
 	assert.Nil(t, err)
 	if err != nil {
 		return

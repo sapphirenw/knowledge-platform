@@ -1,7 +1,6 @@
 package docstore
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -11,8 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/sapphirenw/ai-content-creation-api/src/document"
-	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
@@ -24,7 +21,6 @@ type S3Docstore struct {
 
 	// internal state to avoid making multiple copies
 	client     *s3.Client
-	uploader   *manager.Uploader
 	downloader *manager.Downloader
 }
 
@@ -51,33 +47,57 @@ func NewS3Docstore(ctx context.Context, bucket string, logger *slog.Logger) (*S3
 	}, nil
 }
 
-func (d *S3Docstore) UploadDocument(ctx context.Context, customer *queries.Customer, doc *document.Doc) (string, error) {
-	// create the s3 client
-	if d.uploader == nil {
-		d.uploader = manager.NewUploader(d.client)
+// func (d *S3Docstore) UploadDocument(ctx context.Context, doc *Document, data []byte) (string, error) {
+// 	// create the s3 client
+// 	if d.uploader == nil {
+// 		d.uploader = manager.NewUploader(d.client)
+// 	}
+
+// 	d.logger.InfoContext(ctx, "Uploading file", "filename", doc.Filename, "filetype", doc.Filetype)
+
+// 	// upload with a docid
+// 	result, err := d.uploader.Upload(context.TODO(), &s3.PutObjectInput{
+// 		Bucket: aws.String(d.bucket),
+// 		Key:    aws.String(doc.UniqueID),
+// 		Body:   bytes.NewBuffer(data),
+// 	})
+// 	if err != nil {
+// 		return "", fmt.Errorf("there was an issue uploading the file: %v", err)
+// 	}
+
+// 	d.logger.InfoContext(ctx, "Successfully uploaded file", "filename", doc.Filename, "filetype", doc.Filetype)
+
+// 	return result.Location, nil
+// }
+
+func (d *S3Docstore) GeneratePresignedUrl(ctx context.Context, doc *Document) (string, error) {
+	l := d.logger.With("doc", doc.Filename)
+	l.InfoContext(ctx, "Generating a presigned url ...")
+	// Set the desired parameters for the pre-signed URL
+	presignClient := s3.NewPresignClient(d.client)
+	params := &s3.PutObjectInput{
+		Bucket:         aws.String(d.bucket),
+		Key:            aws.String(doc.UniqueID),
+		ContentType:    aws.String(string(doc.Filetype)),
+		ChecksumSHA256: aws.String(doc.Sha256),
 	}
 
-	// create a unique id
-	documentId := createUniqueFileId(customer, doc.Filename, doc.ParentId)
-	d.logger.InfoContext(ctx, "Uploading file", "filename", doc.Filename, "filetype", doc.Filetype)
-
-	// upload with a docid
-	result, err := d.uploader.Upload(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(d.bucket),
-		Key:    aws.String(documentId),
-		Body:   bytes.NewBuffer(doc.Data),
+	resp, err := presignClient.PresignPutObject(ctx, params, func(o *s3.PresignOptions) {
+		o.Expires = time.Minute * 10
 	})
 	if err != nil {
-		return "", fmt.Errorf("there was an issue uploading the file: %v", err)
+		return "", fmt.Errorf("there was an issue generating the pre-signed url: %v", err)
 	}
 
-	d.logger.InfoContext(ctx, "Successfully uploaded file", "filename", doc.Filename, "filetype", doc.Filetype)
+	l.InfoContext(ctx, "Successfully generated pre-signed url")
 
-	return result.Location, nil
+	// Return the pre-signed URL
+	return resp.URL, nil
 }
 
-func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer, parentId *int64, filename string) (*document.Doc, error) {
-	d.logger.InfoContext(ctx, "Donwloading file from s3...", "parentId", parentId, "filename", filename)
+func (d *S3Docstore) DownloadFile(ctx context.Context, uniqueId string) ([]byte, error) {
+	l := d.logger.With("uniqueId", uniqueId)
+	l.InfoContext(ctx, "Downloading the file from the remote datastore ...")
 
 	if d.downloader == nil {
 		d.downloader = manager.NewDownloader(d.client)
@@ -86,45 +106,39 @@ func (d *S3Docstore) GetDocument(ctx context.Context, customer *queries.Customer
 	buffer := manager.NewWriteAtBuffer([]byte{})
 
 	// upload with a unqiue identifier
-	fileId := createUniqueFileId(customer, filename, parentId)
 	_, err := d.downloader.Download(context.TODO(), buffer, &s3.GetObjectInput{
 		Bucket: aws.String(d.bucket),
-		Key:    aws.String(fileId),
+		Key:    aws.String(uniqueId),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("there was an issue downloading the file from s3: %v | fileId=%s", err, fileId)
+		return nil, fmt.Errorf("there was an issue downloading the file from s3: %v | uniqueId=%s", err, uniqueId)
 	}
 
-	doc, err := document.NewDoc(parentId, parseUniqueFileId(fileId), buffer.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("error decoding document: %s", err)
-	}
-
-	d.logger.InfoContext(ctx, "Successfully downloaded file", "parentId", parentId, "filename", filename)
-	return doc, nil
+	l.InfoContext(ctx, "Successfully downloaded file")
+	return buffer.Bytes(), nil
 }
 
-func (d *S3Docstore) DeleteDocument(ctx context.Context, customer *queries.Customer, parentId *int64, filename string) error {
-	d.logger.InfoContext(ctx, "Deleting file ...", "filename", filename)
+func (d *S3Docstore) DeleteFile(ctx context.Context, uniqueId string) error {
+	l := d.logger.With("uniqueId", uniqueId)
+	l.InfoContext(ctx, "Deleting the file from the remote docstore ...")
 
-	fileId := createUniqueFileId(customer, filename, parentId)
 	_, err := d.client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
 		Bucket: aws.String(d.bucket),
-		Key:    aws.String(fileId),
+		Key:    aws.String(uniqueId),
 	})
 	if err != nil {
 		return fmt.Errorf("there was an issue deleting the object: %v", err)
 	}
 
-	d.logger.InfoContext(ctx, "Successfully deleted file")
+	l.InfoContext(ctx, "Successfully deleted file")
 
 	return nil
 }
 
-func (d *S3Docstore) DeleteRoot(ctx context.Context, customer *queries.Customer) error {
-	d.logger.InfoContext(ctx, "Deleting all documents for the customer", "customer.ID", customer.ID)
+func (d *S3Docstore) DeleteRoot(ctx context.Context, prefix string) error {
+	l := d.logger.With("prefix", prefix)
+	l.InfoContext(ctx, "Deleting all keys under this prefix ...")
 
-	prefix := fmt.Sprintf("%d/", customer.ID)
 	listInput := &s3.ListObjectsV2Input{
 		Bucket: aws.String(d.bucket),
 		Prefix: aws.String(prefix),
@@ -136,7 +150,7 @@ func (d *S3Docstore) DeleteRoot(ctx context.Context, customer *queries.Customer)
 		return fmt.Errorf("error listing all objects: %s", err)
 	}
 
-	d.logger.InfoContext(ctx, "Successfully found all objects", "length", len(objects.Contents))
+	l.InfoContext(ctx, "Successfully found all objects", "length", len(objects.Contents))
 
 	for _, object := range objects.Contents {
 		// Delete each object
@@ -150,35 +164,9 @@ func (d *S3Docstore) DeleteRoot(ctx context.Context, customer *queries.Customer)
 		}
 	}
 
-	d.logger.InfoContext(ctx, "Successfully deleted root folder")
+	l.InfoContext(ctx, "Successfully deleted root folder")
 
 	return nil
-}
-
-func (d *S3Docstore) GeneratePresignedUrl(
-	ctx context.Context,
-	customer *queries.Customer,
-	input *UploadUrlInput,
-) (string, error) {
-	documentId := createUniqueFileId(customer, input.Filename, input.ParentId)
-	// Set the desired parameters for the pre-signed URL
-	presignClient := s3.NewPresignClient(d.client)
-	params := &s3.PutObjectInput{
-		Bucket:         aws.String(d.bucket),
-		Key:            &documentId,
-		ContentType:    aws.String(input.Mime),
-		ChecksumSHA256: aws.String(input.Signature),
-	}
-
-	resp, err := presignClient.PresignPutObject(ctx, params, func(o *s3.PresignOptions) {
-		o.Expires = time.Minute * 10
-	})
-	if err != nil {
-		return "", fmt.Errorf("there was an issue generating the pre-signed url: %v", err)
-	}
-
-	// Return the pre-signed URL
-	return resp.URL, nil
 }
 
 func (d *S3Docstore) GetUploadMethod() string {

@@ -1255,6 +1255,78 @@ func (q *Queries) ListCustomers(ctx context.Context) ([]*Customer, error) {
 	return items, nil
 }
 
+const listDocumentVectors = `-- name: ListDocumentVectors :many
+SELECT id, document_id, vector_store_id, customer_id, index, created_at FROM document_vector
+WHERE customer_id = $1
+`
+
+// ListDocumentVectors
+//
+//	SELECT id, document_id, vector_store_id, customer_id, index, created_at FROM document_vector
+//	WHERE customer_id = $1
+func (q *Queries) ListDocumentVectors(ctx context.Context, customerID int64) ([]*DocumentVector, error) {
+	rows, err := q.db.Query(ctx, listDocumentVectors, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*DocumentVector{}
+	for rows.Next() {
+		var i DocumentVector
+		if err := rows.Scan(
+			&i.ID,
+			&i.DocumentID,
+			&i.VectorStoreID,
+			&i.CustomerID,
+			&i.Index,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWebsitePageVectors = `-- name: ListWebsitePageVectors :many
+SELECT id, website_page_id, vector_store_id, customer_id, index, created_at FROM website_page_vector
+WHERE customer_id = $1
+`
+
+// ListWebsitePageVectors
+//
+//	SELECT id, website_page_id, vector_store_id, customer_id, index, created_at FROM website_page_vector
+//	WHERE customer_id = $1
+func (q *Queries) ListWebsitePageVectors(ctx context.Context, customerID int64) ([]*WebsitePageVector, error) {
+	rows, err := q.db.Query(ctx, listWebsitePageVectors, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*WebsitePageVector{}
+	for rows.Next() {
+		var i WebsitePageVector
+		if err := rows.Scan(
+			&i.ID,
+			&i.WebsitePageID,
+			&i.VectorStoreID,
+			&i.CustomerID,
+			&i.Index,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markDocumentAsUploaded = `-- name: MarkDocumentAsUploaded :one
 UPDATE document
 SET validated = true
@@ -1284,6 +1356,51 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id int64) (*Docume
 		&i.UpdatedAt,
 	)
 	return &i, err
+}
+
+const queryVectorStore = `-- name: QueryVectorStore :many
+SELECT id, raw, embeddings, customer_id, created_at FROM vector_store
+WHERE customer_id = $1
+ORDER BY embeddings <=> $3
+LIMIT $2
+`
+
+type QueryVectorStoreParams struct {
+	CustomerID int64           `db:"customer_id" json:"customerId"`
+	Limit      int32           `db:"limit" json:"limit"`
+	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
+}
+
+// QueryVectorStore
+//
+//	SELECT id, raw, embeddings, customer_id, created_at FROM vector_store
+//	WHERE customer_id = $1
+//	ORDER BY embeddings <=> $3
+//	LIMIT $2
+func (q *Queries) QueryVectorStore(ctx context.Context, arg *QueryVectorStoreParams) ([]*VectorStore, error) {
+	rows, err := q.db.Query(ctx, queryVectorStore, arg.CustomerID, arg.Limit, arg.Embeddings)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*VectorStore{}
+	for rows.Next() {
+		var i VectorStore
+		if err := rows.Scan(
+			&i.ID,
+			&i.Raw,
+			&i.Embeddings,
+			&i.CustomerID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setWebsitePagesNotValid = `-- name: SetWebsitePagesNotValid :exec
