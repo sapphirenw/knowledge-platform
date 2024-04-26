@@ -12,7 +12,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jake-landersweb/gollm/src/ltypes"
 	"github.com/jake-landersweb/gollm/src/tokens"
 	"github.com/pgvector/pgvector-go"
@@ -21,7 +20,7 @@ import (
 )
 
 type OpenAIEmbeddings struct {
-	userId string
+	userId int64
 	model  string
 	logger *slog.Logger
 
@@ -34,7 +33,7 @@ type OpenAIEmbeddingsOpts struct {
 	Logger *slog.Logger
 }
 
-func NewOpenAIEmbeddings(userId string, opts *OpenAIEmbeddingsOpts) *OpenAIEmbeddings {
+func NewOpenAIEmbeddings(userId int64, opts *OpenAIEmbeddingsOpts) *OpenAIEmbeddings {
 	if opts == nil {
 		opts = &OpenAIEmbeddingsOpts{}
 	}
@@ -54,10 +53,14 @@ func NewOpenAIEmbeddings(userId string, opts *OpenAIEmbeddingsOpts) *OpenAIEmbed
 	}
 }
 
+func (e *OpenAIEmbeddings) UserIdString() string {
+	return fmt.Sprintf("%d", e.userId)
+}
+
 func (e *OpenAIEmbeddings) Embed(ctx context.Context, input string) ([]*EmbeddingsData, error) {
 	// chunk the input
 	chunks := utils.ChunkStringEqualUntilN(input, OPENAI_EMBEDDINGS_INPUT_MAX)
-	response, err := openAIEmbed(ctx, e.logger, e.userId, e.model, chunks)
+	response, err := e.openAIEmbed(ctx, e.logger, e.model, chunks)
 	if err != nil {
 		return nil, err
 	}
@@ -77,16 +80,16 @@ func (e *OpenAIEmbeddings) Embed(ctx context.Context, input string) ([]*Embeddin
 	return list, nil
 }
 
-func (e *OpenAIEmbeddings) ReportUsage(ctx context.Context, txn pgx.Tx, customer *queries.Customer) error {
+func (e *OpenAIEmbeddings) ReportUsage(ctx context.Context, db queries.DBTX) error {
 	e.logger.InfoContext(ctx, "Reporting usage", "length", len(e.tokenRecords))
-	model := queries.New(txn)
+	model := queries.New(db)
 
 	// insert all internal token records
 	for idx, item := range e.tokenRecords {
 		e.logger.InfoContext(ctx, "Posting to database ...", "index", idx)
 		_, err := model.CreateTokenUsage(ctx, &queries.CreateTokenUsageParams{
 			ID:           utils.GoogleUUIDToPGXUUID(item.ID),
-			CustomerID:   customer.ID,
+			CustomerID:   e.userId,
 			Model:        e.model,
 			InputTokens:  int32(item.InputTokens),
 			OutputTokens: int32(item.OutputTokens),
@@ -103,7 +106,7 @@ func (e *OpenAIEmbeddings) ReportUsage(ctx context.Context, txn pgx.Tx, customer
 	return nil
 }
 
-func openAIEmbed(ctx context.Context, logger *slog.Logger, userId string, model string, input []string) (*OpenAIEmbeddingResponse, error) {
+func (e *OpenAIEmbeddings) openAIEmbed(ctx context.Context, logger *slog.Logger, model string, input []string) (*OpenAIEmbeddingResponse, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" || apiKey == "null" {
 		return nil, fmt.Errorf("the env variable `OPENAI_API_KEY` is required to be set")
@@ -114,7 +117,7 @@ func openAIEmbed(ctx context.Context, logger *slog.Logger, userId string, model 
 		Input:      input,
 		Model:      model,
 		Dimensions: OPENAI_EMBEDDINGS_LENGTH,
-		User:       userId,
+		User:       e.UserIdString(),
 	}
 
 	enc, err := json.Marshal(&comprequest)

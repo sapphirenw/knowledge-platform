@@ -73,7 +73,7 @@ func (c *Customer) GetDocstore(ctx context.Context) (docstore.RemoteDocstore, er
 }
 
 func (c *Customer) GetEmbeddings(ctx context.Context) embeddings.Embeddings {
-	emb := embeddings.NewOpenAIEmbeddings(fmt.Sprintf("%d", c.ID), &embeddings.OpenAIEmbeddingsOpts{
+	emb := embeddings.NewOpenAIEmbeddings(c.ID, &embeddings.OpenAIEmbeddingsOpts{
 		Logger: c.logger,
 	})
 
@@ -205,7 +205,7 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 	}
 
 	// create the document
-	doc, err := docstore.NewDocument(c.Customer, d)
+	doc, err := docstore.NewDocument(c.Customer.ID, d)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse the database document: %s", err)
 	}
@@ -414,6 +414,11 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 	wg.Wait()
 	close(errs)
 
+	// report vectors
+	if err := emb.ReportUsage(ctx, txn); err != nil {
+		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
+	}
+
 	// parse the errors
 	var runtimeErr error
 	for err := range errs {
@@ -554,7 +559,7 @@ func (c *Customer) PurgeDatastore(
 		go func(doc queries.Document) {
 			defer wg.Done()
 			l := logger.With("doc", doc)
-			dsDoc, err := docstore.NewDocument(c.Customer, &doc)
+			dsDoc, err := docstore.NewDocument(c.Customer.ID, &doc)
 			if err != nil {
 				l.ErrorContext(ctx, "failed to create the docstore doc", "error", err)
 				failedDocIds <- doc.ID
@@ -683,7 +688,7 @@ func (c *Customer) VectorizeDatastore(
 			defer wg.Done()
 			l := logger.With("doc", d)
 
-			doc, err := docstore.NewDocument(c.Customer, &d)
+			doc, err := docstore.NewDocument(c.Customer.ID, &d)
 			if err != nil {
 				l.ErrorContext(ctx, "failed parsing the database doc: %s", err)
 				errCh <- err
@@ -731,6 +736,11 @@ func (c *Customer) VectorizeDatastore(
 	// wait for threads
 	wg.Wait()
 	close(errCh)
+
+	// report vectors
+	if err := emb.ReportUsage(ctx, txn); err != nil {
+		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
+	}
 
 	logger.InfoContext(ctx, "Successfully processed all documents")
 

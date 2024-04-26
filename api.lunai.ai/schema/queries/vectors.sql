@@ -30,8 +30,26 @@ RETURNING *;
 SELECT * FROM website_page_vector
 WHERE customer_id = $1;
 
--- name: QueryVectorStore :many
+-- name: QueryVectorStoreRaw :many
 SELECT * FROM vector_store
 WHERE customer_id = $1
 ORDER BY embeddings <=> $3
+LIMIT $2;
+
+-- name: QueryVectorStoreDocuments :many
+SELECT d.*
+FROM vector_store vs
+JOIN document_vector dv ON vs.id = dv.vector_store_id
+JOIN document d ON d.id = dv.document_id
+WHERE vs.customer_id = $1
+ORDER BY vs.embeddings <=> $3
+LIMIT $2;
+
+-- name: QueryVectorStoreWebsitePages :many
+SELECT wp.*
+FROM vector_store vs
+JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
+JOIN website_page wp ON wp.id = wpv.website_page_id
+WHERE vs.customer_id = $1
+ORDER BY vs.embeddings <=> $3
 LIMIT $2;

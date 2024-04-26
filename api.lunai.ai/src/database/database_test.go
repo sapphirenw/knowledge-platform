@@ -4,19 +4,24 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDatabaseConnection(t *testing.T) {
-	p, err := GetPool(nil)
-	assert.Nil(t, err)
-	if err != nil {
-		return
-	}
-	assert.NotNil(t, p)
-	if p == nil {
-		return
-	}
-	err = p.Ping(context.TODO())
-	assert.Nil(t, err)
+	// test working
+	pool, err := GetPool()
+	require.Nil(t, err)
+	t.Cleanup(func() {
+		ClosePool()
+	})
+
+	require.NotNil(t, pool)
+	err = pool.Ping(context.TODO())
+	require.Nil(t, err)
+	ClosePool() // close the pool
+
+	// test not working
+	DATABASE_URL = "postgres://invalid"
+	_, err = GetPool()
+	require.Error(t, err)
 }

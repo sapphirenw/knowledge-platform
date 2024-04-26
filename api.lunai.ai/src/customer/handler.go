@@ -67,7 +67,7 @@ func customerHandler(
 			}
 
 			// grab a connection from the pool
-			pool, err := db.GetPool(nil)
+			pool, err := db.GetPool()
 			if err != nil {
 				l.ErrorContext(r.Context(), "Error getting the connection pool", "error", err)
 				http.Error(w, "There was an issue connecting to the database", http.StatusInternalServerError)
@@ -126,7 +126,7 @@ func documentHandler(
 			}
 
 			// parse as a docstore doc
-			doc, err := docstore.NewDocument(c.Customer, d)
+			doc, err := docstore.NewDocument(c.Customer.ID, d)
 			if err != nil {
 				c.logger.Error("Error parsing as a docstore doc", "error", err)
 				http.Error(w, fmt.Sprintf("There was an internal issue: %s", err), http.StatusInternalServerError)

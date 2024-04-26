@@ -96,8 +96,8 @@ func TestCustomerWebsites(t *testing.T) {
 	// insert a website
 	site, err := c.HandleWebsite(ctx, pool, &handleWebsiteRequest{
 		Domain:    "https://crosschecksports.com",
-		Blacklist: []string{"docs"},
-		Whitelist: []string{},
+		Blacklist: []string{},
+		Whitelist: []string{"docs"},
 		Insert:    true,
 	})
 	require.NoError(t, err)
@@ -121,6 +121,22 @@ func TestCustomerWebsites(t *testing.T) {
 	require.Equal(t, len(site.Pages), rootVectors)
 
 	// TODO -- run a query against the vector store
+	vecQueryResponse, err := c.QueryVectorStore(ctx, pool, &queryVectorStoreRequest{
+		Query: "How to create a team",
+		K:     3,
+	})
+	require.NoError(t, err)
+
+	fmt.Println("\n\n++++ DOCS:")
+	for _, item := range vecQueryResponse.Documents {
+		fmt.Println("- " + item.Filename)
+	}
+
+	fmt.Println("\n\n++++ PAGES:")
+	for _, item := range vecQueryResponse.WebsitePages {
+		fmt.Println("- " + item.Url)
+	}
+
 }
 
 func uploadToDocstore(ctx context.Context, c *Customer, parentId *int64, directory string, db *pgxpool.Pool) error {

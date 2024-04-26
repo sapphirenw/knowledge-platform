@@ -2,7 +2,6 @@ package testingutils
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -15,17 +14,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
-
-const TEST_CUSTOMER_ID = 7
-
-func CreateTestCustomer(db queries.DBTX) (*queries.Customer, error) {
-	model := queries.New(db)
-	c, err := model.GetCustomer(context.TODO(), TEST_CUSTOMER_ID)
-	if err != nil {
-		return nil, fmt.Errorf("there was an issue getting the test customer: %v", err)
-	}
-	return c, err
-}
 
 func GetDatabase(t *testing.T, ctx context.Context) *pgxpool.Pool {
 	pgContainer, err := postgres.RunContainer(ctx,
@@ -51,10 +39,18 @@ func GetDatabase(t *testing.T, ctx context.Context) *pgxpool.Pool {
 	// get the connection string
 	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
+	db.DATABASE_URL = connStr
 
 	// create a new db pool
-	pool, err := db.GetPool(&connStr)
+	pool, err := db.GetPool()
 	require.NoError(t, err)
 
 	return pool
+}
+
+func CreateTestCustomer(t *testing.T, ctx context.Context, db queries.DBTX) *queries.Customer {
+	model := queries.New(db)
+	customer, err := model.CreateCustomer(ctx, "test-customer")
+	require.NoError(t, err)
+	return customer
 }

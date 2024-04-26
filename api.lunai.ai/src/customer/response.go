@@ -1,6 +1,9 @@
 package customer
 
-import "github.com/sapphirenw/ai-content-creation-api/src/queries"
+import (
+	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/vectorstore"
+)
 
 type generatePresignedUrlResponse struct {
 	UploadUrl  string `json:"uploadUrl"`
@@ -17,4 +20,9 @@ type listFolderContentsResponse struct {
 type handleWebsiteResponse struct {
 	Site  *queries.Website       `json:"site"`
 	Pages []*queries.WebsitePage `json:"pages"`
+}
+
+type queryVectorStoreResponse struct {
+	Documents    []*vectorstore.DocumentResponse   `json:"documents"`
+	WebsitePages []*vectorstore.WebsitePageResonse `json:"websitePages"`
 }

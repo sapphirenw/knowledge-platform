@@ -15,6 +15,8 @@ var (
 	poolMutex sync.Mutex
 )
 
+var DATABASE_URL = ""
+
 // create the connection on startup
 // func init() {
 // 	if os.Getenv("DATABASE_URL") == "" {
@@ -27,25 +29,23 @@ var (
 // }
 
 // initializePool safely initializes the pool, ensuring it's only done once.
-func initializePool(connStr *string) error {
-	var c string
-	if connStr == nil {
-		c = os.Getenv("DATABASE_URL")
-	} else {
-		c = *connStr
-	}
+func initializePool() error {
 	var err error
-	pool, err = pgxpool.New(context.Background(), c)
+	if DATABASE_URL == "" {
+		fmt.Println("WARNING -- using default env variable for database")
+		DATABASE_URL = os.Getenv("DATABASE_URL")
+	}
+	pool, err = pgxpool.New(context.Background(), DATABASE_URL)
 	return err
 }
 
 // GetConnection provides a thread-safe way to obtain a connection pool, initializing it if necessary.
-func GetPool(connStr *string) (*pgxpool.Pool, error) {
+func GetPool() (*pgxpool.Pool, error) {
 	poolMutex.Lock()
 	defer poolMutex.Unlock()
 
 	if pool == nil {
-		err := initializePool(connStr)
+		err := initializePool()
 		if err != nil {
 			return nil, err
 		}
@@ -57,10 +57,12 @@ func GetPool(connStr *string) (*pgxpool.Pool, error) {
 		if strings.Contains(err.Error(), "close") {
 			fmt.Println("Attemting to re-open the connection ...")
 			// re-init the pool
-			err := ReinitializePool(connStr)
+			err := ReinitializePool()
 			if err != nil {
 				return nil, fmt.Errorf("failed to recover from an error in the pool: %s", err)
 			}
+		} else {
+			return nil, err
 		}
 	}
 
@@ -68,7 +70,7 @@ func GetPool(connStr *string) (*pgxpool.Pool, error) {
 }
 
 // ReinitializePool safely closes the existing pool and creates a new one. This can be triggered on detecting a failover or similar event.
-func ReinitializePool(connStr *string) error {
+func ReinitializePool() error {
 	poolMutex.Lock()
 	defer poolMutex.Unlock()
 
@@ -76,5 +78,15 @@ func ReinitializePool(connStr *string) error {
 		pool.Close()
 	}
 
-	return initializePool(connStr)
+	return initializePool()
+}
+
+func ClosePool() {
+	poolMutex.Lock()
+	defer poolMutex.Unlock()
+
+	if pool != nil {
+		pool.Close()
+		pool = nil
+	}
 }

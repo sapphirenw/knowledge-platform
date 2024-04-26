@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+
+	db "github.com/sapphirenw/ai-content-creation-api/src/database"
 )
 
 func main() {
@@ -27,6 +29,9 @@ func run(
 ) error {
 	logger := newLogger()
 	srv := NewServer(logger)
+
+	// set the database url
+	db.DATABASE_URL = getenv("DATABASE_URL")
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(getenv("SERVER_HOST"), getenv("SERVER_PORT")),

@@ -16,11 +16,3 @@ func createUniqueFileId(customerId int64, filename string, parentId *int64) stri
 	builder.WriteString("/" + filename)
 	return builder.String()
 }
-
-func parseUniqueFileId(fileId string) string {
-	fmt.Println(fileId)
-	parts := strings.Split(fileId, "/")
-	fmt.Println(parts)
-	parts = parts[2:]
-	return strings.Join(parts, "/")
-}

@@ -86,3 +86,20 @@ func (r createCustomerRequest) Valid(ctx context.Context) map[string]string {
 
 	return p
 }
+
+type queryVectorStoreRequest struct {
+	Query string `json:"query"`
+	K     int    `json:"k"`
+}
+
+func (r queryVectorStoreRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string, 0)
+	if r.Query == "" {
+		p["query"] = "cannot be empty"
+	}
+	if r.K == 0 || r.K > 5 {
+		p["k"] = "has to be between 1 and 5"
+	}
+
+	return p
+}

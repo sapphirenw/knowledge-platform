@@ -20,7 +20,7 @@ type Document struct {
 	cleaned string
 }
 
-func NewDocument(c *queries.Customer, doc *queries.Document) (*Document, error) {
+func NewDocument(customerId int64, doc *queries.Document) (*Document, error) {
 	if doc == nil {
 		return nil, fmt.Errorf("doc cannot be nil")
 	}
@@ -32,7 +32,7 @@ func NewDocument(c *queries.Customer, doc *queries.Document) (*Document, error) 
 	}
 
 	// create a uniqueID for the document
-	id := createUniqueFileId(c.ID, doc.Filename, &doc.ParentID.Int64)
+	id := createUniqueFileId(customerId, doc.Filename, &doc.ParentID.Int64)
 
 	return &Document{Document: doc, Filetype: filetype, UniqueID: id}, nil
 }
