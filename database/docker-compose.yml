@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  aicontent-db:
+    build: .
+    container_name: aicontent-db
+    ports:
+      - "5432:5432" # Map PostgreSQL default port to host
+    volumes:
+      - ./data:/var/lib/postgresql/data # Mount host data directory to the container
+      - ./schema:/docker-entrypoint-initdb.d # Mount init scripts
+    environment:
+      POSTGRES_PASSWORD: aicontent
+      POSTGRES_USER: aicontent
+      POSTGRES_DB: aicontent
+
+volumes:
+  data:
