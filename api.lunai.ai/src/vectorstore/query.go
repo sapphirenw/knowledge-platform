@@ -39,7 +39,7 @@ func QueryRaw(ctx context.Context, input *QueryInput) ([]*queries.VectorStore, e
 	return vectors, nil
 }
 
-func QueryDocuments(ctx context.Context, input *QueryInput) ([]*DocumentResponse, error) {
+func QueryDocuments(ctx context.Context, input *QueryInput, include bool) ([]*DocumentResponse, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
@@ -64,18 +64,30 @@ func QueryDocuments(ctx context.Context, input *QueryInput) ([]*DocumentResponse
 	}
 
 	// convert to internal type with content
-	docs := make([]*DocumentResponse, len(rawDocs))
-	for index, item := range rawDocs {
+	docs := make([]*DocumentResponse, 0)
+	docMap := make(map[int64]bool, 0)
+	for _, item := range rawDocs {
+		// skip if doc already used
+		if _, exists := docMap[item.ID]; exists {
+			continue
+		}
+
 		doc, err := docstore.NewDocument(input.CustomerId, item)
 		if err != nil {
 			return nil, fmt.Errorf("error creating document: %s", err)
 		}
-		content, err := doc.GetCleanedContents(ctx, input.Docstore)
-		if err != nil {
-			return nil, fmt.Errorf("error getting the cleaned contents: %s", err)
+
+		var content string
+
+		if include {
+			content, err = doc.GetCleanedContents(ctx, input.Docstore)
+			if err != nil {
+				return nil, fmt.Errorf("error getting the cleaned contents: %s", err)
+			}
 		}
 
-		docs[index] = &DocumentResponse{Document: doc, Content: content}
+		docs = append(docs, &DocumentResponse{Document: doc, Content: content})
+		docMap[item.ID] = true
 	}
 
 	input.Logger.InfoContext(ctx, "Successfully found documents", "length", len(docs))
@@ -83,7 +95,7 @@ func QueryDocuments(ctx context.Context, input *QueryInput) ([]*DocumentResponse
 	return docs, nil
 }
 
-func QueryWebsitePages(ctx context.Context, input *QueryInput) ([]*WebsitePageResonse, error) {
+func QueryWebsitePages(ctx context.Context, input *QueryInput, include bool) ([]*WebsitePageResonse, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
@@ -108,17 +120,27 @@ func QueryWebsitePages(ctx context.Context, input *QueryInput) ([]*WebsitePageRe
 	}
 
 	// query the website page for the content
-	pages := make([]*WebsitePageResonse, len(pagesRaw))
-	for index, item := range pagesRaw {
-		content, err := webscrape.ScrapeSingle(ctx, input.Logger, item)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scrape the website: %s", err)
+	pages := make([]*WebsitePageResonse, 0)
+	webMap := make(map[int64]bool, 0)
+	for _, item := range pagesRaw {
+		// skip if the website already has been used
+		if _, exists := webMap[item.ID]; exists {
+			continue
 		}
 
-		pages[index] = &WebsitePageResonse{
+		var content []byte
+		if include {
+			content, err = webscrape.ScrapeSingle(ctx, input.Logger, item)
+			if err != nil {
+				return nil, fmt.Errorf("failed to scrape the website: %s", err)
+			}
+		}
+
+		pages = append(pages, &WebsitePageResonse{
 			WebsitePage: item,
 			Content:     string(content),
-		}
+		})
+		webMap[item.ID] = true
 	}
 
 	input.Logger.InfoContext(ctx, "Successfully found website pages", "length", len(pages))

@@ -12,8 +12,8 @@ type Document struct {
 	*queries.Document
 
 	// created on initialization
-	Filetype Filetype
-	UniqueID string
+	Filetype Filetype `json:"filetype"`
+	UniqueID string   `json:"uniqueId"`
 
 	// internal field used to cache remote request results
 	data    []byte

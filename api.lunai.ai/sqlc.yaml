@@ -3,8 +3,8 @@ cloud:
   project: '01HQXPT9M4B611XZA5XS501TYE'
 sql:
   - engine: "postgresql"
-    queries: "./schema/queries.sql"
-    schema: "./schema/schema.sql"
+    queries: "../database/queries/queries.sql"
+    schema: "../database/schema/schema.sql"
     gen:
       go:
         package: "queries"

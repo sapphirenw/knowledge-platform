@@ -40,6 +40,10 @@ func Handler(mux chi.Router) {
 	mux.Get("/websites/{websiteId}", websiteHandler(getWebsite))
 	mux.Get("/websites/{websiteId}/pages", websiteHandler(getWebsitePages))
 	mux.Put("/websites/{websiteId}/vectorize", websiteHandler(vectorizeWebsite))
+
+	// vectorstore
+	mux.Put("/vectorstore/query", customerHandler(queryVectorStore))
+
 }
 
 // Custom handler that parses the customerId from the request, fetches the customer from the database

@@ -66,6 +66,14 @@ type VectorStore struct {
 	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
 }
 
+type VectorStoreDefault struct {
+	ID         int64            `db:"id" json:"id"`
+	Raw        string           `db:"raw" json:"raw"`
+	Embeddings pgvector.Vector  `db:"embeddings" json:"embeddings"`
+	CustomerID int64            `db:"customer_id" json:"customerId"`
+	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
+}
+
 type Website struct {
 	ID         int64            `db:"id" json:"id"`
 	CustomerID int64            `db:"customer_id" json:"customerId"`

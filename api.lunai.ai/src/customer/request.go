@@ -88,8 +88,9 @@ func (r createCustomerRequest) Valid(ctx context.Context) map[string]string {
 }
 
 type queryVectorStoreRequest struct {
-	Query string `json:"query"`
-	K     int    `json:"k"`
+	Query          string `json:"query"`
+	K              int    `json:"k"`
+	IncludeContent bool   `json:"includeContent"`
 }
 
 func (r queryVectorStoreRequest) Valid(ctx context.Context) map[string]string {

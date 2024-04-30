@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/httplog/v2"
 	"github.com/sapphirenw/ai-content-creation-api/src/customer"
+	"github.com/sapphirenw/ai-content-creation-api/src/tests"
 )
 
 // Function to define all routes in the api
@@ -17,5 +18,7 @@ func addRoutes(
 		oplog.Info("info here")
 		w.Write([]byte("hello world"))
 	})
+
 	mux.Route("/customers/{customerId}", customer.Handler)
+	mux.Route("/tests", tests.Handler)
 }
