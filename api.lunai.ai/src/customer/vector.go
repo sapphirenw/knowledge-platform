@@ -53,10 +53,11 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	}
 
 	// create a vector input
+	embs := c.GetEmbeddings(ctx)
 	input := &vectorstore.QueryInput{
 		CustomerId: c.ID,
 		Docstore:   store,
-		Embeddings: c.GetEmbeddings(ctx),
+		Embeddings: embs,
 		DB:         db,
 		Query:      request.Query,
 		K:          request.K,
@@ -69,10 +70,20 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 		return nil, fmt.Errorf("failed to query for documents: %s", err)
 	}
 
+	// report the usage
+	if err := embs.ReportUsage(ctx, db); err != nil {
+		logger.ErrorContext(ctx, "failed to report usage", "error", err)
+	}
+
 	// get the website pages
 	pages, err := vectorstore.QueryWebsitePages(ctx, input, request.IncludeContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for website pages: %s", err)
+	}
+
+	// report the usage
+	if err := embs.ReportUsage(ctx, db); err != nil {
+		logger.ErrorContext(ctx, "failed to report usage", "error", err)
 	}
 
 	return &queryVectorStoreResponse{
