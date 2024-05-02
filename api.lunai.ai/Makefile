@@ -2,31 +2,32 @@ include $(shell sed 's/export //g' .env > .env.make && echo .env.make)
 export
 
 sql:
+	$(MAKE) -C ../database -f ../database/Makefile db-schema
 	awk 'FNR==1{print ""}1' ../database/queries/* > ../database/queries/queries.sql
 	sqlc generate
 	rm ../database/queries/queries.sql
 
-run:
+run: sql
 	go run ./src/*.go
 
 # tests for various packages
-test-database:
+test-database: sql
 	go test -v -coverprofile coverage.out ./src/database/*.go
-test-docstore:
+test-docstore: sql
 	go test -v -coverprofile coverage.out ./src/docstore/*.go
-test-utils:
+test-utils: sql
 	go test -v -coverprofile coverage.out ./src/utils/*.go
-test-webscrape:
+test-webscrape: sql
 	go test -v -coverprofile coverage.out ./src/webscrape/*.go
-test-customer:
+test-customer: sql
 	go test -v -coverprofile coverage.out ./src/customer/*.go
 
-test:
+test: sql
 	go test -v ./...
 
 coverage:
 	go tool cover -html=coverage.out
 
-test-coverage:
+test-coverage: sql
 	go test -v -coverprofile coverage.out ./...
 	go tool cover -html=coverage.out

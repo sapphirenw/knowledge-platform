@@ -4,7 +4,7 @@ cloud:
 sql:
   - engine: "postgresql"
     queries: "../database/queries/queries.sql"
-    schema: "../database/schema/schema.sql"
+    schema: "../database/schema/00_GENERATED_schema.sql"
     gen:
       go:
         package: "queries"
@@ -17,3 +17,11 @@ sql:
         emit_sql_as_comment: true
         json_tags_case_style: "camel"
         emit_empty_slices: true
+        overrides:
+          - db_type: "bigserial"
+            go_type:
+              type: "int64"
+          - db_type: "bigint"
+            go_type:
+              type: "int64"
+

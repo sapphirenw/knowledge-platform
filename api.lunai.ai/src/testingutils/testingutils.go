@@ -18,8 +18,7 @@ import (
 func GetDatabase(t *testing.T, ctx context.Context) *pgxpool.Pool {
 	pgContainer, err := postgres.RunContainer(ctx,
 		testcontainers.WithImage("ankane/pgvector"),
-		postgres.WithInitScripts(filepath.Join("..", "..", "schema", "schema.sql")),
-		postgres.WithInitScripts(filepath.Join("..", "..", "schema", "triggers.sql")),
+		postgres.WithInitScripts(filepath.Join("..", "..", "..", "database", "schema", "00_GENERATED_schema.sql")),
 		postgres.WithDatabase("aicontent"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
@@ -44,6 +43,10 @@ func GetDatabase(t *testing.T, ctx context.Context) *pgxpool.Pool {
 	// create a new db pool
 	pool, err := db.GetPool()
 	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		db.ClosePool()
+	})
 
 	return pool
 }

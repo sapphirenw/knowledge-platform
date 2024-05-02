@@ -532,7 +532,7 @@ func (c *Customer) PurgeDatastore(
 		timestamp = time
 	}
 	// encode into sql type
-	var pgtime pgtype.Timestamp
+	var pgtime pgtype.Timestamptz
 	err = pgtime.Scan(timestamp)
 	if err != nil {
 		return fmt.Errorf("error encoding the timestamp into an sql type: %s", err)

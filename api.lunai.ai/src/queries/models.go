@@ -9,98 +9,277 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+type AssetCatalog struct {
+	ID           int64              `db:"id" json:"id"`
+	CustomerID   pgtype.Int8        `db:"customer_id" json:"customerId"`
+	Datastore    string             `db:"datastore" json:"datastore"`
+	DatastoreKey pgtype.UUID        `db:"datastore_key" json:"datastoreKey"`
+	Filetype     string             `db:"filetype" json:"filetype"`
+	SizeBytes    int64              `db:"size_bytes" json:"sizeBytes"`
+	Sha256       string             `db:"sha_256" json:"sha256"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type Blog struct {
+	ID                               pgtype.Int8        `db:"id" json:"id"`
+	CustomerID                       int64              `db:"customer_id" json:"customerId"`
+	Title                            string             `db:"title" json:"title"`
+	MainTopic                        string             `db:"main_topic" json:"mainTopic"`
+	Url                              pgtype.Text        `db:"url" json:"url"`
+	Metadata                         []byte             `db:"metadata" json:"metadata"`
+	MinSections                      int32              `db:"min_sections" json:"minSections"`
+	MaxSections                      int32              `db:"max_sections" json:"maxSections"`
+	DocumentsPerSection              int32              `db:"documents_per_section" json:"documentsPerSection"`
+	WebsitePagesPerSection           int32              `db:"website_pages_per_section" json:"websitePagesPerSection"`
+	AutoGen                          bool               `db:"auto_gen" json:"autoGen"`
+	AutoGenCadence                   string             `db:"auto_gen_cadence" json:"autoGenCadence"`
+	AutoGenTime                      pgtype.Time        `db:"auto_gen_time" json:"autoGenTime"`
+	LlmContentGenerationDefaultID    pgtype.Int8        `db:"llm_content_generation_default_id" json:"llmContentGenerationDefaultId"`
+	LlmVectorSummarizationDefaultID  pgtype.Int8        `db:"llm_vector_summarization_default_id" json:"llmVectorSummarizationDefaultId"`
+	LlmWebsiteSummarizationDefaultID pgtype.Int8        `db:"llm_website_summarization_default_id" json:"llmWebsiteSummarizationDefaultId"`
+	LlmProofReadingDefaultID         pgtype.Int8        `db:"llm_proof_reading_default_id" json:"llmProofReadingDefaultId"`
+	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogCategory struct {
+	ID           pgtype.Int8        `db:"id" json:"id"`
+	CustomerID   int64              `db:"customer_id" json:"customerId"`
+	BlogID       int64              `db:"blog_id" json:"blogId"`
+	Title        string             `db:"title" json:"title"`
+	TextColorHex pgtype.Text        `db:"text_color_hex" json:"textColorHex"`
+	BgColorHex   pgtype.Text        `db:"bg_color_hex" json:"bgColorHex"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogPost struct {
+	ID             pgtype.Int8        `db:"id" json:"id"`
+	CustomerID     int64              `db:"customer_id" json:"customerId"`
+	BlogID         int64              `db:"blog_id" json:"blogId"`
+	BlogPostIdeaID pgtype.Int8        `db:"blog_post_idea_id" json:"blogPostIdeaId"`
+	BlogCategoryID pgtype.Int8        `db:"blog_category_id" json:"blogCategoryId"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
+	Metadata       []byte             `db:"metadata" json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogPostIdea struct {
+	ID         pgtype.Int8        `db:"id" json:"id"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	BlogID     int64              `db:"blog_id" json:"blogId"`
+	Title      string             `db:"title" json:"title"`
+	Used       bool               `db:"used" json:"used"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogPostSection struct {
+	ID                          pgtype.Int8        `db:"id" json:"id"`
+	CustomerID                  int64              `db:"customer_id" json:"customerId"`
+	BlogID                      int64              `db:"blog_id" json:"blogId"`
+	BlogPostID                  int64              `db:"blog_post_id" json:"blogPostId"`
+	Title                       string             `db:"title" json:"title"`
+	Description                 string             `db:"description" json:"description"`
+	AdditionalInstructions      string             `db:"additional_instructions" json:"additionalInstructions"`
+	AssetID                     pgtype.Int8        `db:"asset_id" json:"assetId"`
+	Metadata                    []byte             `db:"metadata" json:"metadata"`
+	ContentGenerationModelID    pgtype.Int8        `db:"content_generation_model_id" json:"contentGenerationModelId"`
+	VectorSummarizationModelID  pgtype.Int8        `db:"vector_summarization_model_id" json:"vectorSummarizationModelId"`
+	WebsiteSummarizationModelID pgtype.Int8        `db:"website_summarization_model_id" json:"websiteSummarizationModelId"`
+	ProofReadingModelID         pgtype.Int8        `db:"proof_reading_model_id" json:"proofReadingModelId"`
+	CreatedAt                   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogPostSectionDocument struct {
+	ID         pgtype.Int8        `db:"id" json:"id"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	BlogID     int64              `db:"blog_id" json:"blogId"`
+	BlogPostID int64              `db:"blog_post_id" json:"blogPostId"`
+	DocumentID int64              `db:"document_id" json:"documentId"`
+	Query      string             `db:"query" json:"query"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogPostSectionWebsitePage struct {
+	ID                pgtype.Int8        `db:"id" json:"id"`
+	CustomerID        int64              `db:"customer_id" json:"customerId"`
+	BlogID            int64              `db:"blog_id" json:"blogId"`
+	BlogPostID        int64              `db:"blog_post_id" json:"blogPostId"`
+	BlogPostSectionID int64              `db:"blog_post_section_id" json:"blogPostSectionId"`
+	WebsitePageID     int64              `db:"website_page_id" json:"websitePageId"`
+	Query             string             `db:"query" json:"query"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogPostTag struct {
+	ID         pgtype.Int8        `db:"id" json:"id"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	BlogID     int64              `db:"blog_id" json:"blogId"`
+	BlogPostID int64              `db:"blog_post_id" json:"blogPostId"`
+	Title      string             `db:"title" json:"title"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogReferenceFolder struct {
+	ID         pgtype.Int8        `db:"id" json:"id"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	BlogID     int64              `db:"blog_id" json:"blogId"`
+	FolderID   int64              `db:"folder_id" json:"folderId"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogReferenceWebsite struct {
+	ID         pgtype.Int8        `db:"id" json:"id"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	BlogID     int64              `db:"blog_id" json:"blogId"`
+	WebsiteID  int64              `db:"website_id" json:"websiteId"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogSectionContent struct {
+	ID                pgtype.Int8        `db:"id" json:"id"`
+	CustomerID        int64              `db:"customer_id" json:"customerId"`
+	BlogID            int64              `db:"blog_id" json:"blogId"`
+	BlogPostID        int64              `db:"blog_post_id" json:"blogPostId"`
+	BlogPostSectionID int64              `db:"blog_post_section_id" json:"blogPostSectionId"`
+	Content           string             `db:"content" json:"content"`
+	Feedback          string             `db:"feedback" json:"feedback"`
+	Index             int32              `db:"index" json:"index"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ContentType struct {
+	Title     string             `db:"title" json:"title"`
+	Parent    string             `db:"parent" json:"parent"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
 type Customer struct {
-	ID        int64            `db:"id" json:"id"`
-	Name      string           `db:"name" json:"name"`
-	Datastore string           `db:"datastore" json:"datastore"`
-	CreatedAt pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	UpdatedAt pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	ID        int64              `db:"id" json:"id"`
+	Name      string             `db:"name" json:"name"`
+	Datastore string             `db:"datastore" json:"datastore"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type Document struct {
-	ID         int64            `db:"id" json:"id"`
-	ParentID   pgtype.Int8      `db:"parent_id" json:"parentId"`
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	Filename   string           `db:"filename" json:"filename"`
-	Type       string           `db:"type" json:"type"`
-	SizeBytes  int64            `db:"size_bytes" json:"sizeBytes"`
-	Sha256     string           `db:"sha_256" json:"sha256"`
-	Validated  bool             `db:"validated" json:"validated"`
-	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	ID         int64              `db:"id" json:"id"`
+	ParentID   pgtype.Int8        `db:"parent_id" json:"parentId"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	Filename   string             `db:"filename" json:"filename"`
+	Type       string             `db:"type" json:"type"`
+	SizeBytes  int64              `db:"size_bytes" json:"sizeBytes"`
+	Sha256     string             `db:"sha_256" json:"sha256"`
+	Validated  bool               `db:"validated" json:"validated"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type DocumentVector struct {
-	ID            int64            `db:"id" json:"id"`
-	DocumentID    int64            `db:"document_id" json:"documentId"`
-	VectorStoreID int64            `db:"vector_store_id" json:"vectorStoreId"`
-	CustomerID    int64            `db:"customer_id" json:"customerId"`
-	Index         int32            `db:"index" json:"index"`
-	CreatedAt     pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	ID            int64              `db:"id" json:"id"`
+	DocumentID    int64              `db:"document_id" json:"documentId"`
+	VectorStoreID int64              `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    int64              `db:"customer_id" json:"customerId"`
+	Index         int32              `db:"index" json:"index"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type Folder struct {
-	ID         int64            `db:"id" json:"id"`
-	ParentID   pgtype.Int8      `db:"parent_id" json:"parentId"`
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	Title      string           `db:"title" json:"title"`
-	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	ID         int64              `db:"id" json:"id"`
+	ParentID   pgtype.Int8        `db:"parent_id" json:"parentId"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	Title      string             `db:"title" json:"title"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type GenerationLibrary struct {
+	ID          int64              `db:"id" json:"id"`
+	CustomerID  int64              `db:"customer_id" json:"customerId"`
+	Title       string             `db:"title" json:"title"`
+	ContentType string             `db:"content_type" json:"contentType"`
+	Draft       bool               `db:"draft" json:"draft"`
+	Published   bool               `db:"published" json:"published"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type Llm struct {
+	ID           int64              `db:"id" json:"id"`
+	CustomerID   pgtype.Int8        `db:"customer_id" json:"customerId"`
+	Model        string             `db:"model" json:"model"`
+	Temperature  pgtype.Numeric     `db:"temperature" json:"temperature"`
+	SystemPrompt string             `db:"system_prompt" json:"systemPrompt"`
+	IsDefault    bool               `db:"is_default" json:"isDefault"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type TokenUsage struct {
-	ID           pgtype.UUID      `db:"id" json:"id"`
-	CustomerID   int64            `db:"customer_id" json:"customerId"`
-	Model        string           `db:"model" json:"model"`
-	InputTokens  int32            `db:"input_tokens" json:"inputTokens"`
-	OutputTokens int32            `db:"output_tokens" json:"outputTokens"`
-	TotalTokens  int32            `db:"total_tokens" json:"totalTokens"`
-	CreatedAt    pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	CustomerID   int64              `db:"customer_id" json:"customerId"`
+	Model        string             `db:"model" json:"model"`
+	InputTokens  int32              `db:"input_tokens" json:"inputTokens"`
+	OutputTokens int32              `db:"output_tokens" json:"outputTokens"`
+	TotalTokens  int32              `db:"total_tokens" json:"totalTokens"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type VectorStore struct {
-	ID         int64            `db:"id" json:"id"`
-	Raw        string           `db:"raw" json:"raw"`
-	Embeddings pgvector.Vector  `db:"embeddings" json:"embeddings"`
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	ID         int64              `db:"id" json:"id"`
+	Raw        string             `db:"raw" json:"raw"`
+	Embeddings pgvector.Vector    `db:"embeddings" json:"embeddings"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type VectorStoreDefault struct {
-	ID         int64            `db:"id" json:"id"`
-	Raw        string           `db:"raw" json:"raw"`
-	Embeddings pgvector.Vector  `db:"embeddings" json:"embeddings"`
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	ID         int64              `db:"id" json:"id"`
+	Raw        string             `db:"raw" json:"raw"`
+	Embeddings pgvector.Vector    `db:"embeddings" json:"embeddings"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type Website struct {
-	ID         int64            `db:"id" json:"id"`
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	Protocol   string           `db:"protocol" json:"protocol"`
-	Domain     string           `db:"domain" json:"domain"`
-	Blacklist  []string         `db:"blacklist" json:"blacklist"`
-	Whitelist  []string         `db:"whitelist" json:"whitelist"`
-	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	ID         int64              `db:"id" json:"id"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	Protocol   string             `db:"protocol" json:"protocol"`
+	Domain     string             `db:"domain" json:"domain"`
+	Blacklist  []string           `db:"blacklist" json:"blacklist"`
+	Whitelist  []string           `db:"whitelist" json:"whitelist"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type WebsitePage struct {
-	ID         int64            `db:"id" json:"id"`
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	WebsiteID  int64            `db:"website_id" json:"websiteId"`
-	Url        string           `db:"url" json:"url"`
-	Sha256     string           `db:"sha_256" json:"sha256"`
-	IsValid    bool             `db:"is_valid" json:"isValid"`
-	CreatedAt  pgtype.Timestamp `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	ID         int64              `db:"id" json:"id"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	WebsiteID  int64              `db:"website_id" json:"websiteId"`
+	Url        string             `db:"url" json:"url"`
+	Sha256     string             `db:"sha_256" json:"sha256"`
+	IsValid    bool               `db:"is_valid" json:"isValid"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type WebsitePageVector struct {
-	ID            int64            `db:"id" json:"id"`
-	WebsitePageID int64            `db:"website_page_id" json:"websitePageId"`
-	VectorStoreID int64            `db:"vector_store_id" json:"vectorStoreId"`
-	CustomerID    int64            `db:"customer_id" json:"customerId"`
-	Index         int32            `db:"index" json:"index"`
-	CreatedAt     pgtype.Timestamp `db:"created_at" json:"createdAt"`
+	ID            int64              `db:"id" json:"id"`
+	WebsitePageID int64              `db:"website_page_id" json:"websitePageId"`
+	VectorStoreID int64              `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    int64              `db:"customer_id" json:"customerId"`
+	Index         int32              `db:"index" json:"index"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }

@@ -482,8 +482,8 @@ AND updated_at < $2
 `
 
 type DeleteDocumentsOlderThanParams struct {
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 // DeleteDocumentsOlderThan
@@ -503,8 +503,8 @@ AND updated_at < $2
 `
 
 type DeleteFoldersOlderThanParams struct {
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 // DeleteFoldersOlderThan
@@ -547,8 +547,8 @@ AND updated_at < $2
 `
 
 type DeleteWebsitePagesOlderThanParams struct {
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 // DeleteWebsitePagesOlderThan
@@ -719,8 +719,8 @@ AND updated_at < $2
 `
 
 type GetDocumentsOlderThanParams struct {
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 // GetDocumentsOlderThan
@@ -891,8 +891,8 @@ AND updated_at < $2
 `
 
 type GetFoldersOlderThanParams struct {
-	CustomerID int64            `db:"customer_id" json:"customerId"`
-	UpdatedAt  pgtype.Timestamp `db:"updated_at" json:"updatedAt"`
+	CustomerID int64              `db:"customer_id" json:"customerId"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 // GetFoldersOlderThan
