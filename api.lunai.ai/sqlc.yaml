@@ -4,7 +4,7 @@ cloud:
 sql:
   - engine: "postgresql"
     queries: "../database/queries/queries.sql"
-    schema: "../database/schema/00_GENERATED_schema.sql"
+    schema: "../database/schema.sql"
     gen:
       go:
         package: "queries"

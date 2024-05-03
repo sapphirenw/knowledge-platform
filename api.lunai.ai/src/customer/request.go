@@ -3,16 +3,14 @@ package customer
 import (
 	"context"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type generatePresignedUrlRequest struct {
-	ParentId  *uuid.UUID `json:"parentId,omitempty"`
-	Filename  string     `json:"filename"`
-	Mime      string     `json:"mime"`
-	Signature string     `json:"signature"`
-	Size      int64      `json:"size"`
+	ParentId  *string `json:"parentId,omitempty"`
+	Filename  string  `json:"filename"`
+	Mime      string  `json:"mime"`
+	Signature string  `json:"signature"`
+	Size      int64   `json:"size"`
 }
 
 func (r generatePresignedUrlRequest) Valid(ctx context.Context) map[string]string {
@@ -33,8 +31,8 @@ func (r generatePresignedUrlRequest) Valid(ctx context.Context) map[string]strin
 }
 
 type createFolderRequest struct {
-	Owner *uuid.UUID `json:"owner,omitempty"`
-	Name  string     `json:"name"`
+	Owner *string `json:"owner,omitempty"`
+	Name  string  `json:"name"`
 }
 
 func (r *createFolderRequest) Valid(ctx context.Context) map[string]string {

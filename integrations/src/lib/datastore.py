@@ -60,7 +60,7 @@ def __process_folder(c: customer.Customer, parent: int, path: str):
         if folder_name != "docstore":
             # upload to the server
             payload = {
-                "owner": parent or 0,
+                "owner": parent,
                 "name": folder_name,
             }
             response = requests.post(

@@ -147,11 +147,18 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, dir
 		return err
 	}
 
+	// create a string version of the parent
+	var pid *string
+	if parentId != nil {
+		tmp := parentId.String()
+		pid = &tmp
+	}
+
 	// loop over all files
 	for _, file := range files {
 		if file.IsDir() {
 			folder, err := c.CreateFolder(ctx, db, &createFolderRequest{
-				Owner: parentId,
+				Owner: pid,
 				Name:  file.Name(),
 			})
 			if err != nil {
@@ -177,7 +184,7 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, dir
 
 			// create the pre-signed url
 			preSignedResp, err := c.GeneratePresignedUrl(ctx, db, &generatePresignedUrlRequest{
-				ParentId:  parentId,
+				ParentId:  pid,
 				Filename:  file.Name(),
 				Mime:      string(filetype),
 				Signature: utils.GenerateFingerprint(data),

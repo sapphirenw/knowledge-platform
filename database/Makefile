@@ -1,6 +1,6 @@
 # combines all schema files together and creates the master schema document
 db-schema:
-	awk 'FNR==1{print ""}1' ./schema/*.sql > ./schema/00_GENERATED_schema.sql
+	awk 'FNR==1{print ""}1' ./schema/*.sql > ./schema.sql
 
 run: db-schema
 	docker compose up -d --build

@@ -236,3 +236,4 @@ end $$ language plpgsql;
 -- with t as (select uuid7() as id from generate_series(1, 1000))
 -- select * from t where (id is null or id::text !~ '^[a-f0-9]{8}-[a-f0-9]{4}-7[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$');
 --
+
