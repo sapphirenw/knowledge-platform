@@ -95,3 +95,20 @@ CREATE TABLE project_library(
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ideas to use for content generation
+CREATE TABLE project_idea(
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+    project_id uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+
+    title TEXT NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT false,
+
+    -- TODO -- add vectors for similarity search
+
+    PRIMARY KEY (id),
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

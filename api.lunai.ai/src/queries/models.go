@@ -37,7 +37,7 @@ type BlogPost struct {
 	ID               uuid.UUID          `db:"id" json:"id"`
 	CustomerID       uuid.UUID          `db:"customer_id" json:"customerId"`
 	ProjectLibraryID uuid.UUID          `db:"project_library_id" json:"projectLibraryId"`
-	BlogPostIdeaID   pgtype.UUID        `db:"blog_post_idea_id" json:"blogPostIdeaId"`
+	ProjectIdeaID    pgtype.UUID        `db:"project_idea_id" json:"projectIdeaId"`
 	BlogCategoryID   pgtype.UUID        `db:"blog_category_id" json:"blogCategoryId"`
 	Title            string             `db:"title" json:"title"`
 	Description      string             `db:"description" json:"description"`
@@ -63,16 +63,6 @@ type BlogPostConfig struct {
 	LlmProofReadingDefaultID         pgtype.UUID        `db:"llm_proof_reading_default_id" json:"llmProofReadingDefaultId"`
 	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt                        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-}
-
-type BlogPostIdea struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	ProjectID  uuid.UUID          `db:"project_id" json:"projectId"`
-	Title      string             `db:"title" json:"title"`
-	Used       bool               `db:"used" json:"used"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type BlogPostSection struct {
@@ -235,6 +225,16 @@ type ProjectFolder struct {
 	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	ProjectID  uuid.UUID          `db:"project_id" json:"projectId"`
 	FolderID   uuid.UUID          `db:"folder_id" json:"folderId"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ProjectIdea struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectID  uuid.UUID          `db:"project_id" json:"projectId"`
+	Title      string             `db:"title" json:"title"`
+	Used       bool               `db:"used" json:"used"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }

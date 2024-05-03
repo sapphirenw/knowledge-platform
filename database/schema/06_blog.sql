@@ -55,30 +55,13 @@ CREATE TABLE blog_category(
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- to hold query ideas for generating posts in this blog
-CREATE TABLE blog_post_idea(
-    id uuid NOT NULL DEFAULT uuid7(),
-    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
-    project_id uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
-
-    title TEXT NOT NULL,
-    used BOOLEAN NOT NULL DEFAULT false,
-
-    -- TODO -- add vectors for similarity search
-
-    PRIMARY KEY (id),
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
 -- holds the metadata for a blog post
 CREATE TABLE blog_post(
     id uuid NOT NULL DEFAULT uuid7(),
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     project_library_id uuid NOT NULL REFERENCES project_library(id) ON DELETE CASCADE,
 
-    blog_post_idea_id uuid DEFAULT NULL REFERENCES blog_post_idea(id) ON DELETE SET NULL,
+    project_idea_id uuid DEFAULT NULL REFERENCES project_idea(id) ON DELETE SET NULL,
     blog_category_id uuid DEFAULT NULL REFERENCES blog_category(id) ON DELETE SET NULL,
 
     title TEXT NOT NULL,
