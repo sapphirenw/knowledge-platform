@@ -18,7 +18,7 @@ RUN mkdir -p $INIT_DIR
 WORKDIR $INIT_DIR
 
 # Copy initialization scripts to the container
-COPY ./schema/00_GENERATED_schema.sql init.sql
+COPY ./schema.sql init.sql
 
 # Grant permissions on the scripts to be executable
 RUN chmod +x $INIT_DIR/*

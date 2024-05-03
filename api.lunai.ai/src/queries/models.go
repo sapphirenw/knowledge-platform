@@ -22,32 +22,10 @@ type AssetCatalog struct {
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
-type Blog struct {
-	ID                               uuid.UUID          `db:"id" json:"id"`
-	CustomerID                       uuid.UUID          `db:"customer_id" json:"customerId"`
-	Title                            string             `db:"title" json:"title"`
-	MainTopic                        string             `db:"main_topic" json:"mainTopic"`
-	Url                              pgtype.Text        `db:"url" json:"url"`
-	Metadata                         []byte             `db:"metadata" json:"metadata"`
-	MinSections                      int32              `db:"min_sections" json:"minSections"`
-	MaxSections                      int32              `db:"max_sections" json:"maxSections"`
-	DocumentsPerSection              int32              `db:"documents_per_section" json:"documentsPerSection"`
-	WebsitePagesPerSection           int32              `db:"website_pages_per_section" json:"websitePagesPerSection"`
-	AutoGen                          bool               `db:"auto_gen" json:"autoGen"`
-	AutoGenCadence                   string             `db:"auto_gen_cadence" json:"autoGenCadence"`
-	AutoGenTime                      pgtype.Time        `db:"auto_gen_time" json:"autoGenTime"`
-	LlmContentGenerationDefaultID    pgtype.UUID        `db:"llm_content_generation_default_id" json:"llmContentGenerationDefaultId"`
-	LlmVectorSummarizationDefaultID  pgtype.UUID        `db:"llm_vector_summarization_default_id" json:"llmVectorSummarizationDefaultId"`
-	LlmWebsiteSummarizationDefaultID pgtype.UUID        `db:"llm_website_summarization_default_id" json:"llmWebsiteSummarizationDefaultId"`
-	LlmProofReadingDefaultID         pgtype.UUID        `db:"llm_proof_reading_default_id" json:"llmProofReadingDefaultId"`
-	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt                        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-}
-
 type BlogCategory struct {
 	ID           uuid.UUID          `db:"id" json:"id"`
 	CustomerID   uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID       uuid.UUID          `db:"blog_id" json:"blogId"`
+	ProjectID    uuid.UUID          `db:"project_id" json:"projectId"`
 	Title        string             `db:"title" json:"title"`
 	TextColorHex pgtype.Text        `db:"text_color_hex" json:"textColorHex"`
 	BgColorHex   pgtype.Text        `db:"bg_color_hex" json:"bgColorHex"`
@@ -56,22 +34,41 @@ type BlogCategory struct {
 }
 
 type BlogPost struct {
-	ID             uuid.UUID          `db:"id" json:"id"`
-	CustomerID     uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID         uuid.UUID          `db:"blog_id" json:"blogId"`
-	BlogPostIdeaID pgtype.UUID        `db:"blog_post_idea_id" json:"blogPostIdeaId"`
-	BlogCategoryID pgtype.UUID        `db:"blog_category_id" json:"blogCategoryId"`
-	Title          string             `db:"title" json:"title"`
-	Description    string             `db:"description" json:"description"`
-	Metadata       []byte             `db:"metadata" json:"metadata"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID               uuid.UUID          `db:"id" json:"id"`
+	CustomerID       uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectLibraryID uuid.UUID          `db:"project_library_id" json:"projectLibraryId"`
+	BlogPostIdeaID   pgtype.UUID        `db:"blog_post_idea_id" json:"blogPostIdeaId"`
+	BlogCategoryID   pgtype.UUID        `db:"blog_category_id" json:"blogCategoryId"`
+	Title            string             `db:"title" json:"title"`
+	Description      string             `db:"description" json:"description"`
+	Metadata         []byte             `db:"metadata" json:"metadata"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type BlogPostConfig struct {
+	ID                               uuid.UUID          `db:"id" json:"id"`
+	CustomerID                       uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectID                        uuid.UUID          `db:"project_id" json:"projectId"`
+	MainTopic                        string             `db:"main_topic" json:"mainTopic"`
+	Url                              pgtype.Text        `db:"url" json:"url"`
+	Metadata                         []byte             `db:"metadata" json:"metadata"`
+	MinSections                      int32              `db:"min_sections" json:"minSections"`
+	MaxSections                      int32              `db:"max_sections" json:"maxSections"`
+	DocumentsPerSection              int32              `db:"documents_per_section" json:"documentsPerSection"`
+	WebsitePagesPerSection           int32              `db:"website_pages_per_section" json:"websitePagesPerSection"`
+	LlmContentGenerationDefaultID    pgtype.UUID        `db:"llm_content_generation_default_id" json:"llmContentGenerationDefaultId"`
+	LlmVectorSummarizationDefaultID  pgtype.UUID        `db:"llm_vector_summarization_default_id" json:"llmVectorSummarizationDefaultId"`
+	LlmWebsiteSummarizationDefaultID pgtype.UUID        `db:"llm_website_summarization_default_id" json:"llmWebsiteSummarizationDefaultId"`
+	LlmProofReadingDefaultID         pgtype.UUID        `db:"llm_proof_reading_default_id" json:"llmProofReadingDefaultId"`
+	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type BlogPostIdea struct {
 	ID         uuid.UUID          `db:"id" json:"id"`
 	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
+	ProjectID  uuid.UUID          `db:"project_id" json:"projectId"`
 	Title      string             `db:"title" json:"title"`
 	Used       bool               `db:"used" json:"used"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
@@ -80,12 +77,10 @@ type BlogPostIdea struct {
 
 type BlogPostSection struct {
 	ID                          uuid.UUID          `db:"id" json:"id"`
-	CustomerID                  uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID                      uuid.UUID          `db:"blog_id" json:"blogId"`
 	BlogPostID                  uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
+	AdditionalInstructions      string             `db:"additional_instructions" json:"additionalInstructions"`
 	Title                       string             `db:"title" json:"title"`
 	Description                 string             `db:"description" json:"description"`
-	AdditionalInstructions      string             `db:"additional_instructions" json:"additionalInstructions"`
 	AssetID                     pgtype.UUID        `db:"asset_id" json:"assetId"`
 	Metadata                    []byte             `db:"metadata" json:"metadata"`
 	ContentGenerationModelID    pgtype.UUID        `db:"content_generation_model_id" json:"contentGenerationModelId"`
@@ -98,9 +93,6 @@ type BlogPostSection struct {
 
 type BlogPostSectionContent struct {
 	ID                uuid.UUID          `db:"id" json:"id"`
-	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID            uuid.UUID          `db:"blog_id" json:"blogId"`
-	BlogPostID        uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
 	BlogPostSectionID uuid.UUID          `db:"blog_post_section_id" json:"blogPostSectionId"`
 	Content           string             `db:"content" json:"content"`
 	Feedback          string             `db:"feedback" json:"feedback"`
@@ -110,21 +102,16 @@ type BlogPostSectionContent struct {
 }
 
 type BlogPostSectionDocument struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
-	BlogPostID uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
-	DocumentID uuid.UUID          `db:"document_id" json:"documentId"`
-	Query      string             `db:"query" json:"query"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID                uuid.UUID          `db:"id" json:"id"`
+	BlogPostSectionID uuid.UUID          `db:"blog_post_section_id" json:"blogPostSectionId"`
+	DocumentID        uuid.UUID          `db:"document_id" json:"documentId"`
+	Query             string             `db:"query" json:"query"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type BlogPostSectionWebsitePage struct {
 	ID                uuid.UUID          `db:"id" json:"id"`
-	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID            uuid.UUID          `db:"blog_id" json:"blogId"`
-	BlogPostID        uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
 	BlogPostSectionID uuid.UUID          `db:"blog_post_section_id" json:"blogPostSectionId"`
 	WebsitePageID     uuid.UUID          `db:"website_page_id" json:"websitePageId"`
 	Query             string             `db:"query" json:"query"`
@@ -134,28 +121,8 @@ type BlogPostSectionWebsitePage struct {
 
 type BlogPostTag struct {
 	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
 	BlogPostID uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
 	Title      string             `db:"title" json:"title"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-}
-
-type BlogReferenceFolder struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
-	FolderID   uuid.UUID          `db:"folder_id" json:"folderId"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-}
-
-type BlogReferenceWebsite struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
-	WebsiteID  uuid.UUID          `db:"website_id" json:"websiteId"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
@@ -206,40 +173,42 @@ type Folder struct {
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
-type GenerationLibrary struct {
-	ID          uuid.UUID          `db:"id" json:"id"`
-	CustomerID  uuid.UUID          `db:"customer_id" json:"customerId"`
-	Title       string             `db:"title" json:"title"`
-	ContentType string             `db:"content_type" json:"contentType"`
-	Draft       bool               `db:"draft" json:"draft"`
-	Published   bool               `db:"published" json:"published"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+type LinkedinPost struct {
+	ID                     uuid.UUID          `db:"id" json:"id"`
+	CustomerID             uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectLibraryID       uuid.UUID          `db:"project_library_id" json:"projectLibraryId"`
+	AdditionalInstructions string             `db:"additional_instructions" json:"additionalInstructions"`
+	Title                  string             `db:"title" json:"title"`
+	AssetID                pgtype.UUID        `db:"asset_id" json:"assetId"`
+	Metadata               []byte             `db:"metadata" json:"metadata"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt              pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
-type LinkedinAccount struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+type LinkedinPostConfig struct {
+	ID                               uuid.UUID          `db:"id" json:"id"`
+	CustomerID                       uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectID                        uuid.UUID          `db:"project_id" json:"projectId"`
+	MinSections                      int32              `db:"min_sections" json:"minSections"`
+	MaxSections                      int32              `db:"max_sections" json:"maxSections"`
+	DocumentsPerPost                 int32              `db:"documents_per_post" json:"documentsPerPost"`
+	WebsitePagesPerPost              int32              `db:"website_pages_per_post" json:"websitePagesPerPost"`
+	LlmContentGenerationDefaultID    pgtype.UUID        `db:"llm_content_generation_default_id" json:"llmContentGenerationDefaultId"`
+	LlmVectorSummarizationDefaultID  pgtype.UUID        `db:"llm_vector_summarization_default_id" json:"llmVectorSummarizationDefaultId"`
+	LlmWebsiteSummarizationDefaultID pgtype.UUID        `db:"llm_website_summarization_default_id" json:"llmWebsiteSummarizationDefaultId"`
+	LlmProofReadingDefaultID         pgtype.UUID        `db:"llm_proof_reading_default_id" json:"llmProofReadingDefaultId"`
+	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
-type LinkedinReferenceFolder struct {
-	ID                uuid.UUID          `db:"id" json:"id"`
-	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
-	LinkedinAccountID uuid.UUID          `db:"linkedin_account_id" json:"linkedinAccountId"`
-	FolderID          uuid.UUID          `db:"folder_id" json:"folderId"`
-	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-}
-
-type LinkedinReferenceWebsite struct {
-	ID                uuid.UUID          `db:"id" json:"id"`
-	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
-	LinkedinAccountID uuid.UUID          `db:"linkedin_account_id" json:"linkedinAccountId"`
-	WebsiteID         uuid.UUID          `db:"website_id" json:"websiteId"`
-	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+type LinkedinPostContent struct {
+	ID             uuid.UUID          `db:"id" json:"id"`
+	LinkedinPostID uuid.UUID          `db:"linkedin_post_id" json:"linkedinPostId"`
+	Content        string             `db:"content" json:"content"`
+	Feedback       string             `db:"feedback" json:"feedback"`
+	Index          int32              `db:"index" json:"index"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type Llm struct {
@@ -251,6 +220,44 @@ type Llm struct {
 	IsDefault    bool               `db:"is_default" json:"isDefault"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type Project struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	Title      string             `db:"title" json:"title"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ProjectFolder struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectID  uuid.UUID          `db:"project_id" json:"projectId"`
+	FolderID   uuid.UUID          `db:"folder_id" json:"folderId"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ProjectLibrary struct {
+	ID          uuid.UUID          `db:"id" json:"id"`
+	CustomerID  uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectID   uuid.UUID          `db:"project_id" json:"projectId"`
+	Title       string             `db:"title" json:"title"`
+	ContentType string             `db:"content_type" json:"contentType"`
+	Draft       bool               `db:"draft" json:"draft"`
+	Published   bool               `db:"published" json:"published"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ProjectWebsite struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectID  uuid.UUID          `db:"project_id" json:"projectId"`
+	WebsiteID  uuid.UUID          `db:"website_id" json:"websiteId"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type TokenUsage struct {

@@ -2,13 +2,21 @@
 db-schema:
 	awk 'FNR==1{print ""}1' ./schema/*.sql > ./schema.sql
 
+clean:
+	rm -rf ./data
+	docker ps -a --filter "ancestor=database_aicontent-db" -q | xargs -r docker rm -f
+
 run: db-schema
 	docker compose up -d --build
 
 rebuild: db-schema
-	rm -rf ./data
-	docker ps -a --filter "ancestor=database_aicontent-db" -q | xargs -r docker rm -f
+	$(MAKE) clean
 	$(MAKE) run
+
+test: db-schema
+	$(MAKE) clean
+	docker compose up --build
+	$(MAKE) clean
 
 connect:
 	psql 'postgresql://aicontent:aicontent@localhost:5432/aicontent'
