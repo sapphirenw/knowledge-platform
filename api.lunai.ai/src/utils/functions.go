@@ -4,10 +4,12 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -20,10 +22,10 @@ func ChunkStringEqualUntilN(s string, n int) []string {
 		return []string{}
 	}
 
-	totalLength := len(s)
-	numParts := int(math.Ceil(float64(totalLength) / float64(n)))
-	evenLength := totalLength / numParts
-	extraChars := totalLength % numParts
+	totalRuneCount := utf8.RuneCountInString(s) // Count of runes instead of bytes
+	numParts := int(math.Ceil(float64(totalRuneCount) / float64(n)))
+	evenLength := totalRuneCount / numParts
+	extraChars := totalRuneCount % numParts
 
 	var parts []string
 	start := 0
@@ -32,10 +34,15 @@ func ChunkStringEqualUntilN(s string, n int) []string {
 		if i < extraChars {
 			partLength++ // Distribute extra characters among the first few parts
 		}
-		end := start + partLength
-		if end > totalLength {
-			end = totalLength
+
+		end := start
+		count := 0
+		for count < partLength && end < len(s) {
+			_, size := utf8.DecodeRuneInString(s[end:])
+			end += size
+			count++
 		}
+
 		parts = append(parts, s[start:end])
 		start = end
 	}
@@ -52,18 +59,23 @@ func ConvertSlice[T any, U any](list []T, convert func(T) U) []U {
 	return result
 }
 
-func GoogleUUIDToPGXUUID(googleUUID uuid.UUID) pgtype.UUID {
+func GoogleUUIDToPGXUUID(googleUUID *uuid.UUID) (pgtype.UUID, error) {
 	var pid pgtype.UUID
-	pid.Scan(googleUUID.String())
-	return pid
+	// allow for nil passed
+	if googleUUID == nil {
+		return pid, nil
+	}
+	if err := pid.Scan(googleUUID.String()); err != nil {
+		return pid, err
+	}
+	return pid, nil
 }
 
-func PGXUUIDToGoogleUUID(pgxUUID pgtype.UUID) (uuid.UUID, error) {
-	tmp, err := pgxUUID.Value()
-	if err != nil {
-		return uuid.New(), err
+func PGXUUIDToGoogleUUID(pgxUUID *pgtype.UUID) (uuid.UUID, error) {
+	if !pgxUUID.Valid {
+		return uuid.UUID{}, fmt.Errorf("invalid pgx UUID")
 	}
-	return uuid.Parse(tmp.(string))
+	return uuid.FromBytes(pgxUUID.Bytes[:])
 }
 
 func CleanInput(input string) string {
@@ -74,7 +86,16 @@ func CleanInput(input string) string {
 	re := regexp.MustCompile(`\s+`)
 	input = re.ReplaceAllString(input, " ")
 
-	return input
+	// remove all invalid utf-8 characters
+	valid := make([]rune, 0, len(input))
+	for len(input) > 0 {
+		r, size := utf8.DecodeRuneInString(input)
+		if r != utf8.RuneError {
+			valid = append(valid, r)
+		}
+		input = input[size:]
+	}
+	return string(valid)
 }
 
 func GenerateFingerprint(input []byte) string {

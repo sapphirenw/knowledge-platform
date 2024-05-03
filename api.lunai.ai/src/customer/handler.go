@@ -3,10 +3,10 @@ package customer
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/httplog/v2"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
@@ -63,7 +63,7 @@ func customerHandler(
 
 			// parse the customerId
 			idStr := chi.URLParam(r, "customerId")
-			customerId, err := strconv.ParseInt(idStr, 10, 64)
+			customerId, err := uuid.Parse(idStr)
 			if err != nil {
 				l.Error("Invalid customerId", "customerId", idStr)
 				http.Error(w, fmt.Sprintf("Invalid customerId: %s", idStr), http.StatusBadRequest)
@@ -112,25 +112,17 @@ func documentHandler(
 ) http.HandlerFunc {
 	return http.HandlerFunc(
 		customerHandler(func(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, c *Customer) {
+			// scan the docId into a uuid
 			docId := chi.URLParam(r, "documentId")
-			documentId, err := strconv.ParseInt(docId, 10, 64)
+			documentId, err := uuid.Parse(docId)
 			if err != nil {
 				c.logger.Error("Invalid documentId", "documentId", docId)
 				http.Error(w, fmt.Sprintf("Invalid documentId: %s", docId), http.StatusBadRequest)
 				return
 			}
 
-			// get the document from the db
-			model := queries.New(pool)
-			d, err := model.GetDocument(r.Context(), documentId)
-			if err != nil {
-				c.logger.Error("Error getting the document", "error", err)
-				http.Error(w, fmt.Sprintf("There was no document found with documentId: %s", docId), http.StatusNotFound)
-				return
-			}
-
 			// parse as a docstore doc
-			doc, err := docstore.NewDocument(c.Customer.ID, d)
+			doc, err := docstore.NewDocument(r.Context(), pool, documentId)
 			if err != nil {
 				c.logger.Error("Error parsing as a docstore doc", "error", err)
 				http.Error(w, fmt.Sprintf("There was an internal issue: %s", err), http.StatusInternalServerError)
@@ -155,7 +147,7 @@ func websiteHandler(
 	return http.HandlerFunc(
 		customerHandler(func(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, c *Customer) {
 			id := chi.URLParam(r, "websiteId")
-			siteId, err := strconv.ParseInt(id, 10, 64)
+			siteId, err := uuid.Parse(id)
 			if err != nil {
 				c.logger.Error("Invalid folderId", "siteId", id)
 				http.Error(w, fmt.Sprintf("Invalid siteId: %s", id), http.StatusBadRequest)

@@ -7,6 +7,7 @@ run: db-schema
 
 rebuild: db-schema
 	rm -rf ./data
+	docker ps -a --filter "ancestor=database_aicontent-db" -q | xargs -r docker rm -f
 	$(MAKE) run
 
 connect:

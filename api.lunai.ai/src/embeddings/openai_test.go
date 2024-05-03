@@ -6,7 +6,7 @@ import (
 
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOpenAIEmbeddings(t *testing.T) {
@@ -18,29 +18,30 @@ func TestOpenAIEmbeddings(t *testing.T) {
 
 	// create a test customer
 	customer := testingutils.CreateTestCustomer(t, ctx, pool)
+	require.NotNil(t, customer)
 
 	// send the embeddings request
 	embeddings := NewOpenAIEmbeddings(customer.ID, nil)
 	response, err := embeddings.Embed(ctx, input)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	if err != nil {
 		return
 	}
 
-	assert.Equal(t, 1, len(response))
+	require.Equal(t, 1, len(response))
 
 	// insert the embeddings and ensure that no dupliates get created
 	for range 3 {
 		err = embeddings.ReportUsage(ctx, pool)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 
 		// test that the correct data exists in the database
 		model := queries.New(pool)
 		usage, err := model.GetTokenUsage(ctx, customer.ID)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 		if err != nil {
 			return
 		}
-		assert.Equal(t, 1, len(usage))
+		require.Equal(t, 1, len(usage))
 	}
 }

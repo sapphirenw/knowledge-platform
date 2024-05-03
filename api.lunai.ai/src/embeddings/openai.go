@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jake-landersweb/gollm/src/ltypes"
 	"github.com/jake-landersweb/gollm/src/tokens"
 	"github.com/pgvector/pgvector-go"
@@ -20,7 +21,7 @@ import (
 )
 
 type OpenAIEmbeddings struct {
-	userId int64
+	userId uuid.UUID
 	model  string
 	logger *slog.Logger
 
@@ -33,7 +34,7 @@ type OpenAIEmbeddingsOpts struct {
 	Logger *slog.Logger
 }
 
-func NewOpenAIEmbeddings(userId int64, opts *OpenAIEmbeddingsOpts) *OpenAIEmbeddings {
+func NewOpenAIEmbeddings(userId uuid.UUID, opts *OpenAIEmbeddingsOpts) *OpenAIEmbeddings {
 	if opts == nil {
 		opts = &OpenAIEmbeddingsOpts{}
 	}
@@ -44,7 +45,7 @@ func NewOpenAIEmbeddings(userId int64, opts *OpenAIEmbeddingsOpts) *OpenAIEmbedd
 		opts.Model = OPENAI_EMBEDDINGS_MODEL
 	}
 
-	opts.Logger = opts.Logger.With("userId", userId, "model", opts.Model)
+	opts.Logger = opts.Logger.With("userId", userId.String(), "model", opts.Model)
 
 	return &OpenAIEmbeddings{
 		userId: userId,
@@ -54,7 +55,7 @@ func NewOpenAIEmbeddings(userId int64, opts *OpenAIEmbeddingsOpts) *OpenAIEmbedd
 }
 
 func (e *OpenAIEmbeddings) UserIdString() string {
-	return fmt.Sprintf("%d", e.userId)
+	return e.userId.String()
 }
 
 func (e *OpenAIEmbeddings) Embed(ctx context.Context, input string) ([]*EmbeddingsData, error) {
@@ -88,7 +89,7 @@ func (e *OpenAIEmbeddings) ReportUsage(ctx context.Context, db queries.DBTX) err
 	for idx, item := range e.tokenRecords {
 		e.logger.InfoContext(ctx, "Posting to database ...", "index", idx)
 		_, err := model.CreateTokenUsage(ctx, &queries.CreateTokenUsageParams{
-			ID:           utils.GoogleUUIDToPGXUUID(item.ID),
+			ID:           item.ID,
 			CustomerID:   e.userId,
 			Model:        e.model,
 			InputTokens:  int32(item.InputTokens),

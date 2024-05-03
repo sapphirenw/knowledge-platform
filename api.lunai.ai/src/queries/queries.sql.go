@@ -8,6 +8,7 @@ package queries
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pgvector/pgvector-go"
 )
@@ -48,14 +49,14 @@ INSERT INTO document (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-ON CONFLICT (customer_id, COALESCE(parent_id, -1), filename) DO UPDATE
+ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
 RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at
 `
 
 type CreateDocumentParams struct {
-	ParentID   pgtype.Int8 `db:"parent_id" json:"parentId"`
-	CustomerID int64       `db:"customer_id" json:"customerId"`
+	ParentID   pgtype.UUID `db:"parent_id" json:"parentId"`
+	CustomerID uuid.UUID   `db:"customer_id" json:"customerId"`
 	Filename   string      `db:"filename" json:"filename"`
 	Type       string      `db:"type" json:"type"`
 	SizeBytes  int64       `db:"size_bytes" json:"sizeBytes"`
@@ -69,7 +70,7 @@ type CreateDocumentParams struct {
 //	) VALUES (
 //	    $1, $2, $3, $4, $5, $6
 //	)
-//	ON CONFLICT (customer_id, COALESCE(parent_id, -1), filename) DO UPDATE
+//	ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 //	SET updated_at = CURRENT_TIMESTAMP
 //	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at
 func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams) (*Document, error) {
@@ -107,10 +108,10 @@ RETURNING id, document_id, vector_store_id, customer_id, index, created_at
 `
 
 type CreateDocumentVectorParams struct {
-	DocumentID    int64 `db:"document_id" json:"documentId"`
-	VectorStoreID int64 `db:"vector_store_id" json:"vectorStoreId"`
-	CustomerID    int64 `db:"customer_id" json:"customerId"`
-	Index         int32 `db:"index" json:"index"`
+	DocumentID    uuid.UUID `db:"document_id" json:"documentId"`
+	VectorStoreID uuid.UUID `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    uuid.UUID `db:"customer_id" json:"customerId"`
+	Index         int32     `db:"index" json:"index"`
 }
 
 // CreateDocumentVector
@@ -146,14 +147,14 @@ INSERT INTO folder (
 ) VALUES (
     $1, $2, $3
 )
-ON CONFLICT (customer_id, COALESCE(parent_id, -1), title) DO UPDATE
+ON CONFLICT (customer_id, parent_id, title) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
 RETURNING id, parent_id, customer_id, title, created_at, updated_at
 `
 
 type CreateFolderParams struct {
-	ParentID   pgtype.Int8 `db:"parent_id" json:"parentId"`
-	CustomerID int64       `db:"customer_id" json:"customerId"`
+	ParentID   pgtype.UUID `db:"parent_id" json:"parentId"`
+	CustomerID uuid.UUID   `db:"customer_id" json:"customerId"`
 	Title      string      `db:"title" json:"title"`
 }
 
@@ -164,7 +165,7 @@ type CreateFolderParams struct {
 //	) VALUES (
 //	    $1, $2, $3
 //	)
-//	ON CONFLICT (customer_id, COALESCE(parent_id, -1), title) DO UPDATE
+//	ON CONFLICT (customer_id, parent_id, title) DO UPDATE
 //	SET updated_at = CURRENT_TIMESTAMP
 //	RETURNING id, parent_id, customer_id, title, created_at, updated_at
 func (q *Queries) CreateFolder(ctx context.Context, arg *CreateFolderParams) (*Folder, error) {
@@ -187,7 +188,7 @@ INSERT INTO folder (
 ) VALUES (
     $1, 'root'
 )
-ON CONFLICT (customer_id, COALESCE(parent_id, -1), title) DO UPDATE
+ON CONFLICT (customer_id, parent_id, title) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
 RETURNING id, parent_id, customer_id, title, created_at, updated_at
 `
@@ -199,10 +200,10 @@ RETURNING id, parent_id, customer_id, title, created_at, updated_at
 //	) VALUES (
 //	    $1, 'root'
 //	)
-//	ON CONFLICT (customer_id, COALESCE(parent_id, -1), title) DO UPDATE
+//	ON CONFLICT (customer_id, parent_id, title) DO UPDATE
 //	SET updated_at = CURRENT_TIMESTAMP
 //	RETURNING id, parent_id, customer_id, title, created_at, updated_at
-func (q *Queries) CreateFolderRoot(ctx context.Context, customerID int64) (*Folder, error) {
+func (q *Queries) CreateFolderRoot(ctx context.Context, customerID uuid.UUID) (*Folder, error) {
 	row := q.db.QueryRow(ctx, createFolderRoot, customerID)
 	var i Folder
 	err := row.Scan(
@@ -233,12 +234,12 @@ RETURNING id, customer_id, model, input_tokens, output_tokens, total_tokens, cre
 `
 
 type CreateTokenUsageParams struct {
-	ID           pgtype.UUID `db:"id" json:"id"`
-	CustomerID   int64       `db:"customer_id" json:"customerId"`
-	Model        string      `db:"model" json:"model"`
-	InputTokens  int32       `db:"input_tokens" json:"inputTokens"`
-	OutputTokens int32       `db:"output_tokens" json:"outputTokens"`
-	TotalTokens  int32       `db:"total_tokens" json:"totalTokens"`
+	ID           uuid.UUID `db:"id" json:"id"`
+	CustomerID   uuid.UUID `db:"customer_id" json:"customerId"`
+	Model        string    `db:"model" json:"model"`
+	InputTokens  int32     `db:"input_tokens" json:"inputTokens"`
+	OutputTokens int32     `db:"output_tokens" json:"outputTokens"`
+	TotalTokens  int32     `db:"total_tokens" json:"totalTokens"`
 }
 
 // CreateTokenUsage
@@ -290,7 +291,7 @@ RETURNING id
 type CreateVectorParams struct {
 	Raw        string          `db:"raw" json:"raw"`
 	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
-	CustomerID int64           `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
 }
 
 // CreateVector
@@ -301,9 +302,9 @@ type CreateVectorParams struct {
 //	    $1, $2, $3
 //	)
 //	RETURNING id
-func (q *Queries) CreateVector(ctx context.Context, arg *CreateVectorParams) (int64, error) {
+func (q *Queries) CreateVector(ctx context.Context, arg *CreateVectorParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createVector, arg.Raw, arg.Embeddings, arg.CustomerID)
-	var id int64
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -323,11 +324,11 @@ RETURNING id, customer_id, protocol, domain, blacklist, whitelist, created_at, u
 `
 
 type CreateWebsiteParams struct {
-	CustomerID int64    `db:"customer_id" json:"customerId"`
-	Protocol   string   `db:"protocol" json:"protocol"`
-	Domain     string   `db:"domain" json:"domain"`
-	Blacklist  []string `db:"blacklist" json:"blacklist"`
-	Whitelist  []string `db:"whitelist" json:"whitelist"`
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	Protocol   string    `db:"protocol" json:"protocol"`
+	Domain     string    `db:"domain" json:"domain"`
+	Blacklist  []string  `db:"blacklist" json:"blacklist"`
+	Whitelist  []string  `db:"whitelist" json:"whitelist"`
 }
 
 // CreateWebsite
@@ -379,10 +380,10 @@ RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updat
 `
 
 type CreateWebsitePageParams struct {
-	CustomerID int64  `db:"customer_id" json:"customerId"`
-	WebsiteID  int64  `db:"website_id" json:"websiteId"`
-	Url        string `db:"url" json:"url"`
-	Sha256     string `db:"sha_256" json:"sha256"`
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	WebsiteID  uuid.UUID `db:"website_id" json:"websiteId"`
+	Url        string    `db:"url" json:"url"`
+	Sha256     string    `db:"sha_256" json:"sha256"`
 }
 
 // CreateWebsitePage
@@ -428,10 +429,10 @@ RETURNING id, website_page_id, vector_store_id, customer_id, index, created_at
 `
 
 type CreateWebsitePageVectorParams struct {
-	WebsitePageID int64 `db:"website_page_id" json:"websitePageId"`
-	VectorStoreID int64 `db:"vector_store_id" json:"vectorStoreId"`
-	CustomerID    int64 `db:"customer_id" json:"customerId"`
-	Index         int32 `db:"index" json:"index"`
+	WebsitePageID uuid.UUID `db:"website_page_id" json:"websitePageId"`
+	VectorStoreID uuid.UUID `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    uuid.UUID `db:"customer_id" json:"customerId"`
+	Index         int32     `db:"index" json:"index"`
 }
 
 // CreateWebsitePageVector
@@ -470,7 +471,7 @@ WHERE id = $1
 //
 //	DELETE FROM customer
 //	WHERE id = $1
-func (q *Queries) DeleteCustomer(ctx context.Context, id int64) error {
+func (q *Queries) DeleteCustomer(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteCustomer, id)
 	return err
 }
@@ -482,7 +483,7 @@ AND updated_at < $2
 `
 
 type DeleteDocumentsOlderThanParams struct {
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
@@ -503,7 +504,7 @@ AND updated_at < $2
 `
 
 type DeleteFoldersOlderThanParams struct {
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
@@ -525,8 +526,8 @@ AND is_valid = FALSE
 `
 
 type DeleteWebsitePagesNotValidParams struct {
-	CustomerID int64 `db:"customer_id" json:"customerId"`
-	WebsiteID  int64 `db:"website_id" json:"websiteId"`
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	WebsiteID  uuid.UUID `db:"website_id" json:"websiteId"`
 }
 
 // DeleteWebsitePagesNotValid
@@ -547,7 +548,7 @@ AND updated_at < $2
 `
 
 type DeleteWebsitePagesOlderThanParams struct {
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
@@ -570,7 +571,7 @@ WHERE id = $1 LIMIT 1
 //
 //	SELECT id, name, datastore, created_at, updated_at FROM customer
 //	WHERE id = $1 LIMIT 1
-func (q *Queries) GetCustomer(ctx context.Context, id int64) (*Customer, error) {
+func (q *Queries) GetCustomer(ctx context.Context, id uuid.UUID) (*Customer, error) {
 	row := q.db.QueryRow(ctx, getCustomer, id)
 	var i Customer
 	err := row.Scan(
@@ -614,7 +615,7 @@ WHERE id = $1 LIMIT 1
 //
 //	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
 //	WHERE id = $1 LIMIT 1
-func (q *Queries) GetDocument(ctx context.Context, id int64) (*Document, error) {
+func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, getDocument, id)
 	var i Document
 	err := row.Scan(
@@ -641,7 +642,7 @@ WHERE customer_id = $1 AND validated = true
 //
 //	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND validated = true
-func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID int64) ([]*Document, error) {
+func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsByCustomer, customerID)
 	if err != nil {
 		return nil, err
@@ -681,7 +682,7 @@ WHERE parent_id = $1 AND validated = true
 //
 //	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
 //	WHERE parent_id = $1 AND validated = true
-func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.Int8) ([]*Document, error) {
+func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsFromParent, parentID)
 	if err != nil {
 		return nil, err
@@ -719,7 +720,7 @@ AND updated_at < $2
 `
 
 type GetDocumentsOlderThanParams struct {
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
@@ -768,7 +769,7 @@ WHERE id = $1 LIMIT 1
 //
 //	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 //	WHERE id = $1 LIMIT 1
-func (q *Queries) GetFolder(ctx context.Context, id int64) (*Folder, error) {
+func (q *Queries) GetFolder(ctx context.Context, id uuid.UUID) (*Folder, error) {
 	row := q.db.QueryRow(ctx, getFolder, id)
 	var i Folder
 	err := row.Scan(
@@ -789,8 +790,8 @@ LIMIT 1
 `
 
 type GetFolderWithNameParams struct {
-	CustomerID int64  `db:"customer_id" json:"customerId"`
-	Title      string `db:"title" json:"title"`
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	Title      string    `db:"title" json:"title"`
 }
 
 // GetFolderWithName
@@ -821,7 +822,7 @@ WHERE customer_id = $1
 //
 //	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 //	WHERE customer_id = $1
-func (q *Queries) GetFoldersByCustomer(ctx context.Context, customerID int64) ([]*Folder, error) {
+func (q *Queries) GetFoldersByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Folder, error) {
 	rows, err := q.db.Query(ctx, getFoldersByCustomer, customerID)
 	if err != nil {
 		return nil, err
@@ -857,7 +858,7 @@ WHERE parent_id = $1
 //
 //	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 //	WHERE parent_id = $1
-func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID pgtype.Int8) ([]*Folder, error) {
+func (q *Queries) GetFoldersFromParent(ctx context.Context, parentID pgtype.UUID) ([]*Folder, error) {
 	rows, err := q.db.Query(ctx, getFoldersFromParent, parentID)
 	if err != nil {
 		return nil, err
@@ -891,7 +892,7 @@ AND updated_at < $2
 `
 
 type GetFoldersOlderThanParams struct {
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
@@ -936,7 +937,7 @@ WHERE customer_id = $1 AND parent_id is NULL
 //
 //	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND parent_id is NULL
-func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID int64) ([]*Document, error) {
+func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getRootDocumentsByCustomer, customerID)
 	if err != nil {
 		return nil, err
@@ -976,7 +977,7 @@ WHERE customer_id = $1 AND parent_id IS NULL
 //
 //	SELECT id, parent_id, customer_id, title, created_at, updated_at FROM folder
 //	WHERE customer_id = $1 AND parent_id IS NULL
-func (q *Queries) GetRootFoldersByCustomer(ctx context.Context, customerID int64) ([]*Folder, error) {
+func (q *Queries) GetRootFoldersByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Folder, error) {
 	rows, err := q.db.Query(ctx, getRootFoldersByCustomer, customerID)
 	if err != nil {
 		return nil, err
@@ -1012,7 +1013,7 @@ WHERE customer_id = $1
 //
 //	SELECT id, customer_id, model, input_tokens, output_tokens, total_tokens, created_at FROM token_usage
 //	WHERE customer_id = $1
-func (q *Queries) GetTokenUsage(ctx context.Context, customerID int64) ([]*TokenUsage, error) {
+func (q *Queries) GetTokenUsage(ctx context.Context, customerID uuid.UUID) ([]*TokenUsage, error) {
 	rows, err := q.db.Query(ctx, getTokenUsage, customerID)
 	if err != nil {
 		return nil, err
@@ -1049,7 +1050,7 @@ WHERE customer_id = $1 AND validated = false
 //
 //	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND validated = false
-func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, customerID int64) ([]*Document, error) {
+func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getUnvalidatedDocumentsByCustomer, customerID)
 	if err != nil {
 		return nil, err
@@ -1089,7 +1090,7 @@ WHERE id = $1
 //
 //	SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
 //	WHERE id = $1
-func (q *Queries) GetWebsite(ctx context.Context, id int64) (*Website, error) {
+func (q *Queries) GetWebsite(ctx context.Context, id uuid.UUID) (*Website, error) {
 	row := q.db.QueryRow(ctx, getWebsite, id)
 	var i Website
 	err := row.Scan(
@@ -1114,7 +1115,7 @@ WHERE website_id = $1
 //
 //	SELECT id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at FROM website_page
 //	WHERE website_id = $1
-func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID int64) ([]*WebsitePage, error) {
+func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID uuid.UUID) ([]*WebsitePage, error) {
 	rows, err := q.db.Query(ctx, getWebsitePagesBySite, websiteID)
 	if err != nil {
 		return nil, err
@@ -1152,7 +1153,7 @@ WHERE customer_id = $1
 //
 //	SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
 //	WHERE customer_id = $1
-func (q *Queries) GetWebsitesByCustomer(ctx context.Context, customerID int64) ([]*Website, error) {
+func (q *Queries) GetWebsitesByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Website, error) {
 	rows, err := q.db.Query(ctx, getWebsitesByCustomer, customerID)
 	if err != nil {
 		return nil, err
@@ -1225,7 +1226,7 @@ WHERE customer_id = $1
 //
 //	SELECT id, document_id, vector_store_id, customer_id, index, created_at FROM document_vector
 //	WHERE customer_id = $1
-func (q *Queries) ListDocumentVectors(ctx context.Context, customerID int64) ([]*DocumentVector, error) {
+func (q *Queries) ListDocumentVectors(ctx context.Context, customerID uuid.UUID) ([]*DocumentVector, error) {
 	rows, err := q.db.Query(ctx, listDocumentVectors, customerID)
 	if err != nil {
 		return nil, err
@@ -1261,7 +1262,7 @@ WHERE customer_id = $1
 //
 //	SELECT id, website_page_id, vector_store_id, customer_id, index, created_at FROM website_page_vector
 //	WHERE customer_id = $1
-func (q *Queries) ListWebsitePageVectors(ctx context.Context, customerID int64) ([]*WebsitePageVector, error) {
+func (q *Queries) ListWebsitePageVectors(ctx context.Context, customerID uuid.UUID) ([]*WebsitePageVector, error) {
 	rows, err := q.db.Query(ctx, listWebsitePageVectors, customerID)
 	if err != nil {
 		return nil, err
@@ -1301,7 +1302,7 @@ RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, valid
 //	SET validated = true
 //	WHERE id = $1
 //	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at
-func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id int64) (*Document, error) {
+func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, markDocumentAsUploaded, id)
 	var i Document
 	err := row.Scan(
@@ -1330,7 +1331,7 @@ LIMIT $2
 `
 
 type QueryVectorStoreDocumentsParams struct {
-	CustomerID int64           `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
 	Limit      int32           `db:"limit" json:"limit"`
 	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
 }
@@ -1383,7 +1384,7 @@ LIMIT $2
 `
 
 type QueryVectorStoreRawParams struct {
-	CustomerID int64           `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
 	Limit      int32           `db:"limit" json:"limit"`
 	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
 }
@@ -1431,7 +1432,7 @@ LIMIT $2
 `
 
 type QueryVectorStoreWebsitePagesParams struct {
-	CustomerID int64           `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
 	Limit      int32           `db:"limit" json:"limit"`
 	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
 }
@@ -1481,8 +1482,8 @@ AND website_id = $2
 `
 
 type SetWebsitePagesNotValidParams struct {
-	CustomerID int64 `db:"customer_id" json:"customerId"`
-	WebsiteID  int64 `db:"website_id" json:"websiteId"`
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	WebsiteID  uuid.UUID `db:"website_id" json:"websiteId"`
 }
 
 // SetWebsitePagesNotValid
@@ -1503,8 +1504,8 @@ RETURNING id, name, datastore, created_at, updated_at
 `
 
 type UpdateCustomerParams struct {
-	ID   int64  `db:"id" json:"id"`
-	Name string `db:"name" json:"name"`
+	ID   uuid.UUID `db:"id" json:"id"`
+	Name string    `db:"name" json:"name"`
 }
 
 // UpdateCustomer
@@ -1526,8 +1527,8 @@ RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updat
 `
 
 type UpdateWebsitePageSignatureParams struct {
-	ID     int64  `db:"id" json:"id"`
-	Sha256 string `db:"sha_256" json:"sha256"`
+	ID     uuid.UUID `db:"id" json:"id"`
+	Sha256 string    `db:"sha_256" json:"sha256"`
 }
 
 // UpdateWebsitePageSignature

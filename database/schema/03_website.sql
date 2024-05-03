@@ -6,8 +6,8 @@ Website
 
 -- represents the website object for a user
 CREATE TABLE website(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     protocol TEXT NOT NULL DEFAULT 'https',
     domain TEXT NOT NULL,
     blacklist TEXT[] NOT NULL DEFAULT '{}', -- regex patterns that are disallowed
@@ -22,9 +22,9 @@ CREATE TABLE website(
 
 -- a page sourced from the sitemap of the website defined by the user
 CREATE TABLE website_page(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
-    website_id BIGINT NOT NULL REFERENCES website(id) ON DELETE CASCADE,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+    website_id uuid NOT NULL REFERENCES website(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
     sha_256 CHAR(64) NOT NULL,
     is_valid BOOLEAN NOT NULL DEFAULT TRUE,
@@ -38,10 +38,10 @@ CREATE TABLE website_page(
 
 -- vectors associated with a website page's contents
 CREATE TABLE website_page_vector(
-    id BIGSERIAL,
-    website_page_id BIGINT NOT NULL REFERENCES website_page(id) ON DELETE CASCADE,
-    vector_store_id BIGINT NOT NULL,
-    customer_id BIGINT NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+    id uuid NOT NULL DEFAULT uuid7(),
+    website_page_id uuid NOT NULL REFERENCES website_page(id) ON DELETE CASCADE,
+    vector_store_id uuid NOT NULL,
+    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     index INT NOT NULL, -- data is chunked, so an index is required to sort the data
 
     PRIMARY KEY (id),

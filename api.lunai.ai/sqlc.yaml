@@ -18,10 +18,8 @@ sql:
         json_tags_case_style: "camel"
         emit_empty_slices: true
         overrides:
-          - db_type: "bigserial"
+          - db_type: "uuid"
             go_type:
-              type: "int64"
-          - db_type: "bigint"
-            go_type:
-              type: "int64"
+              import: "github.com/google/uuid"
+              type: "UUID"
 

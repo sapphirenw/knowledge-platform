@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -40,7 +41,7 @@ import (
 
 func TestCustomerCreate(t *testing.T) {
 	_, _, _, c := testInit(t)
-	fmt.Printf("Created customerId: %d\n", c.ID)
+	fmt.Printf("Created customerId: %s\n", c.ID.String())
 }
 
 func TestCustomerDocumentStore(t *testing.T) {
@@ -139,7 +140,7 @@ func TestCustomerWebsites(t *testing.T) {
 
 }
 
-func uploadToDocstore(ctx context.Context, c *Customer, parentId *int64, directory string, db *pgxpool.Pool) error {
+func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, directory string, db *pgxpool.Pool) error {
 	// get all files in dir
 	files, err := os.ReadDir(directory)
 	if err != nil {
@@ -149,13 +150,8 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *int64, directo
 	// loop over all files
 	for _, file := range files {
 		if file.IsDir() {
-			// create the folder
-			var owner int64 = 0
-			if parentId != nil {
-				owner = *parentId
-			}
 			folder, err := c.CreateFolder(ctx, db, &createFolderRequest{
-				Owner: owner,
+				Owner: parentId,
 				Name:  file.Name(),
 			})
 			if err != nil {
@@ -232,8 +228,12 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *int64, directo
 	return nil
 }
 
-func remotels(ctx context.Context, c *Customer, parentId *int64, indent int, db *pgxpool.Pool) error {
-	response, err := c.ListFolderContents(ctx, db, parentId)
+func remotels(ctx context.Context, c *Customer, parentId *uuid.UUID, indent int, db *pgxpool.Pool) error {
+	pid, err := utils.GoogleUUIDToPGXUUID(parentId)
+	if err != nil {
+		return fmt.Errorf("failed to parse uuid: %s", err)
+	}
+	response, err := c.ListFolderContents(ctx, db, pid)
 	if err != nil {
 		return err
 	}

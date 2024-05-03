@@ -65,14 +65,14 @@ func QueryDocuments(ctx context.Context, input *QueryInput, include bool) ([]*Do
 
 	// convert to internal type with content
 	docs := make([]*DocumentResponse, 0)
-	docMap := make(map[int64]bool, 0)
+	docMap := make(map[string]bool, 0)
 	for _, item := range rawDocs {
 		// skip if doc already used
-		if _, exists := docMap[item.ID]; exists {
+		if _, exists := docMap[item.ID.String()]; exists {
 			continue
 		}
 
-		doc, err := docstore.NewDocument(input.CustomerId, item)
+		doc, err := docstore.NewDocumentFromDocument(item)
 		if err != nil {
 			return nil, fmt.Errorf("error creating document: %s", err)
 		}
@@ -87,7 +87,7 @@ func QueryDocuments(ctx context.Context, input *QueryInput, include bool) ([]*Do
 		}
 
 		docs = append(docs, &DocumentResponse{Document: doc, Content: content})
-		docMap[item.ID] = true
+		docMap[item.ID.String()] = true
 	}
 
 	input.Logger.InfoContext(ctx, "Successfully found documents", "length", len(docs))
@@ -121,10 +121,10 @@ func QueryWebsitePages(ctx context.Context, input *QueryInput, include bool) ([]
 
 	// query the website page for the content
 	pages := make([]*WebsitePageResonse, 0)
-	webMap := make(map[int64]bool, 0)
+	webMap := make(map[string]bool, 0)
 	for _, item := range pagesRaw {
 		// skip if the website already has been used
-		if _, exists := webMap[item.ID]; exists {
+		if _, exists := webMap[item.ID.String()]; exists {
 			continue
 		}
 
@@ -140,7 +140,7 @@ func QueryWebsitePages(ctx context.Context, input *QueryInput, include bool) ([]
 			WebsitePage: item,
 			Content:     string(content),
 		})
-		webMap[item.ID] = true
+		webMap[item.ID.String()] = true
 	}
 
 	input.Logger.InfoContext(ctx, "Successfully found website pages", "length", len(pages))

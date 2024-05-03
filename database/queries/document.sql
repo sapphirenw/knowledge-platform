@@ -24,7 +24,7 @@ INSERT INTO document (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-ON CONFLICT (customer_id, COALESCE(parent_id, -1), filename) DO UPDATE
+ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 

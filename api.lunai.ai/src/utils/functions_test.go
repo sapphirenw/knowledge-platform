@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestChunkStringEqualUntilN(t *testing.T) {
@@ -76,16 +76,17 @@ func TestConvertSlice(t *testing.T) {
 
 	converted := ConvertSlice(input, func(i int) float32 { return float32(i) })
 
-	assert.Equal(t, output, converted)
+	require.Equal(t, output, converted)
 }
 
 func TestUUIDConvertion(t *testing.T) {
 	gid := uuid.New()
-	pid := GoogleUUIDToPGXUUID(gid)
-	gid2, err := PGXUUIDToGoogleUUID(pid)
-	assert.Nil(t, err)
+	pid, err := GoogleUUIDToPGXUUID(&gid)
+	require.NoError(t, err)
+	gid2, err := PGXUUIDToGoogleUUID(&pid)
+	require.NoError(t, err)
 	if err != nil {
 		return
 	}
-	assert.Equal(t, gid.String(), gid2.String())
+	require.Equal(t, gid.String(), gid2.String())
 }

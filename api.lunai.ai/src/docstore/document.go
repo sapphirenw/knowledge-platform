@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
@@ -20,7 +21,16 @@ type Document struct {
 	cleaned string
 }
 
-func NewDocument(customerId int64, doc *queries.Document) (*Document, error) {
+func NewDocument(ctx context.Context, db queries.DBTX, docId uuid.UUID) (*Document, error) {
+	model := queries.New(db)
+	document, err := model.GetDocument(ctx, docId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get document: %s", err)
+	}
+	return NewDocumentFromDocument(document)
+}
+
+func NewDocumentFromDocument(doc *queries.Document) (*Document, error) {
 	if doc == nil {
 		return nil, fmt.Errorf("doc cannot be nil")
 	}
@@ -32,13 +42,13 @@ func NewDocument(customerId int64, doc *queries.Document) (*Document, error) {
 	}
 
 	// create a uniqueID for the document
-	id := createUniqueFileId(customerId, doc.Filename, &doc.ParentID.Int64)
+	id := fileIdFromDoc(doc)
 
 	return &Document{Document: doc, Filetype: filetype, UniqueID: id}, nil
 }
 
 // Creates a document from raw file information. Used mostly in tests
-func NewDocumentFromRaw(customerId int64, parentId *int64, filename string, data []byte) (*Document, error) {
+func NewDocumentFromRaw(customer *queries.Customer, filename string, data []byte) (*Document, error) {
 	// parse the filetype
 	filetype, err := ParseFileType(filename)
 	if err != nil {
@@ -46,12 +56,16 @@ func NewDocumentFromRaw(customerId int64, parentId *int64, filename string, data
 	}
 
 	// create a uniqueID for the document
-	id := createUniqueFileId(customerId, filename, parentId)
+	documentId, err := uuid.NewV7()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a uuid: %s", err)
+	}
+	id := fileIdFromRaw(customer.ID, documentId, filename)
 
 	return &Document{
 		Document: &queries.Document{
-			ID:         0,
-			CustomerID: customerId,
+			ID:         documentId,
+			CustomerID: customer.ID,
 			Filename:   filename,
 			Type:       string(filetype),
 			SizeBytes:  int64(len(data)),

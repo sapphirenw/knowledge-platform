@@ -3,10 +3,11 @@ package customer
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -18,7 +19,7 @@ func parseFolderFromRequest(
 	db queries.DBTX,
 ) (*queries.Folder, error) {
 	id := chi.URLParam(r, "folderId")
-	folderId, err := strconv.ParseInt(id, 10, 64)
+	folderId, err := uuid.Parse(id)
 	if err != nil {
 		return nil, fmt.Errorf("invalid parameter: %v", id)
 	}
@@ -40,7 +41,7 @@ func listCustomerFolder(
 	c *Customer,
 ) {
 	var err error
-	var folderId *int64
+	folderId := pgtype.UUID{Valid: false}
 
 	// if the param was passed then get the folder
 	if chi.URLParam(r, "folderId") != "" {
@@ -51,7 +52,8 @@ func listCustomerFolder(
 			http.Error(w, "There was an issue getting the folder", http.StatusInternalServerError)
 			return
 		}
-		folderId = &folder.ID
+		folderId.Bytes = folder.ID
+		folderId.Valid = true
 	}
 
 	// fetch the data inside the customer's folder

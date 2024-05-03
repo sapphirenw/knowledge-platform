@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/embeddings"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -12,7 +13,7 @@ import (
 )
 
 type QueryInput struct {
-	CustomerId int64
+	CustomerId uuid.UUID
 	Docstore   docstore.RemoteDocstore
 	Embeddings embeddings.Embeddings
 	DB         queries.DBTX
@@ -27,9 +28,6 @@ type QueryInput struct {
 func (input *QueryInput) Validate() error {
 	if input == nil {
 		return fmt.Errorf("input cannot be nil")
-	}
-	if input.CustomerId == 0 {
-		return fmt.Errorf("no customerId provided")
 	}
 	if input.Docstore == nil {
 		return fmt.Errorf("docstore cannot be nil")

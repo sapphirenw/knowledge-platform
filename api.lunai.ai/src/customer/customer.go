@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/embeddings"
@@ -25,7 +26,7 @@ type Customer struct {
 	logger *slog.Logger
 }
 
-func CreateCustomer(ctx context.Context, logger *slog.Logger, db queries.DBTX, request *createCustomerRequest) (*queries.Customer, error) {
+func CreateCustomer(ctx context.Context, logger *slog.Logger, db queries.DBTX, request *createCustomerRequest) (*Customer, error) {
 	if request == nil {
 		return nil, fmt.Errorf("request cannot be nil")
 	}
@@ -40,11 +41,14 @@ func CreateCustomer(ctx context.Context, logger *slog.Logger, db queries.DBTX, r
 
 	l.InfoContext(ctx, "Successfully created new customer", "customer", *customer)
 
-	return customer, nil
+	return &Customer{
+		Customer: customer,
+		logger:   logger,
+	}, nil
 }
 
 // grabs a customer from the database using the supplied id
-func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, db queries.DBTX) (*Customer, error) {
+func NewCustomer(ctx context.Context, logger *slog.Logger, id uuid.UUID, db queries.DBTX) (*Customer, error) {
 	model := queries.New(db)
 
 	logger.InfoContext(ctx, "Fetching the customer record")
@@ -57,8 +61,7 @@ func NewCustomer(ctx context.Context, logger *slog.Logger, id int64, db queries.
 
 	return &Customer{
 		Customer: c,
-		// root:     f,
-		logger: logger.With("customer.ID", c.ID, "customer.Name", c.Name, "customer.Datastore", c.Datastore),
+		logger:   logger.With("customer.ID", c.ID.String(), "customer.Name", c.Name, "customer.Datastore", c.Datastore),
 	}, nil
 }
 
@@ -92,8 +95,8 @@ func (c *Customer) CreateFolder(ctx context.Context, txn queries.DBTX, args *cre
 	logger := c.logger.With("folder.Name", args.Name)
 
 	// parse the owner if applicable
-	var parentId pgtype.Int8
-	if args.Owner != 0 {
+	var parentId pgtype.UUID
+	if args.Owner != nil {
 		logger = c.logger.With("folder.Owner", args.Owner)
 		parentId.Scan(args.Owner)
 	}
@@ -120,10 +123,10 @@ func (c *Customer) CreateFolder(ctx context.Context, txn queries.DBTX, args *cre
 }
 
 // Does an 'ls' on a folder
-func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, folderId *int64) (*listFolderContentsResponse, error) {
+func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, folderId pgtype.UUID) (*listFolderContentsResponse, error) {
 	logger := c.logger.With()
-	if folderId != nil {
-		logger = logger.With("folderId", *folderId)
+	if folderId.Valid {
+		logger = logger.With("folderId", folderId.Bytes)
 	}
 	logger.InfoContext(ctx, "Getting all children of the folder ...")
 
@@ -134,7 +137,7 @@ func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, fold
 	var folders []*queries.Folder
 	var documents []*queries.Document
 
-	if folderId == nil {
+	if !folderId.Valid {
 		// get root file information
 		folders, err = model.GetRootFoldersByCustomer(ctx, c.ID)
 		if err != nil {
@@ -146,17 +149,21 @@ func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, fold
 		}
 	} else {
 		// get self
-		folder, err = model.GetFolder(ctx, *folderId)
+		uid, err := utils.PGXUUIDToGoogleUUID(&folderId)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert folderId to a google uuid: %s", err)
+		}
+		folder, err = model.GetFolder(ctx, uid)
 		if err != nil {
 			return nil, fmt.Errorf("this folder does not exist: %s", err)
 		}
 
 		// get the information using the folder
-		folders, err = model.GetFoldersFromParent(ctx, pgtype.Int8{Int64: *folderId, Valid: true})
+		folders, err = model.GetFoldersFromParent(ctx, folderId)
 		if err != nil {
 			return nil, fmt.Errorf("there was an issue getting the folders: %v", err)
 		}
-		documents, err = model.GetDocumentsFromParent(ctx, pgtype.Int8{Int64: *folderId, Valid: true})
+		documents, err = model.GetDocumentsFromParent(ctx, folderId)
 		if err != nil {
 			return nil, fmt.Errorf("there was an issue getting the documents: %v", err)
 		}
@@ -172,8 +179,7 @@ func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, fold
 }
 
 /*
-Generates pre-signed urls for the user to use to upload to their preferred datastore. This does not
-have any state-chaning effects, as no records are inserted into the database, and no objects
+Generates pre-signed urls for the user to use to upload to their preferred datastore.
 */
 func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, body *generatePresignedUrlRequest) (*generatePresignedUrlResponse, error) {
 	logger := c.logger.With("body", *body)
@@ -185,7 +191,7 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 		return nil, fmt.Errorf("failed to get the document store: %v", err)
 	}
 
-	var parentId pgtype.Int8
+	var parentId pgtype.UUID
 	if body.ParentId != nil {
 		parentId.Scan(*body.ParentId)
 	}
@@ -205,7 +211,7 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 	}
 
 	// create the document
-	doc, err := docstore.NewDocument(c.Customer.ID, d)
+	doc, err := docstore.NewDocumentFromDocument(d)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse the database document: %s", err)
 	}
@@ -229,7 +235,7 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 Function to notify the server that the document upload using the pre-signed url was successful, and the
 server can store the record of this object in the datastore.
 */
-func (c *Customer) NotifyOfSuccessfulUpload(ctx context.Context, db queries.DBTX, documentId int64) error {
+func (c *Customer) NotifyOfSuccessfulUpload(ctx context.Context, db queries.DBTX, documentId uuid.UUID) error {
 	logger := c.logger.With("documentId", documentId)
 	logger.InfoContext(ctx, "Marking the document as successfully uploaded")
 
@@ -342,7 +348,7 @@ func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *
 }
 
 func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site *queries.Website) error {
-	logger := c.logger.With("site.ID", site.ID, "site.Domain", site.Domain)
+	logger := c.logger.With("site.ID", site.ID.String(), "site.Domain", site.Domain)
 	logger.InfoContext(ctx, "Parsing site ...")
 
 	// get the pages
@@ -553,13 +559,13 @@ func (c *Customer) PurgeDatastore(
 
 	// delete in go-routines
 	var wg sync.WaitGroup
-	failedDocIds := make(chan int64)
+	failedDocIds := make(chan uuid.UUID)
 	for _, item := range docs {
 		wg.Add(1)
 		go func(doc queries.Document) {
 			defer wg.Done()
 			l := logger.With("doc", doc)
-			dsDoc, err := docstore.NewDocument(c.Customer.ID, &doc)
+			dsDoc, err := docstore.NewDocumentFromDocument(&doc)
 			if err != nil {
 				l.ErrorContext(ctx, "failed to create the docstore doc", "error", err)
 				failedDocIds <- doc.ID
@@ -596,7 +602,7 @@ func (c *Customer) PurgeDatastore(
 
 	logger.InfoContext(ctx, "Attempting to delete all folders from remote datastore", "length", len(folders))
 
-	failedFolderIds := make(chan int64)
+	failedFolderIds := make(chan uuid.UUID)
 	for _, item := range folders {
 		wg.Add(1)
 		go func(folder queries.Folder) {
@@ -688,7 +694,7 @@ func (c *Customer) VectorizeDatastore(
 			defer wg.Done()
 			l := logger.With("doc", d)
 
-			doc, err := docstore.NewDocument(c.Customer.ID, &d)
+			doc, err := docstore.NewDocumentFromDocument(&d)
 			if err != nil {
 				l.ErrorContext(ctx, "failed parsing the database doc: %s", err)
 				errCh <- err
@@ -757,8 +763,13 @@ func (c *Customer) VectorizeDatastore(
 			continue
 		}
 
+		l := logger.With("filename", item.doc.Filename, "documentId", item.doc.ID)
+
+		l.InfoContext(ctx, "Inserting document vectors ...")
+
 		// loop over all vector results
 		for index, vec := range item.vectors {
+			l.DebugContext(ctx, "Processing index", "index", index)
 			// create raw vector object
 			vecId, err := model.CreateVector(ctx, &queries.CreateVectorParams{
 				Raw:        vec.Raw,
@@ -780,6 +791,7 @@ func (c *Customer) VectorizeDatastore(
 				return fmt.Errorf("error creating document vector relationship: %s", err)
 			}
 		}
+		l.InfoContext(ctx, "Finished.")
 	}
 
 	logger.InfoContext(ctx, "Successfully vectorized the datastore")

@@ -5,15 +5,16 @@
 package queries
 
 import (
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pgvector/pgvector-go"
 )
 
 type AssetCatalog struct {
-	ID           int64              `db:"id" json:"id"`
-	CustomerID   pgtype.Int8        `db:"customer_id" json:"customerId"`
+	ID           uuid.UUID          `db:"id" json:"id"`
+	CustomerID   pgtype.UUID        `db:"customer_id" json:"customerId"`
 	Datastore    string             `db:"datastore" json:"datastore"`
-	DatastoreKey pgtype.UUID        `db:"datastore_key" json:"datastoreKey"`
+	DatastoreKey uuid.UUID          `db:"datastore_key" json:"datastoreKey"`
 	Filetype     string             `db:"filetype" json:"filetype"`
 	SizeBytes    int64              `db:"size_bytes" json:"sizeBytes"`
 	Sha256       string             `db:"sha_256" json:"sha256"`
@@ -22,8 +23,8 @@ type AssetCatalog struct {
 }
 
 type Blog struct {
-	ID                               pgtype.Int8        `db:"id" json:"id"`
-	CustomerID                       int64              `db:"customer_id" json:"customerId"`
+	ID                               uuid.UUID          `db:"id" json:"id"`
+	CustomerID                       uuid.UUID          `db:"customer_id" json:"customerId"`
 	Title                            string             `db:"title" json:"title"`
 	MainTopic                        string             `db:"main_topic" json:"mainTopic"`
 	Url                              pgtype.Text        `db:"url" json:"url"`
@@ -35,18 +36,18 @@ type Blog struct {
 	AutoGen                          bool               `db:"auto_gen" json:"autoGen"`
 	AutoGenCadence                   string             `db:"auto_gen_cadence" json:"autoGenCadence"`
 	AutoGenTime                      pgtype.Time        `db:"auto_gen_time" json:"autoGenTime"`
-	LlmContentGenerationDefaultID    pgtype.Int8        `db:"llm_content_generation_default_id" json:"llmContentGenerationDefaultId"`
-	LlmVectorSummarizationDefaultID  pgtype.Int8        `db:"llm_vector_summarization_default_id" json:"llmVectorSummarizationDefaultId"`
-	LlmWebsiteSummarizationDefaultID pgtype.Int8        `db:"llm_website_summarization_default_id" json:"llmWebsiteSummarizationDefaultId"`
-	LlmProofReadingDefaultID         pgtype.Int8        `db:"llm_proof_reading_default_id" json:"llmProofReadingDefaultId"`
+	LlmContentGenerationDefaultID    pgtype.UUID        `db:"llm_content_generation_default_id" json:"llmContentGenerationDefaultId"`
+	LlmVectorSummarizationDefaultID  pgtype.UUID        `db:"llm_vector_summarization_default_id" json:"llmVectorSummarizationDefaultId"`
+	LlmWebsiteSummarizationDefaultID pgtype.UUID        `db:"llm_website_summarization_default_id" json:"llmWebsiteSummarizationDefaultId"`
+	LlmProofReadingDefaultID         pgtype.UUID        `db:"llm_proof_reading_default_id" json:"llmProofReadingDefaultId"`
 	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt                        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type BlogCategory struct {
-	ID           pgtype.Int8        `db:"id" json:"id"`
-	CustomerID   int64              `db:"customer_id" json:"customerId"`
-	BlogID       int64              `db:"blog_id" json:"blogId"`
+	ID           uuid.UUID          `db:"id" json:"id"`
+	CustomerID   uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID       uuid.UUID          `db:"blog_id" json:"blogId"`
 	Title        string             `db:"title" json:"title"`
 	TextColorHex pgtype.Text        `db:"text_color_hex" json:"textColorHex"`
 	BgColorHex   pgtype.Text        `db:"bg_color_hex" json:"bgColorHex"`
@@ -55,11 +56,11 @@ type BlogCategory struct {
 }
 
 type BlogPost struct {
-	ID             pgtype.Int8        `db:"id" json:"id"`
-	CustomerID     int64              `db:"customer_id" json:"customerId"`
-	BlogID         int64              `db:"blog_id" json:"blogId"`
-	BlogPostIdeaID pgtype.Int8        `db:"blog_post_idea_id" json:"blogPostIdeaId"`
-	BlogCategoryID pgtype.Int8        `db:"blog_category_id" json:"blogCategoryId"`
+	ID             uuid.UUID          `db:"id" json:"id"`
+	CustomerID     uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID         uuid.UUID          `db:"blog_id" json:"blogId"`
+	BlogPostIdeaID pgtype.UUID        `db:"blog_post_idea_id" json:"blogPostIdeaId"`
+	BlogCategoryID pgtype.UUID        `db:"blog_category_id" json:"blogCategoryId"`
 	Title          string             `db:"title" json:"title"`
 	Description    string             `db:"description" json:"description"`
 	Metadata       []byte             `db:"metadata" json:"metadata"`
@@ -68,9 +69,9 @@ type BlogPost struct {
 }
 
 type BlogPostIdea struct {
-	ID         pgtype.Int8        `db:"id" json:"id"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
-	BlogID     int64              `db:"blog_id" json:"blogId"`
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
 	Title      string             `db:"title" json:"title"`
 	Used       bool               `db:"used" json:"used"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
@@ -78,85 +79,85 @@ type BlogPostIdea struct {
 }
 
 type BlogPostSection struct {
-	ID                          pgtype.Int8        `db:"id" json:"id"`
-	CustomerID                  int64              `db:"customer_id" json:"customerId"`
-	BlogID                      int64              `db:"blog_id" json:"blogId"`
-	BlogPostID                  int64              `db:"blog_post_id" json:"blogPostId"`
+	ID                          uuid.UUID          `db:"id" json:"id"`
+	CustomerID                  uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID                      uuid.UUID          `db:"blog_id" json:"blogId"`
+	BlogPostID                  uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
 	Title                       string             `db:"title" json:"title"`
 	Description                 string             `db:"description" json:"description"`
 	AdditionalInstructions      string             `db:"additional_instructions" json:"additionalInstructions"`
-	AssetID                     pgtype.Int8        `db:"asset_id" json:"assetId"`
+	AssetID                     pgtype.UUID        `db:"asset_id" json:"assetId"`
 	Metadata                    []byte             `db:"metadata" json:"metadata"`
-	ContentGenerationModelID    pgtype.Int8        `db:"content_generation_model_id" json:"contentGenerationModelId"`
-	VectorSummarizationModelID  pgtype.Int8        `db:"vector_summarization_model_id" json:"vectorSummarizationModelId"`
-	WebsiteSummarizationModelID pgtype.Int8        `db:"website_summarization_model_id" json:"websiteSummarizationModelId"`
-	ProofReadingModelID         pgtype.Int8        `db:"proof_reading_model_id" json:"proofReadingModelId"`
+	ContentGenerationModelID    pgtype.UUID        `db:"content_generation_model_id" json:"contentGenerationModelId"`
+	VectorSummarizationModelID  pgtype.UUID        `db:"vector_summarization_model_id" json:"vectorSummarizationModelId"`
+	WebsiteSummarizationModelID pgtype.UUID        `db:"website_summarization_model_id" json:"websiteSummarizationModelId"`
+	ProofReadingModelID         pgtype.UUID        `db:"proof_reading_model_id" json:"proofReadingModelId"`
 	CreatedAt                   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt                   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
+type BlogPostSectionContent struct {
+	ID                uuid.UUID          `db:"id" json:"id"`
+	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID            uuid.UUID          `db:"blog_id" json:"blogId"`
+	BlogPostID        uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
+	BlogPostSectionID uuid.UUID          `db:"blog_post_section_id" json:"blogPostSectionId"`
+	Content           string             `db:"content" json:"content"`
+	Feedback          string             `db:"feedback" json:"feedback"`
+	Index             int32              `db:"index" json:"index"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
 type BlogPostSectionDocument struct {
-	ID         pgtype.Int8        `db:"id" json:"id"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
-	BlogID     int64              `db:"blog_id" json:"blogId"`
-	BlogPostID int64              `db:"blog_post_id" json:"blogPostId"`
-	DocumentID int64              `db:"document_id" json:"documentId"`
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
+	BlogPostID uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
+	DocumentID uuid.UUID          `db:"document_id" json:"documentId"`
 	Query      string             `db:"query" json:"query"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type BlogPostSectionWebsitePage struct {
-	ID                pgtype.Int8        `db:"id" json:"id"`
-	CustomerID        int64              `db:"customer_id" json:"customerId"`
-	BlogID            int64              `db:"blog_id" json:"blogId"`
-	BlogPostID        int64              `db:"blog_post_id" json:"blogPostId"`
-	BlogPostSectionID int64              `db:"blog_post_section_id" json:"blogPostSectionId"`
-	WebsitePageID     int64              `db:"website_page_id" json:"websitePageId"`
+	ID                uuid.UUID          `db:"id" json:"id"`
+	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID            uuid.UUID          `db:"blog_id" json:"blogId"`
+	BlogPostID        uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
+	BlogPostSectionID uuid.UUID          `db:"blog_post_section_id" json:"blogPostSectionId"`
+	WebsitePageID     uuid.UUID          `db:"website_page_id" json:"websitePageId"`
 	Query             string             `db:"query" json:"query"`
 	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type BlogPostTag struct {
-	ID         pgtype.Int8        `db:"id" json:"id"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
-	BlogID     int64              `db:"blog_id" json:"blogId"`
-	BlogPostID int64              `db:"blog_post_id" json:"blogPostId"`
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
+	BlogPostID uuid.UUID          `db:"blog_post_id" json:"blogPostId"`
 	Title      string             `db:"title" json:"title"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type BlogReferenceFolder struct {
-	ID         pgtype.Int8        `db:"id" json:"id"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
-	BlogID     int64              `db:"blog_id" json:"blogId"`
-	FolderID   int64              `db:"folder_id" json:"folderId"`
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
+	FolderID   uuid.UUID          `db:"folder_id" json:"folderId"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type BlogReferenceWebsite struct {
-	ID         pgtype.Int8        `db:"id" json:"id"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
-	BlogID     int64              `db:"blog_id" json:"blogId"`
-	WebsiteID  int64              `db:"website_id" json:"websiteId"`
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	BlogID     uuid.UUID          `db:"blog_id" json:"blogId"`
+	WebsiteID  uuid.UUID          `db:"website_id" json:"websiteId"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-}
-
-type BlogSectionContent struct {
-	ID                pgtype.Int8        `db:"id" json:"id"`
-	CustomerID        int64              `db:"customer_id" json:"customerId"`
-	BlogID            int64              `db:"blog_id" json:"blogId"`
-	BlogPostID        int64              `db:"blog_post_id" json:"blogPostId"`
-	BlogPostSectionID int64              `db:"blog_post_section_id" json:"blogPostSectionId"`
-	Content           string             `db:"content" json:"content"`
-	Feedback          string             `db:"feedback" json:"feedback"`
-	Index             int32              `db:"index" json:"index"`
-	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type ContentType struct {
@@ -167,7 +168,7 @@ type ContentType struct {
 }
 
 type Customer struct {
-	ID        int64              `db:"id" json:"id"`
+	ID        uuid.UUID          `db:"id" json:"id"`
 	Name      string             `db:"name" json:"name"`
 	Datastore string             `db:"datastore" json:"datastore"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
@@ -175,9 +176,9 @@ type Customer struct {
 }
 
 type Document struct {
-	ID         int64              `db:"id" json:"id"`
-	ParentID   pgtype.Int8        `db:"parent_id" json:"parentId"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	ID         uuid.UUID          `db:"id" json:"id"`
+	ParentID   pgtype.UUID        `db:"parent_id" json:"parentId"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	Filename   string             `db:"filename" json:"filename"`
 	Type       string             `db:"type" json:"type"`
 	SizeBytes  int64              `db:"size_bytes" json:"sizeBytes"`
@@ -188,26 +189,26 @@ type Document struct {
 }
 
 type DocumentVector struct {
-	ID            int64              `db:"id" json:"id"`
-	DocumentID    int64              `db:"document_id" json:"documentId"`
-	VectorStoreID int64              `db:"vector_store_id" json:"vectorStoreId"`
-	CustomerID    int64              `db:"customer_id" json:"customerId"`
+	ID            uuid.UUID          `db:"id" json:"id"`
+	DocumentID    uuid.UUID          `db:"document_id" json:"documentId"`
+	VectorStoreID uuid.UUID          `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    uuid.UUID          `db:"customer_id" json:"customerId"`
 	Index         int32              `db:"index" json:"index"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type Folder struct {
-	ID         int64              `db:"id" json:"id"`
-	ParentID   pgtype.Int8        `db:"parent_id" json:"parentId"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	ID         uuid.UUID          `db:"id" json:"id"`
+	ParentID   pgtype.UUID        `db:"parent_id" json:"parentId"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	Title      string             `db:"title" json:"title"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type GenerationLibrary struct {
-	ID          int64              `db:"id" json:"id"`
-	CustomerID  int64              `db:"customer_id" json:"customerId"`
+	ID          uuid.UUID          `db:"id" json:"id"`
+	CustomerID  uuid.UUID          `db:"customer_id" json:"customerId"`
 	Title       string             `db:"title" json:"title"`
 	ContentType string             `db:"content_type" json:"contentType"`
 	Draft       bool               `db:"draft" json:"draft"`
@@ -216,9 +217,34 @@ type GenerationLibrary struct {
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
+type LinkedinAccount struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type LinkedinReferenceFolder struct {
+	ID                uuid.UUID          `db:"id" json:"id"`
+	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
+	LinkedinAccountID uuid.UUID          `db:"linkedin_account_id" json:"linkedinAccountId"`
+	FolderID          uuid.UUID          `db:"folder_id" json:"folderId"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type LinkedinReferenceWebsite struct {
+	ID                uuid.UUID          `db:"id" json:"id"`
+	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
+	LinkedinAccountID uuid.UUID          `db:"linkedin_account_id" json:"linkedinAccountId"`
+	WebsiteID         uuid.UUID          `db:"website_id" json:"websiteId"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
 type Llm struct {
-	ID           int64              `db:"id" json:"id"`
-	CustomerID   pgtype.Int8        `db:"customer_id" json:"customerId"`
+	ID           uuid.UUID          `db:"id" json:"id"`
+	CustomerID   pgtype.UUID        `db:"customer_id" json:"customerId"`
 	Model        string             `db:"model" json:"model"`
 	Temperature  pgtype.Numeric     `db:"temperature" json:"temperature"`
 	SystemPrompt string             `db:"system_prompt" json:"systemPrompt"`
@@ -228,8 +254,8 @@ type Llm struct {
 }
 
 type TokenUsage struct {
-	ID           pgtype.UUID        `db:"id" json:"id"`
-	CustomerID   int64              `db:"customer_id" json:"customerId"`
+	ID           uuid.UUID          `db:"id" json:"id"`
+	CustomerID   uuid.UUID          `db:"customer_id" json:"customerId"`
 	Model        string             `db:"model" json:"model"`
 	InputTokens  int32              `db:"input_tokens" json:"inputTokens"`
 	OutputTokens int32              `db:"output_tokens" json:"outputTokens"`
@@ -238,24 +264,24 @@ type TokenUsage struct {
 }
 
 type VectorStore struct {
-	ID         int64              `db:"id" json:"id"`
+	ID         uuid.UUID          `db:"id" json:"id"`
 	Raw        string             `db:"raw" json:"raw"`
 	Embeddings pgvector.Vector    `db:"embeddings" json:"embeddings"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type VectorStoreDefault struct {
-	ID         int64              `db:"id" json:"id"`
+	ID         uuid.UUID          `db:"id" json:"id"`
 	Raw        string             `db:"raw" json:"raw"`
 	Embeddings pgvector.Vector    `db:"embeddings" json:"embeddings"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type Website struct {
-	ID         int64              `db:"id" json:"id"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	Protocol   string             `db:"protocol" json:"protocol"`
 	Domain     string             `db:"domain" json:"domain"`
 	Blacklist  []string           `db:"blacklist" json:"blacklist"`
@@ -265,9 +291,9 @@ type Website struct {
 }
 
 type WebsitePage struct {
-	ID         int64              `db:"id" json:"id"`
-	CustomerID int64              `db:"customer_id" json:"customerId"`
-	WebsiteID  int64              `db:"website_id" json:"websiteId"`
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	WebsiteID  uuid.UUID          `db:"website_id" json:"websiteId"`
 	Url        string             `db:"url" json:"url"`
 	Sha256     string             `db:"sha_256" json:"sha256"`
 	IsValid    bool               `db:"is_valid" json:"isValid"`
@@ -276,10 +302,10 @@ type WebsitePage struct {
 }
 
 type WebsitePageVector struct {
-	ID            int64              `db:"id" json:"id"`
-	WebsitePageID int64              `db:"website_page_id" json:"websitePageId"`
-	VectorStoreID int64              `db:"vector_store_id" json:"vectorStoreId"`
-	CustomerID    int64              `db:"customer_id" json:"customerId"`
+	ID            uuid.UUID          `db:"id" json:"id"`
+	WebsitePageID uuid.UUID          `db:"website_page_id" json:"websitePageId"`
+	VectorStoreID uuid.UUID          `db:"vector_store_id" json:"vectorStoreId"`
+	CustomerID    uuid.UUID          `db:"customer_id" json:"customerId"`
 	Index         int32              `db:"index" json:"index"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }

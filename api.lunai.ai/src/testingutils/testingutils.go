@@ -54,8 +54,6 @@ func GetDatabase(t *testing.T, ctx context.Context) *pgxpool.Pool {
 func CreateTestCustomer(t *testing.T, ctx context.Context, db queries.DBTX) *queries.Customer {
 	model := queries.New(db)
 	customer, err := model.CreateCustomer(ctx, "test-customer")
-	if err == nil {
-		return nil
-	}
+	require.NoError(t, err)
 	return customer
 }

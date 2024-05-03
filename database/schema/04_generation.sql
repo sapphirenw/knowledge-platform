@@ -18,8 +18,8 @@ CREATE TABLE content_type(
 
 -- saved llm configurations for content creation
 CREATE TABLE llm(
-    id BIGSERIAL,
-    customer_id BIGINT, -- when null the llm is a default for all customers
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid, -- when null the llm is a default for all customers
     model TEXT NOT NULL,
     temperature NUMERIC(1,2) NOT NULL,
     system_prompt TEXT NOT NULL,
@@ -35,8 +35,8 @@ CREATE TABLE llm(
 
 -- table to reference all generated content for the customer of all types
 CREATE TABLE generation_library(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
     title TEXT NOT NULL,
     content_type VARCHAR(256) NOT NULL,
 

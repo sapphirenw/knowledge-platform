@@ -1,14 +1,15 @@
 package customer
 
 import (
+	"github.com/google/uuid"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/vectorstore"
 )
 
 type generatePresignedUrlResponse struct {
-	UploadUrl  string `json:"uploadUrl"`
-	Method     string `json:"method"`
-	DocumentId int64  `json:"documentId"`
+	UploadUrl  string    `json:"uploadUrl"`
+	Method     string    `json:"method"`
+	DocumentId uuid.UUID `json:"documentId"`
 }
 
 type listFolderContentsResponse struct {

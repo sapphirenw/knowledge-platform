@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/stretchr/testify/require"
@@ -11,9 +12,11 @@ import (
 
 func TestSitemap(t *testing.T) {
 	logger := utils.DefaultLogger()
+	uid, err := uuid.NewV7()
+	require.NoError(t, err)
 
 	site := queries.Website{
-		CustomerID: 1,
+		CustomerID: uid,
 		Protocol:   "https",
 		Domain:     "crosschecksports.com",
 	}
@@ -59,8 +62,10 @@ func TestSitemap(t *testing.T) {
 
 func TestWebscrape(t *testing.T) {
 	logger := utils.DefaultLogger()
+	uid, err := uuid.NewV7()
+	require.NoError(t, err)
 	site := queries.Website{
-		CustomerID: 1,
+		CustomerID: uid,
 		Protocol:   "https",
 		Domain:     "crosschecksports.com",
 	}
@@ -79,10 +84,12 @@ func TestWebscrape(t *testing.T) {
 
 func TestScrapeSingle(t *testing.T) {
 	logger := utils.DefaultLogger()
+	uid, err := uuid.NewV7()
+	require.NoError(t, err)
 	page := &queries.WebsitePage{
-		ID:         1,
-		CustomerID: 1,
-		WebsiteID:  1,
+		ID:         uid,
+		CustomerID: uid,
+		WebsiteID:  uid,
 		Url:        "https://crosschecksports.com/docs/create-team",
 		Sha256:     "",
 		IsValid:    true,

@@ -8,6 +8,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/stretchr/testify/require"
 )
@@ -18,6 +20,12 @@ func TestS3Docstore(t *testing.T) {
 	store, err := NewS3Docstore(ctx, S3_BUCKET, logger)
 	require.NoError(t, err)
 
+	cid, err := uuid.NewV7()
+	require.NoError(t, err)
+	customer := &queries.Customer{
+		ID: cid,
+	}
+
 	// read a document
 	filename := "s3.txt"
 	data, err := os.ReadFile("../../resources/" + filename)
@@ -27,7 +35,7 @@ func TestS3Docstore(t *testing.T) {
 	require.NoError(t, err)
 
 	// create a doc from this data
-	doc, err := NewDocumentFromRaw(1, nil, filename, data)
+	doc, err := NewDocumentFromRaw(customer, filename, data)
 	require.NoError(t, err)
 
 	// create the pre-signed url

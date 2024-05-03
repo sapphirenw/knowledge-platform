@@ -19,6 +19,8 @@ test-utils: sql
 	go test -v -coverprofile coverage.out ./src/utils/*.go
 test-webscrape: sql
 	go test -v -coverprofile coverage.out ./src/webscrape/*.go
+test-embeddings: sql
+	go test -v -coverprofile coverage.out ./src/embeddings/*.go
 test-customer: sql
 	go test -v -coverprofile coverage.out ./src/customer/*.go
 

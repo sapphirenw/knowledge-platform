@@ -8,8 +8,8 @@ Blog Post
 -- customers can create mutliple blogs
 -- contains generation configuration inside as well
 CREATE TABLE blog(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
 
     -- metadata
     title TEXT NOT NULL,
@@ -29,10 +29,10 @@ CREATE TABLE blog(
     auto_gen_time TIME NOT NULL DEFAULT '00:00:00', -- time of the day this content is to be created
 
     -- llm config
-    llm_content_generation_default_id BIGINT DEFAULT NULL,
-    llm_vector_summarization_default_id BIGINT DEFAULT NULL,
-    llm_website_summarization_default_id BIGINT DEFAULT NULL,
-    llm_proof_reading_default_id BIGINT DEFAULT NULL,
+    llm_content_generation_default_id uuid DEFAULT NULL,
+    llm_vector_summarization_default_id uuid DEFAULT NULL,
+    llm_website_summarization_default_id uuid DEFAULT NULL,
+    llm_proof_reading_default_id uuid DEFAULT NULL,
 
     -- constrains
     PRIMARY KEY (id),
@@ -55,10 +55,10 @@ CREATE TABLE blog(
 -- entire websites assigned to a blog for reference
 -- if none, then all websites in the store can be used
 CREATE TABLE blog_reference_website(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
-    website_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
+    website_id uuid NOT NULL,
 
     -- constraints
     PRIMARY KEY (id),
@@ -76,10 +76,10 @@ CREATE TABLE blog_reference_website(
 -- entire folders used as reference for the section
 -- if none, then all documents in the store can be used
 CREATE TABLE blog_reference_folder(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
-    folder_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
+    folder_id uuid NOT NULL,
 
     -- constraints
     PRIMARY KEY (id),
@@ -97,9 +97,9 @@ CREATE TABLE blog_reference_folder(
 -- categories that get assigned to a blog post
 -- single category per blog post
 CREATE TABLE blog_category(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
 
     title VARCHAR(20) NOT NULL,
     text_color_hex VARCHAR(7) DEFAULT NULL, -- "#ffffff"
@@ -118,9 +118,9 @@ CREATE TABLE blog_category(
 
 -- to hold query ideas for generating posts in this blog
 CREATE TABLE blog_post_idea(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
 
     title TEXT NOT NULL,
     used BOOLEAN NOT NULL DEFAULT false,
@@ -138,11 +138,11 @@ CREATE TABLE blog_post_idea(
 
 -- holds the metadata for a blog post
 CREATE TABLE blog_post(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
-    blog_post_idea_id BIGINT DEFAULT NULL,
-    blog_category_id BIGINT DEFAULT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
+    blog_post_idea_id uuid DEFAULT NULL,
+    blog_category_id uuid DEFAULT NULL,
 
     title TEXT NOT NULL,
     description TEXT NOT NULL,
@@ -170,23 +170,23 @@ CREATE TABLE blog_post(
 -- section for a blog post outline. Controls how itself is generated.
 -- assets are limited to 1 per section
 CREATE TABLE blog_post_section(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
-    blog_post_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
+    blog_post_id uuid NOT NULL,
 
     -- data
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     additional_instructions TEXT NOT NULL,
-    asset_id BIGINT DEFAULT NULL, -- from asset_catalog
+    asset_id uuid DEFAULT NULL, -- from asset_catalog
     metadata JSON NOT NULL DEFAULT '{}',
 
     -- models when null, uses customer/defined default
-    content_generation_model_id BIGINT DEFAULT NULL,
-    vector_summarization_model_id BIGINT DEFAULT NULL,
-    website_summarization_model_id BIGINT DEFAULT NULL,
-    proof_reading_model_id BIGINT DEFAULT NULL,
+    content_generation_model_id uuid DEFAULT NULL,
+    vector_summarization_model_id uuid DEFAULT NULL,
+    website_summarization_model_id uuid DEFAULT NULL,
+    proof_reading_model_id uuid DEFAULT NULL,
 
     -- keys
     PRIMARY KEY (id),
@@ -215,12 +215,12 @@ CREATE TABLE blog_post_section(
 -- website pages used as reference for the section
 -- can be automatically assigned
 CREATE TABLE blog_post_section_website_page(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
-    blog_post_id BIGINT NOT NULL,
-    blog_post_section_id BIGINT NOT NULL,
-    website_page_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
+    blog_post_id uuid NOT NULL,
+    blog_post_section_id uuid NOT NULL,
+    website_page_id uuid NOT NULL,
     query TEXT NOT NULL, -- query to use when querying vectorstore
 
     -- keys
@@ -243,11 +243,11 @@ CREATE TABLE blog_post_section_website_page(
 -- documents used as reference for the section
 -- can be automatically assigned
 CREATE TABLE blog_post_section_document(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
-    blog_post_id BIGINT NOT NULL,
-    document_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
+    blog_post_id uuid NOT NULL,
+    document_id uuid NOT NULL,
     query TEXT NOT NULL, -- query to use when querying vectorstore
 
     -- keys
@@ -268,11 +268,11 @@ CREATE TABLE blog_post_section_document(
 -- section for the content. Stores multiple versions for a section to enable
 -- composition of version and feedback as a conversation.
 CREATE TABLE blog_post_section_content(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
-    blog_post_id BIGINT NOT NULL,
-    blog_post_section_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
+    blog_post_id uuid NOT NULL,
+    blog_post_section_id uuid NOT NULL,
 
     content TEXT NOT NULL, -- raw content that the user can edit / give feedback for
     feedback TEXT NOT NULL DEFAULT '', -- feedback is ALWAYS used after the content in the conversation
@@ -296,10 +296,10 @@ CREATE TABLE blog_post_section_content(
 -- tags on a blog post
 -- multiple tags per blog post
 CREATE TABLE blog_post_tag(
-    id BIGSERIAL,
-    customer_id BIGINT NOT NULL,
-    blog_id BIGINT NOT NULL,
-    blog_post_id BIGINT NOT NULL,
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL,
+    blog_id uuid NOT NULL,
+    blog_post_id uuid NOT NULL,
 
     title VARCHAR(15) NOT NULL,
 
