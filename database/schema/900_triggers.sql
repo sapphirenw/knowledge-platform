@@ -32,17 +32,26 @@ FOR EACH ROW
 EXECUTE FUNCTION delete_vector_if_unreferenced();
 
 --
--- set llm default field to false when another record is set to be a default for the customer
+-- Set llm default field to false when another record is set to be a default for the customer
 CREATE OR REPLACE FUNCTION set_is_default_false()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Check if the new or updated row is marked as default
     IF NEW.is_default THEN
-        -- Update other rows
-        UPDATE llm
-        SET is_default = false
-        WHERE customer_id = NEW.customer_id AND id != NEW.id AND is_default = true;
+        -- Special handling for NULL customer_id (global default)
+        IF NEW.customer_id IS NULL THEN
+            -- Update other rows that are global defaults
+            UPDATE llm
+            SET is_default = false
+            WHERE customer_id IS NULL AND id != NEW.id AND is_default = true;
+        ELSE
+            -- Update other rows for the same customer
+            UPDATE llm
+            SET is_default = false
+            WHERE customer_id = NEW.customer_id AND id != NEW.id AND is_default = true;
+        END IF;
     END IF;
+
     -- Proceed with the insert or update
     RETURN NEW;
 END;

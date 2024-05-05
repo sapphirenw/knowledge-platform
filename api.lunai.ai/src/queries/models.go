@@ -37,7 +37,6 @@ type BlogPost struct {
 	ID               uuid.UUID          `db:"id" json:"id"`
 	CustomerID       uuid.UUID          `db:"customer_id" json:"customerId"`
 	ProjectLibraryID uuid.UUID          `db:"project_library_id" json:"projectLibraryId"`
-	ProjectIdeaID    pgtype.UUID        `db:"project_idea_id" json:"projectIdeaId"`
 	BlogCategoryID   pgtype.UUID        `db:"blog_category_id" json:"blogCategoryId"`
 	Title            string             `db:"title" json:"title"`
 	Description      string             `db:"description" json:"description"`
@@ -204,20 +203,24 @@ type LinkedinPostContent struct {
 type Llm struct {
 	ID           uuid.UUID          `db:"id" json:"id"`
 	CustomerID   pgtype.UUID        `db:"customer_id" json:"customerId"`
+	Title        string             `db:"title" json:"title"`
+	Color        pgtype.Text        `db:"color" json:"color"`
 	Model        string             `db:"model" json:"model"`
-	Temperature  pgtype.Numeric     `db:"temperature" json:"temperature"`
-	SystemPrompt string             `db:"system_prompt" json:"systemPrompt"`
+	Temperature  float64            `db:"temperature" json:"temperature"`
+	Instructions string             `db:"instructions" json:"instructions"`
 	IsDefault    bool               `db:"is_default" json:"isDefault"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type Project struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	Title      string             `db:"title" json:"title"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID                    uuid.UUID          `db:"id" json:"id"`
+	CustomerID            uuid.UUID          `db:"customer_id" json:"customerId"`
+	Title                 string             `db:"title" json:"title"`
+	Topic                 string             `db:"topic" json:"topic"`
+	IdeaGenerationModelID pgtype.UUID        `db:"idea_generation_model_id" json:"ideaGenerationModelId"`
+	CreatedAt             pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt             pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type ProjectFolder struct {

@@ -217,6 +217,139 @@ func (q *Queries) CreateFolderRoot(ctx context.Context, customerID uuid.UUID) (*
 	return &i, err
 }
 
+const createLLM = `-- name: CreateLLM :one
+INSERT INTO llm (
+    customer_id, title, model, temperature, instructions, is_default
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+)
+RETURNING id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at
+`
+
+type CreateLLMParams struct {
+	CustomerID   pgtype.UUID `db:"customer_id" json:"customerId"`
+	Title        string      `db:"title" json:"title"`
+	Model        string      `db:"model" json:"model"`
+	Temperature  float64     `db:"temperature" json:"temperature"`
+	Instructions string      `db:"instructions" json:"instructions"`
+	IsDefault    bool        `db:"is_default" json:"isDefault"`
+}
+
+// CreateLLM
+//
+//	INSERT INTO llm (
+//	    customer_id, title, model, temperature, instructions, is_default
+//	) VALUES (
+//	    $1, $2, $3, $4, $5, $6
+//	)
+//	RETURNING id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at
+func (q *Queries) CreateLLM(ctx context.Context, arg *CreateLLMParams) (*Llm, error) {
+	row := q.db.QueryRow(ctx, createLLM,
+		arg.CustomerID,
+		arg.Title,
+		arg.Model,
+		arg.Temperature,
+		arg.Instructions,
+		arg.IsDefault,
+	)
+	var i Llm
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.Color,
+		&i.Model,
+		&i.Temperature,
+		&i.Instructions,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createProject = `-- name: CreateProject :one
+INSERT INTO project (
+    customer_id, title, topic, idea_generation_model_id
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING id, customer_id, title, topic, idea_generation_model_id, created_at, updated_at
+`
+
+type CreateProjectParams struct {
+	CustomerID            uuid.UUID   `db:"customer_id" json:"customerId"`
+	Title                 string      `db:"title" json:"title"`
+	Topic                 string      `db:"topic" json:"topic"`
+	IdeaGenerationModelID pgtype.UUID `db:"idea_generation_model_id" json:"ideaGenerationModelId"`
+}
+
+// CreateProject
+//
+//	INSERT INTO project (
+//	    customer_id, title, topic, idea_generation_model_id
+//	) VALUES (
+//	    $1, $2, $3, $4
+//	)
+//	RETURNING id, customer_id, title, topic, idea_generation_model_id, created_at, updated_at
+func (q *Queries) CreateProject(ctx context.Context, arg *CreateProjectParams) (*Project, error) {
+	row := q.db.QueryRow(ctx, createProject,
+		arg.CustomerID,
+		arg.Title,
+		arg.Topic,
+		arg.IdeaGenerationModelID,
+	)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.Topic,
+		&i.IdeaGenerationModelID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createProjectIdea = `-- name: CreateProjectIdea :one
+INSERT INTO project_idea (
+    customer_id, project_id, title
+) VALUES (
+    $1, $2, $3
+)
+RETURNING id, customer_id, project_id, title, used, created_at, updated_at
+`
+
+type CreateProjectIdeaParams struct {
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	ProjectID  uuid.UUID `db:"project_id" json:"projectId"`
+	Title      string    `db:"title" json:"title"`
+}
+
+// CreateProjectIdea
+//
+//	INSERT INTO project_idea (
+//	    customer_id, project_id, title
+//	) VALUES (
+//	    $1, $2, $3
+//	)
+//	RETURNING id, customer_id, project_id, title, used, created_at, updated_at
+func (q *Queries) CreateProjectIdea(ctx context.Context, arg *CreateProjectIdeaParams) (*ProjectIdea, error) {
+	row := q.db.QueryRow(ctx, createProjectIdea, arg.CustomerID, arg.ProjectID, arg.Title)
+	var i ProjectIdea
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Used,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const createTokenUsage = `-- name: CreateTokenUsage :one
 INSERT INTO token_usage (
     id, customer_id, model, input_tokens, output_tokens, total_tokens
@@ -606,6 +739,80 @@ func (q *Queries) GetCustomerByName(ctx context.Context, name string) (*Customer
 	return &i, err
 }
 
+const getDefaultLLM = `-- name: GetDefaultLLM :one
+WITH RequiredLLM AS (
+    -- First, try to find a customer-specific default if customer_id is provided
+    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+    WHERE llm.customer_id = $1 AND llm.is_default = true
+
+    UNION ALL
+
+    -- Fallback to a global default if no customer-specific default is found
+    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+    WHERE llm.customer_id IS NULL AND llm.is_default = true
+    AND NOT EXISTS (
+        SELECT 1
+        FROM llm
+        WHERE llm.customer_id = $1 AND llm.is_default = true
+    )
+    
+)
+SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM RequiredLLM
+LIMIT 1
+`
+
+type GetDefaultLLMRow struct {
+	ID           uuid.UUID          `db:"id" json:"id"`
+	CustomerID   pgtype.UUID        `db:"customer_id" json:"customerId"`
+	Title        string             `db:"title" json:"title"`
+	Color        pgtype.Text        `db:"color" json:"color"`
+	Model        string             `db:"model" json:"model"`
+	Temperature  float64            `db:"temperature" json:"temperature"`
+	Instructions string             `db:"instructions" json:"instructions"`
+	IsDefault    bool               `db:"is_default" json:"isDefault"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+// GetDefaultLLM
+//
+//	WITH RequiredLLM AS (
+//	    -- First, try to find a customer-specific default if customer_id is provided
+//	    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	    WHERE llm.customer_id = $1 AND llm.is_default = true
+//
+//	    UNION ALL
+//
+//	    -- Fallback to a global default if no customer-specific default is found
+//	    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	    WHERE llm.customer_id IS NULL AND llm.is_default = true
+//	    AND NOT EXISTS (
+//	        SELECT 1
+//	        FROM llm
+//	        WHERE llm.customer_id = $1 AND llm.is_default = true
+//	    )
+//
+//	)
+//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM RequiredLLM
+//	LIMIT 1
+func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*GetDefaultLLMRow, error) {
+	row := q.db.QueryRow(ctx, getDefaultLLM, customerID)
+	var i GetDefaultLLMRow
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.Color,
+		&i.Model,
+		&i.Temperature,
+		&i.Instructions,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const getDocument = `-- name: GetDocument :one
 SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
 WHERE id = $1 LIMIT 1
@@ -928,6 +1135,195 @@ func (q *Queries) GetFoldersOlderThan(ctx context.Context, arg *GetFoldersOlderT
 	return items, nil
 }
 
+const getLLM = `-- name: GetLLM :one
+SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+WHERE id = $1
+`
+
+// GetLLM
+//
+//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	WHERE id = $1
+func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*Llm, error) {
+	row := q.db.QueryRow(ctx, getLLM, id)
+	var i Llm
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.Color,
+		&i.Model,
+		&i.Temperature,
+		&i.Instructions,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getLLMsByCustomer = `-- name: GetLLMsByCustomer :many
+SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+WHERE customer_id = $1
+`
+
+// GetLLMsByCustomer
+//
+//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	WHERE customer_id = $1
+func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID) ([]*Llm, error) {
+	rows, err := q.db.Query(ctx, getLLMsByCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Llm{}
+	for rows.Next() {
+		var i Llm
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Title,
+			&i.Color,
+			&i.Model,
+			&i.Temperature,
+			&i.Instructions,
+			&i.IsDefault,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getProject = `-- name: GetProject :one
+SELECT id, customer_id, title, topic, idea_generation_model_id, created_at, updated_at FROM project
+WHERE id = $1
+`
+
+// GetProject
+//
+//	SELECT id, customer_id, title, topic, idea_generation_model_id, created_at, updated_at FROM project
+//	WHERE id = $1
+func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (*Project, error) {
+	row := q.db.QueryRow(ctx, getProject, id)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.Topic,
+		&i.IdeaGenerationModelID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getProjectIdea = `-- name: GetProjectIdea :one
+SELECT id, customer_id, project_id, title, used, created_at, updated_at FROM project_idea
+WHERE id = $1
+`
+
+// GetProjectIdea
+//
+//	SELECT id, customer_id, project_id, title, used, created_at, updated_at FROM project_idea
+//	WHERE id = $1
+func (q *Queries) GetProjectIdea(ctx context.Context, id uuid.UUID) (*ProjectIdea, error) {
+	row := q.db.QueryRow(ctx, getProjectIdea, id)
+	var i ProjectIdea
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Used,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getProjectIdeas = `-- name: GetProjectIdeas :many
+SELECT id, customer_id, project_id, title, used, created_at, updated_at FROM project_idea
+WHERE project_id = $1
+`
+
+// GetProjectIdeas
+//
+//	SELECT id, customer_id, project_id, title, used, created_at, updated_at FROM project_idea
+//	WHERE project_id = $1
+func (q *Queries) GetProjectIdeas(ctx context.Context, projectID uuid.UUID) ([]*ProjectIdea, error) {
+	rows, err := q.db.Query(ctx, getProjectIdeas, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ProjectIdea{}
+	for rows.Next() {
+		var i ProjectIdea
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Used,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getProjects = `-- name: GetProjects :many
+SELECT id, customer_id, title, topic, idea_generation_model_id, created_at, updated_at FROM project
+WHERE customer_id = $1
+`
+
+// GetProjects
+//
+//	SELECT id, customer_id, title, topic, idea_generation_model_id, created_at, updated_at FROM project
+//	WHERE customer_id = $1
+func (q *Queries) GetProjects(ctx context.Context, customerID uuid.UUID) ([]*Project, error) {
+	rows, err := q.db.Query(ctx, getProjects, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Project{}
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Title,
+			&i.Topic,
+			&i.IdeaGenerationModelID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getRootDocumentsByCustomer = `-- name: GetRootDocumentsByCustomer :many
 SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
 WHERE customer_id = $1 AND parent_id is NULL
@@ -991,6 +1387,46 @@ func (q *Queries) GetRootFoldersByCustomer(ctx context.Context, customerID uuid.
 			&i.ParentID,
 			&i.CustomerID,
 			&i.Title,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getStandardLLMs = `-- name: GetStandardLLMs :many
+SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+where customer_id IS NULL
+`
+
+// GetStandardLLMs
+//
+//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	where customer_id IS NULL
+func (q *Queries) GetStandardLLMs(ctx context.Context) ([]*Llm, error) {
+	rows, err := q.db.Query(ctx, getStandardLLMs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Llm{}
+	for rows.Next() {
+		var i Llm
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Title,
+			&i.Color,
+			&i.Model,
+			&i.Temperature,
+			&i.Instructions,
+			&i.IsDefault,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1473,6 +1909,34 @@ func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVe
 		return nil, err
 	}
 	return items, nil
+}
+
+const setProjectIdeaUsed = `-- name: SetProjectIdeaUsed :one
+UPDATE project_idea
+    SET used = true
+WHERE id = $1
+RETURNING id, customer_id, project_id, title, used, created_at, updated_at
+`
+
+// SetProjectIdeaUsed
+//
+//	UPDATE project_idea
+//	    SET used = true
+//	WHERE id = $1
+//	RETURNING id, customer_id, project_id, title, used, created_at, updated_at
+func (q *Queries) SetProjectIdeaUsed(ctx context.Context, id uuid.UUID) (*ProjectIdea, error) {
+	row := q.db.QueryRow(ctx, setProjectIdeaUsed, id)
+	var i ProjectIdea
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Used,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
 }
 
 const setWebsitePagesNotValid = `-- name: SetWebsitePagesNotValid :exec

@@ -60,8 +60,6 @@ CREATE TABLE blog_post(
     id uuid NOT NULL DEFAULT uuid7(),
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     project_library_id uuid NOT NULL REFERENCES project_library(id) ON DELETE CASCADE,
-
-    project_idea_id uuid DEFAULT NULL REFERENCES project_idea(id) ON DELETE SET NULL,
     blog_category_id uuid DEFAULT NULL REFERENCES blog_category(id) ON DELETE SET NULL,
 
     title TEXT NOT NULL,

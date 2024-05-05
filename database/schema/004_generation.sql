@@ -22,17 +22,21 @@ CREATE TABLE content_type(
 CREATE TABLE llm(
     id uuid NOT NULL DEFAULT uuid7(),
     customer_id uuid REFERENCES customer(id) ON DELETE CASCADE, -- when null the llm is a default for all customers
+
+    title TEXT NOT NULL,
+    color VARCHAR(7) DEFAULT NULL, -- #ffffff
     model TEXT NOT NULL,
-    temperature NUMERIC(1,2) NOT NULL,
-    system_prompt TEXT NOT NULL,
+    temperature DOUBLE PRECISION NOT NULL,
+    instructions TEXT NOT NULL,
     is_default BOOLEAN NOT NULL DEFAULT false,
 
     PRIMARY KEY (id),
+    CONSTRAINT cnst_unqiue_llm_title UNIQUE
+    (customer_id, title),
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
--- TODO -- create default models for content
 
 -- Project for content generation. controls which documents are preferred default models
 -- generation configs, etc.
@@ -41,7 +45,10 @@ CREATE TABLE llm(
 CREATE TABLE project(
     id uuid NOT NULL DEFAULT uuid7(),
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+
     title TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    idea_generation_model_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
 
     PRIMARY KEY (id),
 

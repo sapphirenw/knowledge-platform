@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"math"
 	"net/url"
 	"regexp"
@@ -59,23 +58,28 @@ func ConvertSlice[T any, U any](list []T, convert func(T) U) []U {
 	return result
 }
 
-func GoogleUUIDToPGXUUID(googleUUID *uuid.UUID) (pgtype.UUID, error) {
+func GoogleUUIDPtrToPGXUUID(googleUUID *uuid.UUID) pgtype.UUID {
 	var pid pgtype.UUID
 	// allow for nil passed
 	if googleUUID == nil {
-		return pid, nil
+		return pid
 	}
-	if err := pid.Scan(googleUUID.String()); err != nil {
-		return pid, err
-	}
-	return pid, nil
+	pid.Scan(googleUUID.String())
+	return pid
 }
 
-func PGXUUIDToGoogleUUID(pgxUUID *pgtype.UUID) (uuid.UUID, error) {
+func GoogleUUIDToPGXUUID(googleUUID uuid.UUID) pgtype.UUID {
+	var pid pgtype.UUID
+	pid.Scan(googleUUID.String())
+	return pid
+}
+
+func PGXUUIDToGoogleUUID(pgxUUID pgtype.UUID) *uuid.UUID {
 	if !pgxUUID.Valid {
-		return uuid.UUID{}, fmt.Errorf("invalid pgx UUID")
+		return nil
 	}
-	return uuid.FromBytes(pgxUUID.Bytes[:])
+	uid, _ := uuid.FromBytes(pgxUUID.Bytes[:])
+	return &uid
 }
 
 func CleanInput(input string) string {

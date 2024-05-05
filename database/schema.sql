@@ -434,17 +434,21 @@ CREATE TABLE content_type(
 CREATE TABLE llm(
     id uuid NOT NULL DEFAULT uuid7(),
     customer_id uuid REFERENCES customer(id) ON DELETE CASCADE, -- when null the llm is a default for all customers
+
+    title TEXT NOT NULL,
+    color VARCHAR(7) DEFAULT NULL, -- #ffffff
     model TEXT NOT NULL,
-    temperature NUMERIC(1,2) NOT NULL,
-    system_prompt TEXT NOT NULL,
+    temperature DOUBLE PRECISION NOT NULL,
+    instructions TEXT NOT NULL,
     is_default BOOLEAN NOT NULL DEFAULT false,
 
     PRIMARY KEY (id),
+    CONSTRAINT cnst_unqiue_llm_title UNIQUE
+    (customer_id, title),
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
--- TODO -- create default models for content
 
 -- Project for content generation. controls which documents are preferred default models
 -- generation configs, etc.
@@ -453,7 +457,10 @@ CREATE TABLE llm(
 CREATE TABLE project(
     id uuid NOT NULL DEFAULT uuid7(),
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+
     title TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    idea_generation_model_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
 
     PRIMARY KEY (id),
 
@@ -649,8 +656,6 @@ CREATE TABLE blog_post(
     id uuid NOT NULL DEFAULT uuid7(),
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     project_library_id uuid NOT NULL REFERENCES project_library(id) ON DELETE CASCADE,
-
-    project_idea_id uuid DEFAULT NULL REFERENCES project_idea(id) ON DELETE SET NULL,
     blog_category_id uuid DEFAULT NULL REFERENCES blog_category(id) ON DELETE SET NULL,
 
     title TEXT NOT NULL,
@@ -749,17 +754,6 @@ CREATE TABLE blog_post_tag(
 
 /*
 ############################################################
-USERS
-############################################################
-*/
-
-CREATE ROLE schema_spy LOGIN PASSWORD 'schema_spy';
-GRANT CONNECT ON DATABASE aicontent TO schema_spy;
-GRANT USAGE ON SCHEMA public TO schema_spy;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO schema_spy;
-
-/*
-############################################################
 CUSTOM FUNCTION AND TRIGGERS
 ############################################################
 */
@@ -792,17 +786,26 @@ FOR EACH ROW
 EXECUTE FUNCTION delete_vector_if_unreferenced();
 
 --
--- set llm default field to false when another record is set to be a default for the customer
+-- Set llm default field to false when another record is set to be a default for the customer
 CREATE OR REPLACE FUNCTION set_is_default_false()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Check if the new or updated row is marked as default
     IF NEW.is_default THEN
-        -- Update other rows
-        UPDATE llm
-        SET is_default = false
-        WHERE customer_id = NEW.customer_id AND id != NEW.id AND is_default = true;
+        -- Special handling for NULL customer_id (global default)
+        IF NEW.customer_id IS NULL THEN
+            -- Update other rows that are global defaults
+            UPDATE llm
+            SET is_default = false
+            WHERE customer_id IS NULL AND id != NEW.id AND is_default = true;
+        ELSE
+            -- Update other rows for the same customer
+            UPDATE llm
+            SET is_default = false
+            WHERE customer_id = NEW.customer_id AND id != NEW.id AND is_default = true;
+        END IF;
     END IF;
+
     -- Proceed with the insert or update
     RETURN NEW;
 END;
@@ -811,3 +814,40 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_is_default_before_insert_or_update
 BEFORE INSERT OR UPDATE ON llm
 FOR EACH ROW EXECUTE FUNCTION set_is_default_false();
+
+/*
+############################################################
+LLM default vaules
+############################################################
+*/
+INSERT INTO llm (
+    customer_id, title, model, temperature, instructions, is_default
+) VALUES (
+    NULL,
+    'Basic',
+    'gpt-3.5-turbo',
+    1.00,
+    'You are a friendly, AI Assistant here to help and answer all questions politely and concisely.',
+    true
+);
+INSERT INTO llm (
+    customer_id, title, model, temperature, instructions, is_default
+) VALUES (
+    NULL,
+    'Direct',
+    'gpt-3.5-turbo',
+    1.30,
+    'You are direct and straight forward. You do not mess around or dilly-dally.',
+    true
+);
+
+/*
+############################################################
+USERS
+############################################################
+*/
+
+CREATE ROLE schema_spy LOGIN PASSWORD 'schema_spy';
+GRANT CONNECT ON DATABASE aicontent TO schema_spy;
+GRANT USAGE ON SCHEMA public TO schema_spy;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO schema_spy;

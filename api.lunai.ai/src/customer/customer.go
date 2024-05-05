@@ -11,8 +11,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jake-landersweb/gollm/v2/src/gollm"
+	"github.com/jake-landersweb/gollm/v2/src/ltypes"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
-	"github.com/sapphirenw/ai-content-creation-api/src/embeddings"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/sapphirenw/ai-content-creation-api/src/webscrape"
@@ -75,11 +76,8 @@ func (c *Customer) GetDocstore(ctx context.Context) (docstore.RemoteDocstore, er
 	}
 }
 
-func (c *Customer) GetEmbeddings(ctx context.Context) embeddings.Embeddings {
-	emb := embeddings.NewOpenAIEmbeddings(c.ID, &embeddings.OpenAIEmbeddingsOpts{
-		Logger: c.logger,
-	})
-
+func (c *Customer) GetEmbeddings(ctx context.Context) gollm.Embeddings {
+	emb := gollm.NewOpenAIEmbeddings(c.ID.String(), c.logger, nil)
 	return emb
 }
 
@@ -149,11 +147,11 @@ func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, fold
 		}
 	} else {
 		// get self
-		uid, err := utils.PGXUUIDToGoogleUUID(&folderId)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert folderId to a google uuid: %s", err)
+		uid := utils.PGXUUIDToGoogleUUID(folderId)
+		if uid == nil {
+			return nil, fmt.Errorf("failed to convert folderId to a google uuid")
 		}
-		folder, err = model.GetFolder(ctx, uid)
+		folder, err = model.GetFolder(ctx, *uid)
 		if err != nil {
 			return nil, fmt.Errorf("this folder does not exist: %s", err)
 		}
@@ -421,7 +419,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 	close(errs)
 
 	// report vectors
-	if err := emb.ReportUsage(ctx, txn); err != nil {
+	if err := utils.ReportUsage(ctx, logger, txn, c.ID, emb.GetTokenRecords()); err != nil {
 		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 
@@ -676,7 +674,7 @@ func (c *Customer) VectorizeDatastore(
 	// create a type to store the embeddings data
 	type embeddingResponse struct {
 		doc     *docstore.Document
-		vectors []*embeddings.EmbeddingsData
+		vectors []*ltypes.EmbeddingsData
 	}
 
 	// create an array for the results to be stored in
@@ -744,7 +742,7 @@ func (c *Customer) VectorizeDatastore(
 	close(errCh)
 
 	// report vectors
-	if err := emb.ReportUsage(ctx, txn); err != nil {
+	if err := utils.ReportUsage(ctx, logger, txn, c.ID, emb.GetTokenRecords()); err != nil {
 		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 

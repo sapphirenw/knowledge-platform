@@ -14,13 +14,15 @@ require (
 	github.com/gocolly/colly/v2 v2.1.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.5.4
-	github.com/jake-landersweb/gollm v1.2.0
+	github.com/jake-landersweb/gollm/v2 v2.3.0
 	github.com/pgvector/pgvector-go v0.1.1
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.30.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.30.0
 	go.dpb.io/sitemap v0.0.0-20210828150946-52a1fb6f10fa
 )
+
+replace github.com/jake-landersweb/gollm/v2 => /Users/jakelanders/code/gollm
 
 require (
 	dario.cat/mergo v1.0.0 // indirect

@@ -236,10 +236,7 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, dir
 }
 
 func remotels(ctx context.Context, c *Customer, parentId *uuid.UUID, indent int, db *pgxpool.Pool) error {
-	pid, err := utils.GoogleUUIDToPGXUUID(parentId)
-	if err != nil {
-		return fmt.Errorf("failed to parse uuid: %s", err)
-	}
+	pid := utils.GoogleUUIDPtrToPGXUUID(parentId)
 	response, err := c.ListFolderContents(ctx, db, pid)
 	if err != nil {
 		return err

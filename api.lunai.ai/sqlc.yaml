@@ -3,7 +3,7 @@ cloud:
   project: '01HQXPT9M4B611XZA5XS501TYE'
 sql:
   - engine: "postgresql"
-    queries: "../database/queries/queries.sql"
+    queries: "../database/queries.sql"
     schema: "../database/schema.sql"
     gen:
       go:

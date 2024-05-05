@@ -3,9 +3,9 @@ export
 
 sql:
 	$(MAKE) -C ../database -f ../database/Makefile db-schema
-	awk 'FNR==1{print ""}1' ../database/queries/* > ../database/queries/queries.sql
+	awk 'FNR==1{print ""}1' ../database/queries/* > ../database/queries.sql
 	sqlc generate
-	rm ../database/queries/queries.sql
+	rm ../database/queries.sql
 
 run: sql
 	go run ./src/*.go
@@ -23,6 +23,10 @@ test-embeddings: sql
 	go test -v -coverprofile coverage.out ./src/embeddings/*.go
 test-customer: sql
 	go test -v -coverprofile coverage.out ./src/customer/*.go
+test-llm: sql
+	go test -v -coverprofile coverage.out ./src/llm/*.go
+test-project: sql
+	go test -v -coverprofile coverage.out ./src/project/*.go
 
 test: sql
 	go test -v ./...

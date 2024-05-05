@@ -2,6 +2,8 @@ package testingutils
 
 import (
 	"context"
+	"log/slog"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -18,7 +20,7 @@ import (
 func GetDatabase(t *testing.T, ctx context.Context) *pgxpool.Pool {
 	pgContainer, err := postgres.RunContainer(ctx,
 		testcontainers.WithImage("ankane/pgvector"),
-		postgres.WithInitScripts(filepath.Join("..", "..", "..", "database", "schema", "00_GENERATED_schema.sql")),
+		postgres.WithInitScripts(filepath.Join("..", "..", "..", "database", "schema.sql")),
 		postgres.WithDatabase("aicontent"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
@@ -51,9 +53,13 @@ func GetDatabase(t *testing.T, ctx context.Context) *pgxpool.Pool {
 	return pool
 }
 
-func CreateTestCustomer(t *testing.T, ctx context.Context, db queries.DBTX) *queries.Customer {
+func GetTestCustomer(t *testing.T, ctx context.Context, db queries.DBTX) *queries.Customer {
 	model := queries.New(db)
 	customer, err := model.CreateCustomer(ctx, "test-customer")
 	require.NoError(t, err)
 	return customer
+}
+
+func DefaultLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 }

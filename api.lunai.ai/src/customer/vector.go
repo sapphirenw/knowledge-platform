@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
+	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/sapphirenw/ai-content-creation-api/src/vectorstore"
 )
 
@@ -71,8 +72,8 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	}
 
 	// report the usage
-	if err := embs.ReportUsage(ctx, db); err != nil {
-		logger.ErrorContext(ctx, "failed to report usage", "error", err)
+	if err := utils.ReportUsage(ctx, logger, db, c.ID, embs.GetTokenRecords()); err != nil {
+		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 
 	// get the website pages
@@ -82,8 +83,8 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	}
 
 	// report the usage
-	if err := embs.ReportUsage(ctx, db); err != nil {
-		logger.ErrorContext(ctx, "failed to report usage", "error", err)
+	if err := utils.ReportUsage(ctx, logger, db, c.ID, embs.GetTokenRecords()); err != nil {
+		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 
 	return &queryVectorStoreResponse{

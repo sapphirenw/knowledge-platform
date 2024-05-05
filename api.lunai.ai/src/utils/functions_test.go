@@ -81,12 +81,7 @@ func TestConvertSlice(t *testing.T) {
 
 func TestUUIDConvertion(t *testing.T) {
 	gid := uuid.New()
-	pid, err := GoogleUUIDToPGXUUID(&gid)
-	require.NoError(t, err)
-	gid2, err := PGXUUIDToGoogleUUID(&pid)
-	require.NoError(t, err)
-	if err != nil {
-		return
-	}
+	pid := GoogleUUIDToPGXUUID(gid)
+	gid2 := PGXUUIDToGoogleUUID(pid)
 	require.Equal(t, gid.String(), gid2.String())
 }
