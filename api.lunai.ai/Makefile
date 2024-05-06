@@ -27,6 +27,8 @@ test-llm: sql
 	go test -v -coverprofile coverage.out ./src/llm/*.go
 test-project: sql
 	go test -v -coverprofile coverage.out ./src/project/*.go
+test-conv: sql
+	go test -v -coverprofile coverage.out ./src/conversation/*.go
 
 test: sql
 	go test -v ./...

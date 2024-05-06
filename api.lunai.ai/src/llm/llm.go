@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
+	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
@@ -97,15 +98,7 @@ func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtyp
 }
 
 func (model *LLM) GenerateSystemPrompt(prompt string) string {
-	sys := `Your System prompt:
-%s
-
-In addition to the system prompt provided above, you MUST follow
-these additional instructions from the user. These instructions are
-required.
-Instructions:
-%s`
-	return fmt.Sprintf(sys, prompt, model.Instructions)
+	return fmt.Sprintf(prompts.PROMPT_LLM_SYSTEM, prompt, model.Instructions)
 }
 
 type CompletionArgs struct {

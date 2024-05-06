@@ -13,7 +13,7 @@ import (
 
 func TestCreateProjectIdea(t *testing.T) {
 	ctx := context.Background()
-	logger := testingutils.DefaultLogger()
+	logger := testingutils.GetDefaultLogger()
 	pool := testingutils.GetDatabase(t, ctx)
 	c := testingutils.GetTestCustomer(t, ctx, pool)
 

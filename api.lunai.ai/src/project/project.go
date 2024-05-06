@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
+	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
@@ -114,14 +115,8 @@ func (p *Project) GenerateIdeas(ctx context.Context, db queries.DBTX, n int) ([]
 		return nil, fmt.Errorf("failed to get the model: %s", err)
 	}
 
-	// generate a system prompt from the model
-	sys_prompt := "You are a model that has been specifically designed to generate ideas for online content based on a topic. You will receive a title, a topic, and a number of ideas to generate as input from the user. You will proceed to generate engaging ideas in the JSON format specified."
-	sys_prompt = model.GenerateSystemPrompt(sys_prompt)
-
 	// create an llm object
-	lm := gollm.NewLanguageModel(p.CustomerID.String(), p.logger, &gollm.NewLanguageModelArgs{
-		SystemMessage: sys_prompt,
-	})
+	lm := gollm.NewLanguageModel(p.CustomerID.String(), p.logger, prompts.PROMPT_PROJECT_IDEA_SYSTEM, nil)
 
 	// create an input for idea generation
 	prompt := fmt.Sprintf("Title: %s\nTopic: %sNumber: %d", p.Title, p.Topic, n)
@@ -152,3 +147,12 @@ func (p *Project) GenerateIdeas(ctx context.Context, db queries.DBTX, n int) ([]
 
 	return ideas.Ideas, nil
 }
+
+// func (p *Project) IdeaFeedback(
+// 	ctx context.Context,
+// 	db queries.DBTX,
+// 	ideas []*projectIdeas,
+// 	feedback string,
+// ) ([]*ProjectIdea, error) {
+
+// }

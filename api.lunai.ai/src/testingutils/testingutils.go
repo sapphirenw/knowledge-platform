@@ -60,6 +60,6 @@ func GetTestCustomer(t *testing.T, ctx context.Context, db queries.DBTX) *querie
 	return customer
 }
 
-func DefaultLogger() *slog.Logger {
+func GetDefaultLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 }

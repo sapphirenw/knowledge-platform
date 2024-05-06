@@ -450,6 +450,50 @@ CREATE TABLE llm(
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ties together conversation messages, can be used to seed an llm
+CREATE TABLE conversation(
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+
+    title TEXT NOT NULL,
+
+    PRIMARY KEY (id),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- a message in a conversation. stores a reference to the llm that generated it, in addition
+-- to the static settings of the llm in case they change
+CREATE TABLE conversation_message(
+    id uuid NOT NULL DEFAULT uuid7(),
+    conversation_id uuid NOT NULL REFERENCES conversation(id) ON DELETE CASCADE,
+    llm_id uuid NULL REFERENCES llm(id) ON DELETE SET NULL,
+    
+    -- llm settings because these may change if the llm is updated
+    model TEXT NOT NULL,
+    temperature DOUBLE PRECISION NOT NULL,
+    instructions TEXT NOT NULL,
+
+    -- conversation information
+    role TEXT NOT NULL,
+    message TEXT NOT NULL,
+    index INT NOT NULL,
+
+    PRIMARY KEY (id),
+    CONSTRAINT cnst_conversation_message_unique UNIQUE
+    (conversation_id, index),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+/*
+############################################################
+Projects
+############################################################
+*/
+
 -- Project for content generation. controls which documents are preferred default models
 -- generation configs, etc.
 -- Content is generated on a per-project basis.
@@ -520,6 +564,9 @@ CREATE TABLE project_idea(
     id uuid NOT NULL DEFAULT uuid7(),
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     project_id uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+
+    -- reference to the conversation that generated this idea if applicable
+    conversation_id uuid NULL REFERENCES conversation(id) ON DELETE SET NULL,
 
     title TEXT NOT NULL,
     used BOOLEAN NOT NULL DEFAULT false,

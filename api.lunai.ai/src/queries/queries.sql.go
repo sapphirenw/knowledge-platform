@@ -13,6 +13,109 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+const createConversation = `-- name: CreateConversation :one
+INSERT INTO conversation (
+    customer_id, title
+) VALUES ( $1, $2 )
+RETURNING id, customer_id, title, created_at, updated_at
+`
+
+type CreateConversationParams struct {
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	Title      string    `db:"title" json:"title"`
+}
+
+// CreateConversation
+//
+//	INSERT INTO conversation (
+//	    customer_id, title
+//	) VALUES ( $1, $2 )
+//	RETURNING id, customer_id, title, created_at, updated_at
+func (q *Queries) CreateConversation(ctx context.Context, arg *CreateConversationParams) (*Conversation, error) {
+	row := q.db.QueryRow(ctx, createConversation, arg.CustomerID, arg.Title)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createConversationMessage = `-- name: CreateConversationMessage :one
+INSERT INTO conversation_message (
+    conversation_id,
+    llm_id,
+    model,
+    temperature,
+    instructions,
+    role,
+    message,
+    index
+) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8 )
+ON CONFLICT (conversation_id, index)
+DO UPDATE SET
+    updated_at = CURRENT_TIMESTAMP
+RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, created_at, updated_at
+`
+
+type CreateConversationMessageParams struct {
+	ConversationID uuid.UUID   `db:"conversation_id" json:"conversationId"`
+	LlmID          pgtype.UUID `db:"llm_id" json:"llmId"`
+	Model          string      `db:"model" json:"model"`
+	Temperature    float64     `db:"temperature" json:"temperature"`
+	Instructions   string      `db:"instructions" json:"instructions"`
+	Role           string      `db:"role" json:"role"`
+	Message        string      `db:"message" json:"message"`
+	Index          int32       `db:"index" json:"index"`
+}
+
+// CreateConversationMessage
+//
+//	INSERT INTO conversation_message (
+//	    conversation_id,
+//	    llm_id,
+//	    model,
+//	    temperature,
+//	    instructions,
+//	    role,
+//	    message,
+//	    index
+//	) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8 )
+//	ON CONFLICT (conversation_id, index)
+//	DO UPDATE SET
+//	    updated_at = CURRENT_TIMESTAMP
+//	RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, created_at, updated_at
+func (q *Queries) CreateConversationMessage(ctx context.Context, arg *CreateConversationMessageParams) (*ConversationMessage, error) {
+	row := q.db.QueryRow(ctx, createConversationMessage,
+		arg.ConversationID,
+		arg.LlmID,
+		arg.Model,
+		arg.Temperature,
+		arg.Instructions,
+		arg.Role,
+		arg.Message,
+		arg.Index,
+	)
+	var i ConversationMessage
+	err := row.Scan(
+		&i.ID,
+		&i.ConversationID,
+		&i.LlmID,
+		&i.Model,
+		&i.Temperature,
+		&i.Instructions,
+		&i.Role,
+		&i.Message,
+		&i.Index,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const createCustomer = `-- name: CreateCustomer :one
 INSERT INTO customer (
     name
@@ -318,7 +421,7 @@ INSERT INTO project_idea (
 ) VALUES (
     $1, $2, $3
 )
-RETURNING id, customer_id, project_id, title, used, created_at, updated_at
+RETURNING id, customer_id, project_id, conversation_id, title, used, created_at, updated_at
 `
 
 type CreateProjectIdeaParams struct {
@@ -334,7 +437,7 @@ type CreateProjectIdeaParams struct {
 //	) VALUES (
 //	    $1, $2, $3
 //	)
-//	RETURNING id, customer_id, project_id, title, used, created_at, updated_at
+//	RETURNING id, customer_id, project_id, conversation_id, title, used, created_at, updated_at
 func (q *Queries) CreateProjectIdea(ctx context.Context, arg *CreateProjectIdeaParams) (*ProjectIdea, error) {
 	row := q.db.QueryRow(ctx, createProjectIdea, arg.CustomerID, arg.ProjectID, arg.Title)
 	var i ProjectIdea
@@ -342,6 +445,7 @@ func (q *Queries) CreateProjectIdea(ctx context.Context, arg *CreateProjectIdeaP
 		&i.ID,
 		&i.CustomerID,
 		&i.ProjectID,
+		&i.ConversationID,
 		&i.Title,
 		&i.Used,
 		&i.CreatedAt,
@@ -693,6 +797,106 @@ type DeleteWebsitePagesOlderThanParams struct {
 func (q *Queries) DeleteWebsitePagesOlderThan(ctx context.Context, arg *DeleteWebsitePagesOlderThanParams) error {
 	_, err := q.db.Exec(ctx, deleteWebsitePagesOlderThan, arg.CustomerID, arg.UpdatedAt)
 	return err
+}
+
+const getConversation = `-- name: GetConversation :one
+SELECT id, customer_id, title, created_at, updated_at FROM conversation
+WHERE id = $1
+`
+
+// GetConversation
+//
+//	SELECT id, customer_id, title, created_at, updated_at FROM conversation
+//	WHERE id = $1
+func (q *Queries) GetConversation(ctx context.Context, id uuid.UUID) (*Conversation, error) {
+	row := q.db.QueryRow(ctx, getConversation, id)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getConversationMessages = `-- name: GetConversationMessages :many
+SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, created_at, updated_at FROM conversation_message
+WHERE conversation_id = $1
+ORDER BY index ASC
+`
+
+// GetConversationMessages
+//
+//	SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, created_at, updated_at FROM conversation_message
+//	WHERE conversation_id = $1
+//	ORDER BY index ASC
+func (q *Queries) GetConversationMessages(ctx context.Context, conversationID uuid.UUID) ([]*ConversationMessage, error) {
+	rows, err := q.db.Query(ctx, getConversationMessages, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ConversationMessage{}
+	for rows.Next() {
+		var i ConversationMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ConversationID,
+			&i.LlmID,
+			&i.Model,
+			&i.Temperature,
+			&i.Instructions,
+			&i.Role,
+			&i.Message,
+			&i.Index,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getConversations = `-- name: GetConversations :many
+SELECT id, customer_id, title, created_at, updated_at FROM conversation
+WHERE customer_id = $1
+`
+
+// GetConversations
+//
+//	SELECT id, customer_id, title, created_at, updated_at FROM conversation
+//	WHERE customer_id = $1
+func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([]*Conversation, error) {
+	rows, err := q.db.Query(ctx, getConversations, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Conversation{}
+	for rows.Next() {
+		var i Conversation
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Title,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getCustomer = `-- name: GetCustomer :one
@@ -1227,13 +1431,13 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (*Project, error
 }
 
 const getProjectIdea = `-- name: GetProjectIdea :one
-SELECT id, customer_id, project_id, title, used, created_at, updated_at FROM project_idea
+SELECT id, customer_id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 WHERE id = $1
 `
 
 // GetProjectIdea
 //
-//	SELECT id, customer_id, project_id, title, used, created_at, updated_at FROM project_idea
+//	SELECT id, customer_id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 //	WHERE id = $1
 func (q *Queries) GetProjectIdea(ctx context.Context, id uuid.UUID) (*ProjectIdea, error) {
 	row := q.db.QueryRow(ctx, getProjectIdea, id)
@@ -1242,6 +1446,7 @@ func (q *Queries) GetProjectIdea(ctx context.Context, id uuid.UUID) (*ProjectIde
 		&i.ID,
 		&i.CustomerID,
 		&i.ProjectID,
+		&i.ConversationID,
 		&i.Title,
 		&i.Used,
 		&i.CreatedAt,
@@ -1251,13 +1456,13 @@ func (q *Queries) GetProjectIdea(ctx context.Context, id uuid.UUID) (*ProjectIde
 }
 
 const getProjectIdeas = `-- name: GetProjectIdeas :many
-SELECT id, customer_id, project_id, title, used, created_at, updated_at FROM project_idea
+SELECT id, customer_id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 WHERE project_id = $1
 `
 
 // GetProjectIdeas
 //
-//	SELECT id, customer_id, project_id, title, used, created_at, updated_at FROM project_idea
+//	SELECT id, customer_id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 //	WHERE project_id = $1
 func (q *Queries) GetProjectIdeas(ctx context.Context, projectID uuid.UUID) ([]*ProjectIdea, error) {
 	rows, err := q.db.Query(ctx, getProjectIdeas, projectID)
@@ -1272,6 +1477,7 @@ func (q *Queries) GetProjectIdeas(ctx context.Context, projectID uuid.UUID) ([]*
 			&i.ID,
 			&i.CustomerID,
 			&i.ProjectID,
+			&i.ConversationID,
 			&i.Title,
 			&i.Used,
 			&i.CreatedAt,
@@ -1915,7 +2121,7 @@ const setProjectIdeaUsed = `-- name: SetProjectIdeaUsed :one
 UPDATE project_idea
     SET used = true
 WHERE id = $1
-RETURNING id, customer_id, project_id, title, used, created_at, updated_at
+RETURNING id, customer_id, project_id, conversation_id, title, used, created_at, updated_at
 `
 
 // SetProjectIdeaUsed
@@ -1923,7 +2129,7 @@ RETURNING id, customer_id, project_id, title, used, created_at, updated_at
 //	UPDATE project_idea
 //	    SET used = true
 //	WHERE id = $1
-//	RETURNING id, customer_id, project_id, title, used, created_at, updated_at
+//	RETURNING id, customer_id, project_id, conversation_id, title, used, created_at, updated_at
 func (q *Queries) SetProjectIdeaUsed(ctx context.Context, id uuid.UUID) (*ProjectIdea, error) {
 	row := q.db.QueryRow(ctx, setProjectIdeaUsed, id)
 	var i ProjectIdea
@@ -1931,6 +2137,7 @@ func (q *Queries) SetProjectIdeaUsed(ctx context.Context, id uuid.UUID) (*Projec
 		&i.ID,
 		&i.CustomerID,
 		&i.ProjectID,
+		&i.ConversationID,
 		&i.Title,
 		&i.Used,
 		&i.CreatedAt,
