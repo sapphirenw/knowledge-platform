@@ -124,11 +124,13 @@ type ContentType struct {
 }
 
 type Conversation struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	Title      string             `db:"title" json:"title"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID               uuid.UUID          `db:"id" json:"id"`
+	CustomerID       uuid.UUID          `db:"customer_id" json:"customerId"`
+	Title            string             `db:"title" json:"title"`
+	ConversationType string             `db:"conversation_type" json:"conversationType"`
+	Metadata         []byte             `db:"metadata" json:"metadata"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type ConversationMessage struct {
@@ -255,14 +257,15 @@ type ProjectFolder struct {
 }
 
 type ProjectIdea struct {
-	ID             uuid.UUID          `db:"id" json:"id"`
-	CustomerID     uuid.UUID          `db:"customer_id" json:"customerId"`
-	ProjectID      uuid.UUID          `db:"project_id" json:"projectId"`
-	ConversationID pgtype.UUID        `db:"conversation_id" json:"conversationId"`
-	Title          string             `db:"title" json:"title"`
-	Used           bool               `db:"used" json:"used"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID                uuid.UUID          `db:"id" json:"id"`
+	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectID         uuid.UUID          `db:"project_id" json:"projectId"`
+	GenerationBatchID uuid.UUID          `db:"generation_batch_id" json:"generationBatchId"`
+	ConversationID    pgtype.UUID        `db:"conversation_id" json:"conversationId"`
+	Title             string             `db:"title" json:"title"`
+	Used              bool               `db:"used" json:"used"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type ProjectLibrary struct {
@@ -287,13 +290,14 @@ type ProjectWebsite struct {
 }
 
 type TokenUsage struct {
-	ID           uuid.UUID          `db:"id" json:"id"`
-	CustomerID   uuid.UUID          `db:"customer_id" json:"customerId"`
-	Model        string             `db:"model" json:"model"`
-	InputTokens  int32              `db:"input_tokens" json:"inputTokens"`
-	OutputTokens int32              `db:"output_tokens" json:"outputTokens"`
-	TotalTokens  int32              `db:"total_tokens" json:"totalTokens"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	ID             uuid.UUID          `db:"id" json:"id"`
+	CustomerID     uuid.UUID          `db:"customer_id" json:"customerId"`
+	ConversationID pgtype.UUID        `db:"conversation_id" json:"conversationId"`
+	Model          string             `db:"model" json:"model"`
+	InputTokens    int32              `db:"input_tokens" json:"inputTokens"`
+	OutputTokens   int32              `db:"output_tokens" json:"outputTokens"`
+	TotalTokens    int32              `db:"total_tokens" json:"totalTokens"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type VectorStore struct {

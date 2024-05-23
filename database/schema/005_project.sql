@@ -74,6 +74,7 @@ CREATE TABLE project_idea(
     id uuid NOT NULL DEFAULT uuid7(),
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     project_id uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+    generation_batch_id uuid NOT NULL,
 
     -- reference to the conversation that generated this idea if applicable
     conversation_id uuid NULL REFERENCES conversation(id) ON DELETE SET NULL,

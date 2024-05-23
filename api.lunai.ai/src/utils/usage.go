@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 )
@@ -16,6 +17,7 @@ func ReportUsage(
 	db queries.DBTX,
 	customerId uuid.UUID,
 	records []*tokens.TokenRecord,
+	conversation *queries.Conversation, // optional conversation to tie the usage to
 ) error {
 	logger.InfoContext(ctx, "Reporting usage", "records", len(records))
 	model := queries.New(db)
@@ -23,13 +25,18 @@ func ReportUsage(
 	// insert all internal token records
 	for idx, item := range records {
 		logger.InfoContext(ctx, "Posting to database ...", "index", idx)
+		var convId pgtype.UUID
+		if conversation != nil {
+			convId = GoogleUUIDToPGXUUID(conversation.ID)
+		}
 		_, err := model.CreateTokenUsage(ctx, &queries.CreateTokenUsageParams{
-			ID:           item.ID,
-			CustomerID:   customerId,
-			Model:        item.Model,
-			InputTokens:  int32(item.InputTokens),
-			OutputTokens: int32(item.OutputTokens),
-			TotalTokens:  int32(item.TotalTokens),
+			ID:             item.ID,
+			CustomerID:     customerId,
+			ConversationID: convId,
+			Model:          item.Model,
+			InputTokens:    int32(item.InputTokens),
+			OutputTokens:   int32(item.OutputTokens),
+			TotalTokens:    int32(item.TotalTokens),
 		})
 		if err != nil {
 			return err

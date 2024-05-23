@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -105,9 +104,40 @@ func (p *Project) GetGenerationModel(ctx context.Context, db queries.DBTX) (*llm
 	return p.ideaGererationModel, nil
 }
 
-func (p *Project) GenerateIdeas(ctx context.Context, db queries.DBTX, n int) ([]*ProjectIdea, error) {
-	logger := p.logger.With()
-	logger.InfoContext(ctx, "Generating project ideas")
+type GenerateIdeasArgs struct {
+	ConversationId string
+	Feedback       string
+	N              int
+}
+
+type GenerateIdeasResponse struct {
+	Ideas          []*ProjectIdea
+	ConversationId uuid.UUID
+}
+
+func (p *Project) GenerateIdeas(
+	ctx context.Context,
+	db queries.DBTX,
+	args *GenerateIdeasArgs,
+) (*GenerateIdeasResponse, error) {
+	// parse arguments
+	if args == nil {
+		args = &GenerateIdeasArgs{}
+	}
+	if args.Feedback == "" {
+		args.Feedback = "None."
+	}
+	if args.N == 0 {
+		args.N = 1
+	}
+	// check if uuid can be parsed
+	if args.ConversationId != "" {
+		if _, err := uuid.Parse(args.ConversationId); err != nil {
+			return nil, fmt.Errorf("failed to parse conversationId: %s", err)
+		}
+	}
+
+	logger := p.logger.With("args", *args)
 
 	// get the generation model
 	model, err := p.GetGenerationModel(ctx, db)
@@ -115,18 +145,43 @@ func (p *Project) GenerateIdeas(ctx context.Context, db queries.DBTX, n int) ([]
 		return nil, fmt.Errorf("failed to get the model: %s", err)
 	}
 
-	// create an llm object
-	lm := gollm.NewLanguageModel(p.CustomerID.String(), p.logger, prompts.PROMPT_PROJECT_IDEA_SYSTEM, nil)
+	// determine where to get the conversation from
+	var conv *llm.Conversation
+	var prompt string
+	if args.ConversationId == "" {
+		logger.InfoContext(ctx, "Generating new ideas ...")
 
-	// create an input for idea generation
-	prompt := fmt.Sprintf("Title: %s\nTopic: %sNumber: %d", p.Title, p.Topic, n)
-	response, err := model.Completion(ctx, logger, lm, &llm.CompletionArgs{
+		// create a new conversation
+		conv, err = llm.CreateConversation(ctx, logger, db, p.CustomerID, prompts.PROMPT_PROJECT_IDEA_SYSTEM, "Idea Generation", "idea-generation")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create the conversation: %s", err)
+		}
+
+		// define a new prompt
+		prompt = fmt.Sprintf("Title: %s\nTopic: %s\nNumber: %d", p.Title, p.Topic, args.N)
+	} else {
+		logger.InfoContext(ctx, "Generating ideas from an existing conversation ...")
+
+		// get the existing conversation
+		conv, err = llm.GetConversation(ctx, logger, db, uuid.MustParse(args.ConversationId))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get the conversation: %s", err)
+		}
+
+		// create a prompt with the feedback
+		prompt = fmt.Sprintf("This was not quite what I am looking for. Please try again with this feedback: %s.\nRemember, respond in the JSON format given previously.", args.Feedback)
+	}
+
+	logger.InfoContext(ctx, "Running the completion ...")
+
+	// run the completion against the conversation
+	response, err := conv.Completion(ctx, db, model, &llm.CompletionArgs{
 		Input:      prompt,
 		Json:       true,
 		JsonSchema: `{"ideas": [{"title", string}]}`,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed model completion: %s", err)
+		return nil, fmt.Errorf("the completion failed")
 	}
 	if response == "" {
 		return nil, fmt.Errorf("there was an unknown with the model completion, the response was empty")
@@ -140,19 +195,8 @@ func (p *Project) GenerateIdeas(ctx context.Context, db queries.DBTX, n int) ([]
 		return nil, fmt.Errorf("failed to de-serialize json: %s %s", err, response)
 	}
 
-	// report usage
-	if err := utils.ReportUsage(ctx, logger, db, p.CustomerID, lm.GetTokenRecords()); err != nil {
-		return nil, fmt.Errorf("failed to report model usage: %s", err)
-	}
-
-	return ideas.Ideas, nil
+	return &GenerateIdeasResponse{
+		Ideas:          ideas.Ideas,
+		ConversationId: conv.ID,
+	}, nil
 }
-
-// func (p *Project) IdeaFeedback(
-// 	ctx context.Context,
-// 	db queries.DBTX,
-// 	ideas []*projectIdeas,
-// 	feedback string,
-// ) ([]*ProjectIdea, error) {
-
-// }

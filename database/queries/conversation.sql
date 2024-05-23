@@ -1,7 +1,7 @@
 -- name: CreateConversation :one
 INSERT INTO conversation (
-    customer_id, title
-) VALUES ( $1, $2 )
+    customer_id, title, conversation_type, metadata
+) VALUES ( $1, $2, $3, $4 )
 RETURNING *;
 
 -- name: GetConversations :many
@@ -32,3 +32,7 @@ RETURNING *;
 SELECT * FROM conversation_message
 WHERE conversation_id = $1
 ORDER BY index ASC;
+
+-- name: ClearConversation :exec
+DELETE FROM conversation_message
+WHERE conversation_id = $1;

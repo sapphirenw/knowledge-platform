@@ -41,7 +41,8 @@ func TestCreateProjectIdea(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Idea Generator", m.Title)
 
-	ideas, err := project.GenerateIdeas(ctx, pool, 2)
+	// test the ability to generate ideas
+	response, err := project.GenerateIdeas(ctx, pool, &GenerateIdeasArgs{N: 2})
 	require.NoError(t, err)
 
 	// ensure that the model usage was reported properly
@@ -51,7 +52,7 @@ func TestCreateProjectIdea(t *testing.T) {
 	require.NotEmpty(t, records)
 
 	fmt.Println("\nIdeas:")
-	for _, item := range ideas {
+	for _, item := range response.Ideas {
 		fmt.Println("- " + item.Title)
 	}
 
@@ -59,4 +60,33 @@ func TestCreateProjectIdea(t *testing.T) {
 	for _, item := range records {
 		fmt.Printf("- %s: %d\n", item.Model, item.TotalTokens)
 	}
+
+	// give feedback
+	response, err = project.GenerateIdeas(ctx, pool, &GenerateIdeasArgs{
+		ConversationId: response.ConversationId.String(),
+		Feedback:       "I would like this content more tailored to NHL hockey",
+		N:              2,
+	})
+	require.NoError(t, err)
+
+	// ensure that tokens were tracked properly
+	records, err = dmodel.GetTokenUsage(ctx, c.ID)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(records))
+
+	fmt.Println("\nIdeas:")
+	for _, item := range response.Ideas {
+		fmt.Println("- " + item.Title)
+	}
+
+	fmt.Println("\nUsage:")
+	for _, item := range records {
+		fmt.Printf("- %s: %d\n", item.Model, item.TotalTokens)
+	}
+
+	// print out the conversation
+	conv, err := llm.GetConversation(ctx, logger, pool, response.ConversationId)
+	require.NoError(t, err)
+	require.NotNil(t, conv.LanguageModel)
+	conv.LanguageModel.PrintConversation()
 }

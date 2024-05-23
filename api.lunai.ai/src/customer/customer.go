@@ -419,7 +419,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 	close(errs)
 
 	// report vectors
-	if err := utils.ReportUsage(ctx, logger, txn, c.ID, emb.GetTokenRecords()); err != nil {
+	if err := utils.ReportUsage(ctx, logger, txn, c.ID, emb.GetTokenRecords(), nil); err != nil {
 		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 
@@ -742,7 +742,7 @@ func (c *Customer) VectorizeDatastore(
 	close(errCh)
 
 	// report vectors
-	if err := utils.ReportUsage(ctx, logger, txn, c.ID, emb.GetTokenRecords()); err != nil {
+	if err := utils.ReportUsage(ctx, logger, txn, c.ID, emb.GetTokenRecords(), nil); err != nil {
 		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 

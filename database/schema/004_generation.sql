@@ -44,6 +44,8 @@ CREATE TABLE conversation(
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
 
     title TEXT NOT NULL,
+    conversation_type TEXT NOT NULL,
+    metadata JSON DEFAULT '{}',
 
     PRIMARY KEY (id),
 
@@ -74,4 +76,22 @@ CREATE TABLE conversation_message(
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- track token usage for a customer across multiple different models
+CREATE TABLE token_usage(
+    id UUID NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+
+    -- optionally store a reference to the conversation that was coorelated with this token usage
+    conversation_id uuid NULL REFERENCES conversation(id) ON DELETE SET NULL,
+
+    model VARCHAR(256) NOT NULL,
+    input_tokens INT NOT NULL,
+    output_tokens INT NOT NULL,
+    total_tokens INT NOT NULL,
+
+    PRIMARY KEY (id),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

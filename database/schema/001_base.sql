@@ -30,18 +30,3 @@ CREATE TABLE vector_store(
 ) PARTITION BY LIST(customer_id);
 CREATE INDEX ON vector_store USING hnsw (embeddings vector_ip_ops);
 CREATE TABLE vector_store_default PARTITION OF vector_store DEFAULT; -- default
-
--- track token usage for a customer across multiple different models
-CREATE TABLE token_usage(
-    id UUID NOT NULL DEFAULT uuid7(),
-    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
-
-    model VARCHAR(256) NOT NULL,
-    input_tokens INT NOT NULL,
-    output_tokens INT NOT NULL,
-    total_tokens INT NOT NULL,
-
-    PRIMARY KEY (id),
-
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
