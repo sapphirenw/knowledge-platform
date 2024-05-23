@@ -150,11 +150,11 @@ def get_project():
     print(json.dumps(response.json(), indent=4))
 
 
-@app.command()
+@app.command(help="Creates project ideas in an interactive feedback loop")
 def generate_ideas(
     k: Annotated[
         int,
-        typer.Option(help="How many project ideas to generate"),
+        typer.Option(help="How many project ideas to generate at a time"),
     ] = 3,
 ):
     p = project.Project.get()
