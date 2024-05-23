@@ -61,5 +61,5 @@ func GetTestCustomer(t *testing.T, ctx context.Context, db queries.DBTX) *querie
 }
 
 func GetDefaultLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 }

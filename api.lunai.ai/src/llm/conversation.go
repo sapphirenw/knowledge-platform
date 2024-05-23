@@ -14,8 +14,9 @@ import (
 type Conversation struct {
 	*queries.Conversation
 
-	LanguageModel *gollm.LanguageModel
-	Messages      []*ConversationMessage
+	LanguageModel  *gollm.LanguageModel
+	Messages       []*ConversationMessage
+	storedMessages int // representation of how many messages are already stored in the database
 
 	logger *slog.Logger
 }
@@ -72,10 +73,11 @@ func CreateConversation(
 	lm := gollm.NewLanguageModel(customerId.String(), l, systemMessage, nil)
 
 	return &Conversation{
-		Conversation:  conversation,
-		LanguageModel: lm,
-		Messages:      make([]*ConversationMessage, 0),
-		logger:        logger.With("conversationId", conversation.ID.String()),
+		Conversation:   conversation,
+		LanguageModel:  lm,
+		Messages:       make([]*ConversationMessage, 0),
+		storedMessages: 0,
+		logger:         logger.With("conversationId", conversation.ID.String()),
 	}, nil
 }
 
@@ -100,6 +102,8 @@ func GetConversation(
 		return nil, fmt.Errorf("failed to get conversation messages: %s", err)
 	}
 
+	logger.DebugContext(ctx, "Fetched messages from database", "length", len(msgs))
+
 	// make the needed internal lists
 	messages := make([]*ConversationMessage, 0)
 	gollmMessages := make([]*gollm.LanguageModelMessage, 0)
@@ -119,10 +123,11 @@ func GetConversation(
 	lm := gollm.NewLanguageModelFromConversation(conv.CustomerID.String(), l, gollmMessages, nil)
 
 	return &Conversation{
-		Conversation:  conv,
-		Messages:      messages,
-		LanguageModel: lm,
-		logger:        l,
+		Conversation:   conv,
+		Messages:       messages,
+		LanguageModel:  lm,
+		storedMessages: len(messages),
+		logger:         l,
 	}, nil
 }
 
@@ -161,7 +166,11 @@ func (c *Conversation) addMessages(
 	model *queries.Llm,
 	messages []*gollm.LanguageModelMessage,
 ) error {
-	for _, item := range messages {
+	for index := range len(messages) {
+		if index < c.storedMessages {
+			continue
+		}
+
 		c.Messages = append(c.Messages, &ConversationMessage{
 			ConversationMessage: &queries.ConversationMessage{
 				ConversationID: c.ID,
@@ -169,8 +178,8 @@ func (c *Conversation) addMessages(
 				Model:          model.Model,
 				Temperature:    model.Temperature,
 				Instructions:   model.Instructions,
-				Role:           item.Role.ToString(),
-				Message:        item.Message,
+				Role:           messages[index].Role.ToString(),
+				Message:        messages[index].Message,
 				Index:          int32(len(c.Messages)),
 			},
 		})
@@ -241,5 +250,6 @@ func (c *Conversation) SyncMessages(
 		}
 		c.Messages[index] = &ConversationMessage{ConversationMessage: msg}
 	}
+	c.storedMessages = len(c.Messages)
 	return nil
 }

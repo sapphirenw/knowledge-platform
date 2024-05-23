@@ -89,4 +89,5 @@ func TestCreateProjectIdea(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, conv.LanguageModel)
 	conv.LanguageModel.PrintConversation()
+	require.Equal(t, 5, len(conv.Messages))
 }
