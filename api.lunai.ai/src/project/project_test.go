@@ -42,7 +42,7 @@ func TestCreateProjectIdea(t *testing.T) {
 	require.Equal(t, "Idea Generator", m.Title)
 
 	// test the ability to generate ideas
-	response, err := project.GenerateIdeas(ctx, pool, &GenerateIdeasArgs{N: 2})
+	response, err := project.GenerateIdeas(ctx, pool, &generateIdeasRequest{K: 2})
 	require.NoError(t, err)
 
 	// ensure that the model usage was reported properly
@@ -62,10 +62,10 @@ func TestCreateProjectIdea(t *testing.T) {
 	}
 
 	// give feedback
-	response, err = project.GenerateIdeas(ctx, pool, &GenerateIdeasArgs{
+	response, err = project.GenerateIdeas(ctx, pool, &generateIdeasRequest{
 		ConversationId: response.ConversationId.String(),
 		Feedback:       "I would like this content more tailored to NHL hockey",
-		N:              2,
+		K:              2,
 	})
 	require.NoError(t, err)
 

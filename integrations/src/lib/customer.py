@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 from typing import Optional
 import requests
 from dataclasses import dataclass
@@ -52,3 +53,28 @@ class Customer:
             "createdAt": self.created_at.isoformat(),
             "updatedAt": self.updated_at.isoformat(),
         }
+
+    def create_project(self, title: str, topic: str):
+        try:
+            response = requests.post(
+                f"{consts.HOST}/customers/{self.id}/createProject",
+                data=json.dumps({"title": title, "topic": topic}),
+            )
+
+            if response.status_code != 200:
+                raise Exception(
+                    f"There was an issue creating the project: {response.text}"
+                )
+
+            p = response.json()
+
+            # write to the config file
+            c = config.Config.read()
+            if c is not None:
+                c.current_project_id = p["id"]
+                c.write()
+
+            return p
+        except Exception as e:
+            print(f"error creating the project: {e}")
+            return None

@@ -63,7 +63,7 @@ func CreateProject(
 
 	return &Project{
 		Project:             project,
-		logger:              l.With("projectId", project.ID.String(), "model.ID", ideaGenerationModel.ID.String(), "model.Title", ideaGenerationModel.Title),
+		logger:              l.With("projectId", project.ID.String()),
 		ideaGererationModel: ideaGenerationModel,
 	}, nil
 }
@@ -104,31 +104,20 @@ func (p *Project) GetGenerationModel(ctx context.Context, db queries.DBTX) (*llm
 	return p.ideaGererationModel, nil
 }
 
-type GenerateIdeasArgs struct {
-	ConversationId string
-	Feedback       string
-	N              int
-}
-
-type GenerateIdeasResponse struct {
-	Ideas          []*ProjectIdea
-	ConversationId uuid.UUID
-}
-
 func (p *Project) GenerateIdeas(
 	ctx context.Context,
 	db queries.DBTX,
-	args *GenerateIdeasArgs,
-) (*GenerateIdeasResponse, error) {
+	args *generateIdeasRequest,
+) (*generateIdeasResponse, error) {
 	// parse arguments
 	if args == nil {
-		args = &GenerateIdeasArgs{}
+		args = &generateIdeasRequest{}
 	}
 	if args.Feedback == "" {
 		args.Feedback = "None."
 	}
-	if args.N == 0 {
-		args.N = 1
+	if args.K == 0 {
+		args.K = 1
 	}
 	// check if uuid can be parsed
 	if args.ConversationId != "" {
@@ -158,7 +147,7 @@ func (p *Project) GenerateIdeas(
 		}
 
 		// define a new prompt
-		prompt = fmt.Sprintf("Title: %s\nTopic: %s\nNumber: %d", p.Title, p.Topic, args.N)
+		prompt = fmt.Sprintf("Title: %s\nTopic: %s\nNumber: %d", p.Title, p.Topic, args.K)
 	} else {
 		logger.InfoContext(ctx, "Generating ideas from an existing conversation ...")
 
@@ -195,7 +184,7 @@ func (p *Project) GenerateIdeas(
 		return nil, fmt.Errorf("failed to de-serialize json: %s %s", err, response)
 	}
 
-	return &GenerateIdeasResponse{
+	return &generateIdeasResponse{
 		Ideas:          ideas.Ideas,
 		ConversationId: conv.ID,
 	}, nil

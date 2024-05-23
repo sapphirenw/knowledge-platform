@@ -2,7 +2,7 @@ import typer
 from typing_extensions import Annotated
 import json
 
-from src.lib import datastore, sites, vectorstore, customer
+from src.lib import datastore, project, sites, vectorstore, customer
 
 app = typer.Typer()
 
@@ -120,6 +120,49 @@ def query(
         exit(1)
 
     print(json.dumps(response, indent=4))
+
+
+@app.command(
+    help="Creates a project with your customer and writes the id to the config file"
+)
+def create_project(
+    title: str,
+    topic: str,
+):
+    c = customer.Customer.get()
+    response = c.create_project(title=title, topic=topic)
+    if response is None:
+        print("issue creating the project")
+        exit(1)
+
+    print(json.dumps(response, indent=4))
+
+
+@app.command(
+    help="Gets the project with the `currentProjectId` variable in the config.json"
+)
+def get_project():
+    response = project.Project.get()
+    if response is None:
+        print("issue getting the project")
+        exit(1)
+
+    print(json.dumps(response.json(), indent=4))
+
+
+@app.command()
+def generate_ideas(
+    k: Annotated[
+        int,
+        typer.Option(help="How many project ideas to generate"),
+    ] = 3,
+):
+    p = project.Project.get()
+    if p is None:
+        print("issue getting the project")
+        exit(1)
+
+    p.generate_ideas(k=k)
 
 
 if __name__ == "__main__":

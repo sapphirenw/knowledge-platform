@@ -71,9 +71,6 @@ func GetPool() (*pgxpool.Pool, error) {
 
 // ReinitializePool safely closes the existing pool and creates a new one. This can be triggered on detecting a failover or similar event.
 func ReinitializePool() error {
-	poolMutex.Lock()
-	defer poolMutex.Unlock()
-
 	if pool != nil {
 		pool.Close()
 	}
@@ -82,9 +79,6 @@ func ReinitializePool() error {
 }
 
 func ClosePool() {
-	poolMutex.Lock()
-	defer poolMutex.Unlock()
-
 	if pool != nil {
 		pool.Close()
 		pool = nil

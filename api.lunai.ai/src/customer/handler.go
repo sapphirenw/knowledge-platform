@@ -44,6 +44,9 @@ func Handler(mux chi.Router) {
 	// vectorstore
 	mux.Put("/vectorstore/query", customerHandler(queryVectorStore))
 
+	// project
+	mux.Post("/createProject", customerHandler(createProject))
+
 }
 
 // Custom handler that parses the customerId from the request, fetches the customer from the database

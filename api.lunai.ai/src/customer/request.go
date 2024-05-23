@@ -104,3 +104,20 @@ func (r queryVectorStoreRequest) Valid(ctx context.Context) map[string]string {
 
 	return p
 }
+
+type createProjectRequest struct {
+	Title                 string `json:"title"`
+	Topic                 string `json:"topic"`
+	IdeaGenerationModelId string `json:"ideaGenerationModelId"`
+}
+
+func (r createProjectRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string, 0)
+	if r.Title == "" {
+		p["title"] = "cannot be empty"
+	}
+	if r.Topic == "" {
+		p["topic"] = "cannot be empty"
+	}
+	return p
+}
