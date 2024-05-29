@@ -394,6 +394,55 @@ func (q *Queries) CreateLLM(ctx context.Context, arg *CreateLLMParams) (*Llm, er
 	return &i, err
 }
 
+const createLinkedInPost = `-- name: CreateLinkedInPost :one
+INSERT INTO linkedin_post(
+    project_id, project_library_id, project_idea_id, additional_instructions, title
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at
+`
+
+type CreateLinkedInPostParams struct {
+	ProjectID              uuid.UUID   `db:"project_id" json:"projectId"`
+	ProjectLibraryID       uuid.UUID   `db:"project_library_id" json:"projectLibraryId"`
+	ProjectIdeaID          pgtype.UUID `db:"project_idea_id" json:"projectIdeaId"`
+	AdditionalInstructions string      `db:"additional_instructions" json:"additionalInstructions"`
+	Title                  string      `db:"title" json:"title"`
+}
+
+// CreateLinkedInPost
+//
+//	INSERT INTO linkedin_post(
+//	    project_id, project_library_id, project_idea_id, additional_instructions, title
+//	) VALUES (
+//	    $1, $2, $3, $4, $5
+//	)
+//	RETURNING id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at
+func (q *Queries) CreateLinkedInPost(ctx context.Context, arg *CreateLinkedInPostParams) (*LinkedinPost, error) {
+	row := q.db.QueryRow(ctx, createLinkedInPost,
+		arg.ProjectID,
+		arg.ProjectLibraryID,
+		arg.ProjectIdeaID,
+		arg.AdditionalInstructions,
+		arg.Title,
+	)
+	var i LinkedinPost
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.ProjectLibraryID,
+		&i.ProjectIdeaID,
+		&i.AdditionalInstructions,
+		&i.Title,
+		&i.AssetID,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const createProject = `-- name: CreateProject :one
 INSERT INTO project (
     customer_id, title, topic, idea_generation_model_id
@@ -440,46 +489,75 @@ func (q *Queries) CreateProject(ctx context.Context, arg *CreateProjectParams) (
 
 const createProjectIdea = `-- name: CreateProjectIdea :one
 INSERT INTO project_idea (
-    customer_id, project_id, generation_batch_id, conversation_id, title
+    project_id, conversation_id, title, used
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, FALSE
 )
-RETURNING id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at
+RETURNING id, project_id, conversation_id, title, used, created_at, updated_at
 `
 
 type CreateProjectIdeaParams struct {
-	CustomerID        uuid.UUID   `db:"customer_id" json:"customerId"`
-	ProjectID         uuid.UUID   `db:"project_id" json:"projectId"`
-	GenerationBatchID uuid.UUID   `db:"generation_batch_id" json:"generationBatchId"`
-	ConversationID    pgtype.UUID `db:"conversation_id" json:"conversationId"`
-	Title             string      `db:"title" json:"title"`
+	ProjectID      uuid.UUID   `db:"project_id" json:"projectId"`
+	ConversationID pgtype.UUID `db:"conversation_id" json:"conversationId"`
+	Title          string      `db:"title" json:"title"`
 }
 
 // CreateProjectIdea
 //
 //	INSERT INTO project_idea (
-//	    customer_id, project_id, generation_batch_id, conversation_id, title
+//	    project_id, conversation_id, title, used
 //	) VALUES (
-//	    $1, $2, $3, $4, $5
+//	    $1, $2, $3, FALSE
 //	)
-//	RETURNING id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at
+//	RETURNING id, project_id, conversation_id, title, used, created_at, updated_at
 func (q *Queries) CreateProjectIdea(ctx context.Context, arg *CreateProjectIdeaParams) (*ProjectIdea, error) {
-	row := q.db.QueryRow(ctx, createProjectIdea,
-		arg.CustomerID,
-		arg.ProjectID,
-		arg.GenerationBatchID,
-		arg.ConversationID,
-		arg.Title,
-	)
+	row := q.db.QueryRow(ctx, createProjectIdea, arg.ProjectID, arg.ConversationID, arg.Title)
 	var i ProjectIdea
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
 		&i.ProjectID,
-		&i.GenerationBatchID,
 		&i.ConversationID,
 		&i.Title,
 		&i.Used,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createProjectLibraryRecord = `-- name: CreateProjectLibraryRecord :one
+INSERT INTO project_library (
+    project_id, title, content_type
+) VALUES (
+    $1, $2, $3
+)
+RETURNING id, project_id, title, content_type, draft, published, created_at, updated_at
+`
+
+type CreateProjectLibraryRecordParams struct {
+	ProjectID   uuid.UUID `db:"project_id" json:"projectId"`
+	Title       string    `db:"title" json:"title"`
+	ContentType string    `db:"content_type" json:"contentType"`
+}
+
+// CreateProjectLibraryRecord
+//
+//	INSERT INTO project_library (
+//	    project_id, title, content_type
+//	) VALUES (
+//	    $1, $2, $3
+//	)
+//	RETURNING id, project_id, title, content_type, draft, published, created_at, updated_at
+func (q *Queries) CreateProjectLibraryRecord(ctx context.Context, arg *CreateProjectLibraryRecordParams) (*ProjectLibrary, error) {
+	row := q.db.QueryRow(ctx, createProjectLibraryRecord, arg.ProjectID, arg.Title, arg.ContentType)
+	var i ProjectLibrary
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.ContentType,
+		&i.Draft,
+		&i.Published,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1447,6 +1525,100 @@ func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID)
 	return items, nil
 }
 
+const getLinkedInPost = `-- name: GetLinkedInPost :one
+SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+WHERE id = $1
+`
+
+// GetLinkedInPost
+//
+//	SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+//	WHERE id = $1
+func (q *Queries) GetLinkedInPost(ctx context.Context, id uuid.UUID) (*LinkedinPost, error) {
+	row := q.db.QueryRow(ctx, getLinkedInPost, id)
+	var i LinkedinPost
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.ProjectLibraryID,
+		&i.ProjectIdeaID,
+		&i.AdditionalInstructions,
+		&i.Title,
+		&i.AssetID,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getLinkedInPostLibrary = `-- name: GetLinkedInPostLibrary :one
+SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+WHERE project_library_id = $1
+`
+
+// GetLinkedInPostLibrary
+//
+//	SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+//	WHERE project_library_id = $1
+func (q *Queries) GetLinkedInPostLibrary(ctx context.Context, projectLibraryID uuid.UUID) (*LinkedinPost, error) {
+	row := q.db.QueryRow(ctx, getLinkedInPostLibrary, projectLibraryID)
+	var i LinkedinPost
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.ProjectLibraryID,
+		&i.ProjectIdeaID,
+		&i.AdditionalInstructions,
+		&i.Title,
+		&i.AssetID,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getLinkedInPosts = `-- name: GetLinkedInPosts :many
+SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+WHERE project_id = $1
+`
+
+// GetLinkedInPosts
+//
+//	SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+//	WHERE project_id = $1
+func (q *Queries) GetLinkedInPosts(ctx context.Context, projectID uuid.UUID) ([]*LinkedinPost, error) {
+	rows, err := q.db.Query(ctx, getLinkedInPosts, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*LinkedinPost{}
+	for rows.Next() {
+		var i LinkedinPost
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.ProjectLibraryID,
+			&i.ProjectIdeaID,
+			&i.AdditionalInstructions,
+			&i.Title,
+			&i.AssetID,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getProject = `-- name: GetProject :one
 SELECT id, customer_id, title, topic, idea_generation_model_id, created_at, updated_at FROM project
 WHERE id = $1
@@ -1472,22 +1644,20 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (*Project, error
 }
 
 const getProjectIdea = `-- name: GetProjectIdea :one
-SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
+SELECT id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 WHERE id = $1
 `
 
 // GetProjectIdea
 //
-//	SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
+//	SELECT id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 //	WHERE id = $1
 func (q *Queries) GetProjectIdea(ctx context.Context, id uuid.UUID) (*ProjectIdea, error) {
 	row := q.db.QueryRow(ctx, getProjectIdea, id)
 	var i ProjectIdea
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
 		&i.ProjectID,
-		&i.GenerationBatchID,
 		&i.ConversationID,
 		&i.Title,
 		&i.Used,
@@ -1498,13 +1668,13 @@ func (q *Queries) GetProjectIdea(ctx context.Context, id uuid.UUID) (*ProjectIde
 }
 
 const getProjectIdeas = `-- name: GetProjectIdeas :many
-SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
+SELECT id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 WHERE project_id = $1
 `
 
 // GetProjectIdeas
 //
-//	SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
+//	SELECT id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 //	WHERE project_id = $1
 func (q *Queries) GetProjectIdeas(ctx context.Context, projectID uuid.UUID) ([]*ProjectIdea, error) {
 	rows, err := q.db.Query(ctx, getProjectIdeas, projectID)
@@ -1517,91 +1687,7 @@ func (q *Queries) GetProjectIdeas(ctx context.Context, projectID uuid.UUID) ([]*
 		var i ProjectIdea
 		if err := rows.Scan(
 			&i.ID,
-			&i.CustomerID,
 			&i.ProjectID,
-			&i.GenerationBatchID,
-			&i.ConversationID,
-			&i.Title,
-			&i.Used,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getProjectIdeasBatch = `-- name: GetProjectIdeasBatch :many
-SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
-WHERE generation_batch_id = $1
-`
-
-// GetProjectIdeasBatch
-//
-//	SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
-//	WHERE generation_batch_id = $1
-func (q *Queries) GetProjectIdeasBatch(ctx context.Context, generationBatchID uuid.UUID) ([]*ProjectIdea, error) {
-	rows, err := q.db.Query(ctx, getProjectIdeasBatch, generationBatchID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*ProjectIdea{}
-	for rows.Next() {
-		var i ProjectIdea
-		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.ProjectID,
-			&i.GenerationBatchID,
-			&i.ConversationID,
-			&i.Title,
-			&i.Used,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getProjectIdeasBatchMostRecent = `-- name: GetProjectIdeasBatchMostRecent :many
-SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
-WHERE project_id = $1
-ORDER BY created_at DESC
-LIMIT 1
-`
-
-// GetProjectIdeasBatchMostRecent
-//
-//	SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
-//	WHERE project_id = $1
-//	ORDER BY created_at DESC
-//	LIMIT 1
-func (q *Queries) GetProjectIdeasBatchMostRecent(ctx context.Context, projectID uuid.UUID) ([]*ProjectIdea, error) {
-	rows, err := q.db.Query(ctx, getProjectIdeasBatchMostRecent, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*ProjectIdea{}
-	for rows.Next() {
-		var i ProjectIdea
-		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.ProjectID,
-			&i.GenerationBatchID,
 			&i.ConversationID,
 			&i.Title,
 			&i.Used,
@@ -1619,14 +1705,14 @@ func (q *Queries) GetProjectIdeasBatchMostRecent(ctx context.Context, projectID 
 }
 
 const getProjectIdeasConversation = `-- name: GetProjectIdeasConversation :many
-SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
+SELECT id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 WHERE conversation_id = $1
 ORDER BY created_at DESC
 `
 
 // GetProjectIdeasConversation
 //
-//	SELECT id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at FROM project_idea
+//	SELECT id, project_id, conversation_id, title, used, created_at, updated_at FROM project_idea
 //	WHERE conversation_id = $1
 //	ORDER BY created_at DESC
 func (q *Queries) GetProjectIdeasConversation(ctx context.Context, conversationID pgtype.UUID) ([]*ProjectIdea, error) {
@@ -1640,12 +1726,48 @@ func (q *Queries) GetProjectIdeasConversation(ctx context.Context, conversationI
 		var i ProjectIdea
 		if err := rows.Scan(
 			&i.ID,
-			&i.CustomerID,
 			&i.ProjectID,
-			&i.GenerationBatchID,
 			&i.ConversationID,
 			&i.Title,
 			&i.Used,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getProjectLibrary = `-- name: GetProjectLibrary :many
+SELECT id, project_id, title, content_type, draft, published, created_at, updated_at FROM project_library
+WHERE project_id = $1
+`
+
+// GetProjectLibrary
+//
+//	SELECT id, project_id, title, content_type, draft, published, created_at, updated_at FROM project_library
+//	WHERE project_id = $1
+func (q *Queries) GetProjectLibrary(ctx context.Context, projectID uuid.UUID) ([]*ProjectLibrary, error) {
+	rows, err := q.db.Query(ctx, getProjectLibrary, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ProjectLibrary{}
+	for rows.Next() {
+		var i ProjectLibrary
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.ContentType,
+			&i.Draft,
+			&i.Published,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2288,7 +2410,7 @@ const setProjectIdeaUsed = `-- name: SetProjectIdeaUsed :one
 UPDATE project_idea
     SET used = true
 WHERE id = $1
-RETURNING id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at
+RETURNING id, project_id, conversation_id, title, used, created_at, updated_at
 `
 
 // SetProjectIdeaUsed
@@ -2296,15 +2418,13 @@ RETURNING id, customer_id, project_id, generation_batch_id, conversation_id, tit
 //	UPDATE project_idea
 //	    SET used = true
 //	WHERE id = $1
-//	RETURNING id, customer_id, project_id, generation_batch_id, conversation_id, title, used, created_at, updated_at
+//	RETURNING id, project_id, conversation_id, title, used, created_at, updated_at
 func (q *Queries) SetProjectIdeaUsed(ctx context.Context, id uuid.UUID) (*ProjectIdea, error) {
 	row := q.db.QueryRow(ctx, setProjectIdeaUsed, id)
 	var i ProjectIdea
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
 		&i.ProjectID,
-		&i.GenerationBatchID,
 		&i.ConversationID,
 		&i.Title,
 		&i.Used,

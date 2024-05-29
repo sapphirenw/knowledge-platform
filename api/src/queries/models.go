@@ -188,8 +188,9 @@ type Folder struct {
 
 type LinkedinPost struct {
 	ID                     uuid.UUID          `db:"id" json:"id"`
-	CustomerID             uuid.UUID          `db:"customer_id" json:"customerId"`
+	ProjectID              uuid.UUID          `db:"project_id" json:"projectId"`
 	ProjectLibraryID       uuid.UUID          `db:"project_library_id" json:"projectLibraryId"`
+	ProjectIdeaID          pgtype.UUID        `db:"project_idea_id" json:"projectIdeaId"`
 	AdditionalInstructions string             `db:"additional_instructions" json:"additionalInstructions"`
 	Title                  string             `db:"title" json:"title"`
 	AssetID                pgtype.UUID        `db:"asset_id" json:"assetId"`
@@ -214,12 +215,10 @@ type LinkedinPostConfig struct {
 	UpdatedAt                        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
-type LinkedinPostContent struct {
+type LinkedinPostConversation struct {
 	ID             uuid.UUID          `db:"id" json:"id"`
 	LinkedinPostID uuid.UUID          `db:"linkedin_post_id" json:"linkedinPostId"`
-	Content        string             `db:"content" json:"content"`
-	Feedback       string             `db:"feedback" json:"feedback"`
-	Index          int32              `db:"index" json:"index"`
+	ConversationID uuid.UUID          `db:"conversation_id" json:"conversationId"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
@@ -257,20 +256,17 @@ type ProjectFolder struct {
 }
 
 type ProjectIdea struct {
-	ID                uuid.UUID          `db:"id" json:"id"`
-	CustomerID        uuid.UUID          `db:"customer_id" json:"customerId"`
-	ProjectID         uuid.UUID          `db:"project_id" json:"projectId"`
-	GenerationBatchID uuid.UUID          `db:"generation_batch_id" json:"generationBatchId"`
-	ConversationID    pgtype.UUID        `db:"conversation_id" json:"conversationId"`
-	Title             string             `db:"title" json:"title"`
-	Used              bool               `db:"used" json:"used"`
-	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID             uuid.UUID          `db:"id" json:"id"`
+	ProjectID      uuid.UUID          `db:"project_id" json:"projectId"`
+	ConversationID pgtype.UUID        `db:"conversation_id" json:"conversationId"`
+	Title          string             `db:"title" json:"title"`
+	Used           bool               `db:"used" json:"used"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type ProjectLibrary struct {
 	ID          uuid.UUID          `db:"id" json:"id"`
-	CustomerID  uuid.UUID          `db:"customer_id" json:"customerId"`
 	ProjectID   uuid.UUID          `db:"project_id" json:"projectId"`
 	Title       string             `db:"title" json:"title"`
 	ContentType string             `db:"content_type" json:"contentType"`

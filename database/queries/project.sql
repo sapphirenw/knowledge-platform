@@ -16,9 +16,9 @@ WHERE id = $1;
 
 -- name: CreateProjectIdea :one
 INSERT INTO project_idea (
-    customer_id, project_id, generation_batch_id, conversation_id, title
+    project_id, conversation_id, title, used
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, FALSE
 )
 RETURNING *;
 
@@ -36,17 +36,19 @@ UPDATE project_idea
 WHERE id = $1
 RETURNING *;
 
--- name: GetProjectIdeasBatch :many
-SELECT * FROM project_idea
-WHERE generation_batch_id = $1;
-
--- name: GetProjectIdeasBatchMostRecent :many
-SELECT * FROM project_idea
-WHERE project_id = $1
-ORDER BY created_at DESC
-LIMIT 1;
-
 -- name: GetProjectIdeasConversation :many
 SELECT * FROM project_idea
 WHERE conversation_id = $1
 ORDER BY created_at DESC;
+
+-- name: CreateProjectLibraryRecord :one
+INSERT INTO project_library (
+    project_id, title, content_type
+) VALUES (
+    $1, $2, $3
+)
+RETURNING *;
+
+-- name: GetProjectLibrary :many
+SELECT * FROM project_library
+WHERE project_id = $1;

@@ -189,3 +189,48 @@ func (p *Project) GenerateIdeas(
 		ConversationId: conv.ID,
 	}, nil
 }
+
+func (p *Project) AddIdeas(
+	ctx context.Context,
+	db queries.DBTX,
+	args *addIdeasRequest,
+) ([]*queries.ProjectIdea, error) {
+	logger := p.logger.With("func", "p.AddIdeas")
+
+	// parse the id
+	var pid pgtype.UUID
+	err := pid.Scan(args.ConversationId)
+	if err != nil && args.ConversationId != "" {
+		return nil, fmt.Errorf("failed to parse the conversationId: %s", err)
+	}
+
+	// create all records
+	logger.InfoContext(ctx, "Creating project ideas ...", "length", len(args.Ideas))
+
+	dmodel := queries.New(db)
+	ideas := make([]*queries.ProjectIdea, 0)
+	for _, item := range args.Ideas {
+		idea, err := dmodel.CreateProjectIdea(ctx, &queries.CreateProjectIdeaParams{
+			ProjectID:      p.ID,
+			ConversationID: pid,
+			Title:          item.Title,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create the project idea: %s", err)
+		}
+		ideas = append(ideas, idea)
+	}
+
+	logger.InfoContext(ctx, "Successfully created project ideas")
+
+	return ideas, nil
+}
+
+func (p *Project) GetIdeas(ctx context.Context, db queries.DBTX) ([]*queries.ProjectIdea, error) {
+	dmodel := queries.New(db)
+	ideas, err := dmodel.GetProjectIdeas(ctx, p.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the project ideas: %s", err)
+	}
+	return ideas, nil
+}

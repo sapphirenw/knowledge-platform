@@ -549,7 +549,6 @@ CREATE TABLE project_website(
 -- acts as the reference to which project a post belongs to
 CREATE TABLE project_library(
     id uuid NOT NULL DEFAULT uuid7(),
-    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     project_id uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     content_type VARCHAR(256) NOT NULL REFERENCES content_type(title),
@@ -567,9 +566,7 @@ CREATE TABLE project_library(
 -- ideas to use for content generation
 CREATE TABLE project_idea(
     id uuid NOT NULL DEFAULT uuid7(),
-    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     project_id uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
-    generation_batch_id uuid NOT NULL,
 
     -- reference to the conversation that generated this idea if applicable
     conversation_id uuid NULL REFERENCES conversation(id) ON DELETE SET NULL,
@@ -618,8 +615,10 @@ CREATE TABLE linkedin_post_config(
 -- linkedin posts
 CREATE TABLE linkedin_post(
     id uuid NOT NULL DEFAULT uuid7(),
-    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+    project_id uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
     project_library_id uuid NOT NULL REFERENCES project_library(id) ON DELETE CASCADE,
+    
+    project_idea_id uuid NULL REFERENCES project_idea(id) ON DELETE SET NULL,
 
     additional_instructions TEXT NOT NULL DEFAULT '',
     
@@ -633,13 +632,11 @@ CREATE TABLE linkedin_post(
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE linkedin_post_content(
+-- links together the linkedin post with it's conversation used to generate the content
+CREATE TABLE linkedin_post_conversation(
     id uuid NOT NULL DEFAULT uuid7(),
     linkedin_post_id uuid NOT NULL REFERENCES linkedin_post(id) ON DELETE CASCADE,
-
-    content TEXT NOT NULL, -- raw content that the user can edit / give feedback for
-    feedback TEXT NOT NULL DEFAULT '', -- feedback is ALWAYS used after the content in the conversation
-    index INT NOT NULL, -- index of the conversation
+    conversation_id uuid NOT NULL REFERENCES conversation(id) ON DELETE CASCADE,
 
     PRIMARY KEY (id),
 
