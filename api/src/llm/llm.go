@@ -98,7 +98,7 @@ func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtyp
 }
 
 func (model *LLM) GenerateSystemPrompt(prompt string) string {
-	return fmt.Sprintf(prompts.PROMPT_LLM_SYSTEM, prompt, model.Instructions)
+	return fmt.Sprintf(prompts.LLM_SYSTEM, model.Instructions, prompt)
 }
 
 type CompletionArgs struct {
@@ -118,12 +118,22 @@ func (model *LLM) Completion(ctx context.Context, logger *slog.Logger, lm *gollm
 	l := logger.With("args", *args)
 	l.InfoContext(ctx, "Sending the completion request ...")
 
+	// check whether to add llm specific instructions
+	msg := args.Input
+	numMessages := len(lm.GetConversation())
+	if numMessages == 0 {
+		logger.DebugContext(ctx, "Adding general llm instructions")
+		msg = fmt.Sprintf("General Instructions: %s\n\nSpecific Instructions: %s", model.Instructions, msg)
+	} else {
+		logger.DebugContext(ctx, "Continuing conversation", "numMessages", numMessages)
+	}
+
 	input := &gollm.CompletionInput{
 		Model:       model.Model,
 		Temperature: model.Temperature,
 		Json:        args.Json,
 		JsonSchema:  args.JsonSchema,
-		Input:       args.Input,
+		Input:       msg,
 	}
 
 	response, err := lm.DynamicCompletion(ctx, input)

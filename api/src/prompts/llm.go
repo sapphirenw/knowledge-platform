@@ -1,9 +1,6 @@
 package prompts
 
 // 2 args
-const PROMPT_LLM_SYSTEM = `Your System prompt:
-%s
-
+const LLM_SYSTEM = `General Personality Instructions: %s
 In addition to the system prompt provided above, you MUST follow these additional required instructions from the user.
-Instructions:
-%s`
+Specific Conversation Instructions: %s`

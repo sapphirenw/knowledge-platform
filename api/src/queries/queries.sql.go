@@ -29,29 +29,31 @@ func (q *Queries) ClearConversation(ctx context.Context, conversationID uuid.UUI
 
 const createConversation = `-- name: CreateConversation :one
 INSERT INTO conversation (
-    customer_id, title, conversation_type, metadata
-) VALUES ( $1, $2, $3, $4 )
-RETURNING id, customer_id, title, conversation_type, metadata, created_at, updated_at
+    customer_id, title, conversation_type, system_message, metadata
+) VALUES ( $1, $2, $3, $4, $5 )
+RETURNING id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at
 `
 
 type CreateConversationParams struct {
 	CustomerID       uuid.UUID `db:"customer_id" json:"customerId"`
 	Title            string    `db:"title" json:"title"`
 	ConversationType string    `db:"conversation_type" json:"conversationType"`
+	SystemMessage    string    `db:"system_message" json:"systemMessage"`
 	Metadata         []byte    `db:"metadata" json:"metadata"`
 }
 
 // CreateConversation
 //
 //	INSERT INTO conversation (
-//	    customer_id, title, conversation_type, metadata
-//	) VALUES ( $1, $2, $3, $4 )
-//	RETURNING id, customer_id, title, conversation_type, metadata, created_at, updated_at
+//	    customer_id, title, conversation_type, system_message, metadata
+//	) VALUES ( $1, $2, $3, $4, $5 )
+//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at
 func (q *Queries) CreateConversation(ctx context.Context, arg *CreateConversationParams) (*Conversation, error) {
 	row := q.db.QueryRow(ctx, createConversation,
 		arg.CustomerID,
 		arg.Title,
 		arg.ConversationType,
+		arg.SystemMessage,
 		arg.Metadata,
 	)
 	var i Conversation
@@ -60,6 +62,7 @@ func (q *Queries) CreateConversation(ctx context.Context, arg *CreateConversatio
 		&i.CustomerID,
 		&i.Title,
 		&i.ConversationType,
+		&i.SystemMessage,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -396,35 +399,33 @@ func (q *Queries) CreateLLM(ctx context.Context, arg *CreateLLMParams) (*Llm, er
 
 const createLinkedInPost = `-- name: CreateLinkedInPost :one
 INSERT INTO linkedin_post(
-    project_id, project_library_id, project_idea_id, additional_instructions, title
+    project_id, project_library_id, project_idea_id, title
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4
 )
-RETURNING id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at
+RETURNING id, project_id, project_library_id, project_idea_id, title, asset_id, metadata, created_at, updated_at
 `
 
 type CreateLinkedInPostParams struct {
-	ProjectID              uuid.UUID   `db:"project_id" json:"projectId"`
-	ProjectLibraryID       uuid.UUID   `db:"project_library_id" json:"projectLibraryId"`
-	ProjectIdeaID          pgtype.UUID `db:"project_idea_id" json:"projectIdeaId"`
-	AdditionalInstructions string      `db:"additional_instructions" json:"additionalInstructions"`
-	Title                  string      `db:"title" json:"title"`
+	ProjectID        uuid.UUID   `db:"project_id" json:"projectId"`
+	ProjectLibraryID uuid.UUID   `db:"project_library_id" json:"projectLibraryId"`
+	ProjectIdeaID    pgtype.UUID `db:"project_idea_id" json:"projectIdeaId"`
+	Title            string      `db:"title" json:"title"`
 }
 
 // CreateLinkedInPost
 //
 //	INSERT INTO linkedin_post(
-//	    project_id, project_library_id, project_idea_id, additional_instructions, title
+//	    project_id, project_library_id, project_idea_id, title
 //	) VALUES (
-//	    $1, $2, $3, $4, $5
+//	    $1, $2, $3, $4
 //	)
-//	RETURNING id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at
+//	RETURNING id, project_id, project_library_id, project_idea_id, title, asset_id, metadata, created_at, updated_at
 func (q *Queries) CreateLinkedInPost(ctx context.Context, arg *CreateLinkedInPostParams) (*LinkedinPost, error) {
 	row := q.db.QueryRow(ctx, createLinkedInPost,
 		arg.ProjectID,
 		arg.ProjectLibraryID,
 		arg.ProjectIdeaID,
-		arg.AdditionalInstructions,
 		arg.Title,
 	)
 	var i LinkedinPost
@@ -433,10 +434,95 @@ func (q *Queries) CreateLinkedInPost(ctx context.Context, arg *CreateLinkedInPos
 		&i.ProjectID,
 		&i.ProjectLibraryID,
 		&i.ProjectIdeaID,
-		&i.AdditionalInstructions,
 		&i.Title,
 		&i.AssetID,
 		&i.Metadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createLinkedInPostConfig = `-- name: CreateLinkedInPostConfig :one
+INSERT INTO linkedin_post_config (
+    project_id, linkedin_post_id,
+    min_sections, max_sections, num_documents, num_website_pages,
+    llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+)
+ON CONFLICT (linkedin_post_id)
+DO UPDATE SET
+    min_sections = EXCLUDED.min_sections,
+    max_sections = EXCLUDED.max_sections,
+    num_documents = EXCLUDED.num_documents,
+    num_website_pages = EXCLUDED.num_website_pages,
+    llm_content_generation_id = EXCLUDED.llm_content_generation_id,
+    llm_vector_summarization_id = EXCLUDED.llm_vector_summarization_id,
+    llm_website_summarization_id = EXCLUDED.llm_website_summarization_id,
+    llm_proof_reading_id = EXCLUDED.llm_proof_reading_id
+RETURNING id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at
+`
+
+type CreateLinkedInPostConfigParams struct {
+	ProjectID                 pgtype.UUID `db:"project_id" json:"projectId"`
+	LinkedinPostID            pgtype.UUID `db:"linkedin_post_id" json:"linkedinPostId"`
+	MinSections               int32       `db:"min_sections" json:"minSections"`
+	MaxSections               int32       `db:"max_sections" json:"maxSections"`
+	NumDocuments              int32       `db:"num_documents" json:"numDocuments"`
+	NumWebsitePages           int32       `db:"num_website_pages" json:"numWebsitePages"`
+	LlmContentGenerationID    pgtype.UUID `db:"llm_content_generation_id" json:"llmContentGenerationId"`
+	LlmVectorSummarizationID  pgtype.UUID `db:"llm_vector_summarization_id" json:"llmVectorSummarizationId"`
+	LlmWebsiteSummarizationID pgtype.UUID `db:"llm_website_summarization_id" json:"llmWebsiteSummarizationId"`
+	LlmProofReadingID         pgtype.UUID `db:"llm_proof_reading_id" json:"llmProofReadingId"`
+}
+
+// CreateLinkedInPostConfig
+//
+//	INSERT INTO linkedin_post_config (
+//	    project_id, linkedin_post_id,
+//	    min_sections, max_sections, num_documents, num_website_pages,
+//	    llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id
+//	) VALUES (
+//	    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+//	)
+//	ON CONFLICT (linkedin_post_id)
+//	DO UPDATE SET
+//	    min_sections = EXCLUDED.min_sections,
+//	    max_sections = EXCLUDED.max_sections,
+//	    num_documents = EXCLUDED.num_documents,
+//	    num_website_pages = EXCLUDED.num_website_pages,
+//	    llm_content_generation_id = EXCLUDED.llm_content_generation_id,
+//	    llm_vector_summarization_id = EXCLUDED.llm_vector_summarization_id,
+//	    llm_website_summarization_id = EXCLUDED.llm_website_summarization_id,
+//	    llm_proof_reading_id = EXCLUDED.llm_proof_reading_id
+//	RETURNING id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at
+func (q *Queries) CreateLinkedInPostConfig(ctx context.Context, arg *CreateLinkedInPostConfigParams) (*LinkedinPostConfig, error) {
+	row := q.db.QueryRow(ctx, createLinkedInPostConfig,
+		arg.ProjectID,
+		arg.LinkedinPostID,
+		arg.MinSections,
+		arg.MaxSections,
+		arg.NumDocuments,
+		arg.NumWebsitePages,
+		arg.LlmContentGenerationID,
+		arg.LlmVectorSummarizationID,
+		arg.LlmWebsiteSummarizationID,
+		arg.LlmProofReadingID,
+	)
+	var i LinkedinPostConfig
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.LinkedinPostID,
+		&i.MinSections,
+		&i.MaxSections,
+		&i.NumDocuments,
+		&i.NumWebsitePages,
+		&i.LlmContentGenerationID,
+		&i.LlmVectorSummarizationID,
+		&i.LlmWebsiteSummarizationID,
+		&i.LlmProofReadingID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -915,13 +1001,13 @@ func (q *Queries) DeleteWebsitePagesOlderThan(ctx context.Context, arg *DeleteWe
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, customer_id, title, conversation_type, metadata, created_at, updated_at FROM conversation
+SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
 WHERE id = $1
 `
 
 // GetConversation
 //
-//	SELECT id, customer_id, title, conversation_type, metadata, created_at, updated_at FROM conversation
+//	SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
 //	WHERE id = $1
 func (q *Queries) GetConversation(ctx context.Context, id uuid.UUID) (*Conversation, error) {
 	row := q.db.QueryRow(ctx, getConversation, id)
@@ -931,6 +1017,7 @@ func (q *Queries) GetConversation(ctx context.Context, id uuid.UUID) (*Conversat
 		&i.CustomerID,
 		&i.Title,
 		&i.ConversationType,
+		&i.SystemMessage,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -982,13 +1069,13 @@ func (q *Queries) GetConversationMessages(ctx context.Context, conversationID uu
 }
 
 const getConversations = `-- name: GetConversations :many
-SELECT id, customer_id, title, conversation_type, metadata, created_at, updated_at FROM conversation
+SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
 WHERE customer_id = $1
 `
 
 // GetConversations
 //
-//	SELECT id, customer_id, title, conversation_type, metadata, created_at, updated_at FROM conversation
+//	SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
 //	WHERE customer_id = $1
 func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([]*Conversation, error) {
 	rows, err := q.db.Query(ctx, getConversations, customerID)
@@ -1004,6 +1091,7 @@ func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([
 			&i.CustomerID,
 			&i.Title,
 			&i.ConversationType,
+			&i.SystemMessage,
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -1526,13 +1614,13 @@ func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID)
 }
 
 const getLinkedInPost = `-- name: GetLinkedInPost :one
-SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+SELECT id, project_id, project_library_id, project_idea_id, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
 WHERE id = $1
 `
 
 // GetLinkedInPost
 //
-//	SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+//	SELECT id, project_id, project_library_id, project_idea_id, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
 //	WHERE id = $1
 func (q *Queries) GetLinkedInPost(ctx context.Context, id uuid.UUID) (*LinkedinPost, error) {
 	row := q.db.QueryRow(ctx, getLinkedInPost, id)
@@ -1542,7 +1630,6 @@ func (q *Queries) GetLinkedInPost(ctx context.Context, id uuid.UUID) (*LinkedinP
 		&i.ProjectID,
 		&i.ProjectLibraryID,
 		&i.ProjectIdeaID,
-		&i.AdditionalInstructions,
 		&i.Title,
 		&i.AssetID,
 		&i.Metadata,
@@ -1552,14 +1639,99 @@ func (q *Queries) GetLinkedInPost(ctx context.Context, id uuid.UUID) (*LinkedinP
 	return &i, err
 }
 
+const getLinkedInPostConfig = `-- name: GetLinkedInPostConfig :one
+WITH LinkedInPostConfig AS (
+    -- First, try to find a post-specific config
+    SELECT id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at FROM linkedin_post_config
+    WHERE linkedin_post_config.project_id = $1 AND linkedin_post_config.linkedin_post_id = $2
+
+    UNION ALL
+
+    -- Fallback to the project's default
+    SELECT id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at FROM linkedin_post_config
+    WHERE linkedin_post_config.project_id = $1 AND linkedin_post_config.linkedin_post_id IS NULL
+
+    UNION ALL
+    
+    -- Finally fallback to global config
+    SELECT id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at FROM linkedin_post_config
+    WHERE linkedin_post_config.project_id IS NULL
+)
+SELECT id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at FROM LinkedInPostConfig
+LIMIT 1
+`
+
+type GetLinkedInPostConfigParams struct {
+	ProjectID      pgtype.UUID `db:"project_id" json:"projectId"`
+	LinkedinPostID pgtype.UUID `db:"linkedin_post_id" json:"linkedinPostId"`
+}
+
+type GetLinkedInPostConfigRow struct {
+	ID                        uuid.UUID          `db:"id" json:"id"`
+	ProjectID                 pgtype.UUID        `db:"project_id" json:"projectId"`
+	LinkedinPostID            pgtype.UUID        `db:"linkedin_post_id" json:"linkedinPostId"`
+	MinSections               int32              `db:"min_sections" json:"minSections"`
+	MaxSections               int32              `db:"max_sections" json:"maxSections"`
+	NumDocuments              int32              `db:"num_documents" json:"numDocuments"`
+	NumWebsitePages           int32              `db:"num_website_pages" json:"numWebsitePages"`
+	LlmContentGenerationID    pgtype.UUID        `db:"llm_content_generation_id" json:"llmContentGenerationId"`
+	LlmVectorSummarizationID  pgtype.UUID        `db:"llm_vector_summarization_id" json:"llmVectorSummarizationId"`
+	LlmWebsiteSummarizationID pgtype.UUID        `db:"llm_website_summarization_id" json:"llmWebsiteSummarizationId"`
+	LlmProofReadingID         pgtype.UUID        `db:"llm_proof_reading_id" json:"llmProofReadingId"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+// GetLinkedInPostConfig
+//
+//	WITH LinkedInPostConfig AS (
+//	    -- First, try to find a post-specific config
+//	    SELECT id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at FROM linkedin_post_config
+//	    WHERE linkedin_post_config.project_id = $1 AND linkedin_post_config.linkedin_post_id = $2
+//
+//	    UNION ALL
+//
+//	    -- Fallback to the project's default
+//	    SELECT id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at FROM linkedin_post_config
+//	    WHERE linkedin_post_config.project_id = $1 AND linkedin_post_config.linkedin_post_id IS NULL
+//
+//	    UNION ALL
+//
+//	    -- Finally fallback to global config
+//	    SELECT id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at FROM linkedin_post_config
+//	    WHERE linkedin_post_config.project_id IS NULL
+//	)
+//	SELECT id, project_id, linkedin_post_id, min_sections, max_sections, num_documents, num_website_pages, llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id, created_at, updated_at FROM LinkedInPostConfig
+//	LIMIT 1
+func (q *Queries) GetLinkedInPostConfig(ctx context.Context, arg *GetLinkedInPostConfigParams) (*GetLinkedInPostConfigRow, error) {
+	row := q.db.QueryRow(ctx, getLinkedInPostConfig, arg.ProjectID, arg.LinkedinPostID)
+	var i GetLinkedInPostConfigRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.LinkedinPostID,
+		&i.MinSections,
+		&i.MaxSections,
+		&i.NumDocuments,
+		&i.NumWebsitePages,
+		&i.LlmContentGenerationID,
+		&i.LlmVectorSummarizationID,
+		&i.LlmWebsiteSummarizationID,
+		&i.LlmProofReadingID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const getLinkedInPostLibrary = `-- name: GetLinkedInPostLibrary :one
-SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+SELECT id, project_id, project_library_id, project_idea_id, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
 WHERE project_library_id = $1
 `
 
 // GetLinkedInPostLibrary
 //
-//	SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+//	SELECT id, project_id, project_library_id, project_idea_id, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
 //	WHERE project_library_id = $1
 func (q *Queries) GetLinkedInPostLibrary(ctx context.Context, projectLibraryID uuid.UUID) (*LinkedinPost, error) {
 	row := q.db.QueryRow(ctx, getLinkedInPostLibrary, projectLibraryID)
@@ -1569,7 +1741,6 @@ func (q *Queries) GetLinkedInPostLibrary(ctx context.Context, projectLibraryID u
 		&i.ProjectID,
 		&i.ProjectLibraryID,
 		&i.ProjectIdeaID,
-		&i.AdditionalInstructions,
 		&i.Title,
 		&i.AssetID,
 		&i.Metadata,
@@ -1580,13 +1751,13 @@ func (q *Queries) GetLinkedInPostLibrary(ctx context.Context, projectLibraryID u
 }
 
 const getLinkedInPosts = `-- name: GetLinkedInPosts :many
-SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+SELECT id, project_id, project_library_id, project_idea_id, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
 WHERE project_id = $1
 `
 
 // GetLinkedInPosts
 //
-//	SELECT id, project_id, project_library_id, project_idea_id, additional_instructions, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
+//	SELECT id, project_id, project_library_id, project_idea_id, title, asset_id, metadata, created_at, updated_at FROM linkedin_post
 //	WHERE project_id = $1
 func (q *Queries) GetLinkedInPosts(ctx context.Context, projectID uuid.UUID) ([]*LinkedinPost, error) {
 	rows, err := q.db.Query(ctx, getLinkedInPosts, projectID)
@@ -1602,7 +1773,6 @@ func (q *Queries) GetLinkedInPosts(ctx context.Context, projectID uuid.UUID) ([]
 			&i.ProjectID,
 			&i.ProjectLibraryID,
 			&i.ProjectIdeaID,
-			&i.AdditionalInstructions,
 			&i.Title,
 			&i.AssetID,
 			&i.Metadata,

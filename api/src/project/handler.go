@@ -20,6 +20,18 @@ func Handler(mux chi.Router) {
 	mux.Post("/ideas", projectHandler(addIdeas))
 	mux.Get("/ideas", projectHandler(getIdeas))
 	mux.Get("/ideas/{ideaId}", projectHandler(nil))
+
+	mux.Post("/linkedInPostsConfig", projectHandler(createLinkedInPostConfig))
+	mux.Route("/linkedInPosts", func(r chi.Router) {
+		r.Get("/", nil)
+		r.Post("/", nil)
+		r.Route("/{linkedInPostId}", func(r2 chi.Router) {
+			r2.Get("/", nil)
+			r2.Put("/", nil)
+			r2.Post("/generate", linkedInPostHandler(generateLinkedInPost))
+		})
+	})
+
 }
 
 func projectHandler(

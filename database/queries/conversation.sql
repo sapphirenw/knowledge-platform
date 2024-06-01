@@ -1,7 +1,7 @@
 -- name: CreateConversation :one
 INSERT INTO conversation (
-    customer_id, title, conversation_type, metadata
-) VALUES ( $1, $2, $3, $4 )
+    customer_id, title, conversation_type, system_message, metadata
+) VALUES ( $1, $2, $3, $4, $5 )
 RETURNING *;
 
 -- name: GetConversations :many

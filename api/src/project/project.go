@@ -2,7 +2,6 @@ package project
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -135,57 +134,44 @@ func (p *Project) GenerateIdeas(
 	}
 
 	// determine where to get the conversation from
-	var conv *llm.Conversation
+	conv, err := llm.AutoConversation(
+		ctx,
+		logger,
+		db,
+		p.CustomerID,
+		args.ConversationId,
+		prompts.PROJECT_IDEA_SYSTEM,
+		fmt.Sprintf("Idea Generation for project: %s", p.Title),
+		"idea-generation",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the conversation: %s", err)
+	}
+
 	var prompt string
 	if args.ConversationId == "" {
 		logger.InfoContext(ctx, "Generating new ideas ...")
-
-		// create a new conversation
-		conv, err = llm.CreateConversation(ctx, logger, db, p.CustomerID, prompts.PROMPT_PROJECT_IDEA_SYSTEM, "Idea Generation", "idea-generation")
-		if err != nil {
-			return nil, fmt.Errorf("failed to create the conversation: %s", err)
-		}
-
-		// define a new prompt
 		prompt = fmt.Sprintf("Title: %s\nTopic: %s\nNumber: %d", p.Title, p.Topic, args.K)
 	} else {
 		logger.InfoContext(ctx, "Generating ideas from an existing conversation ...")
-
-		// get the existing conversation
-		conv, err = llm.GetConversation(ctx, logger, db, uuid.MustParse(args.ConversationId))
-		if err != nil {
-			return nil, fmt.Errorf("failed to get the conversation: %s", err)
-		}
-
-		// create a prompt with the feedback
 		prompt = fmt.Sprintf("This was not quite what I am looking for. Please try again with this feedback: %s.\nRemember, respond in the JSON format given previously.", args.Feedback)
 	}
 
 	logger.InfoContext(ctx, "Running the completion ...")
 
 	// run the completion against the conversation
-	response, err := conv.Completion(ctx, db, model, &llm.CompletionArgs{
-		Input:      prompt,
-		Json:       true,
-		JsonSchema: `{"ideas": [{"title", string}]}`,
-	})
+	response, err := llm.JsonCompletion[projectIdeas](
+		conv, ctx, db, model, prompt,
+		`{"ideas": [{"title", string}]}`,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("the completion failed")
-	}
-	if response == "" {
-		return nil, fmt.Errorf("there was an unknown with the model completion, the response was empty")
+		return nil, fmt.Errorf("the completion failed: %s", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully parsed the ideas")
 
-	// serialize from json
-	var ideas projectIdeas
-	if err := json.Unmarshal([]byte(response), &ideas); err != nil {
-		return nil, fmt.Errorf("failed to de-serialize json: %s %s", err, response)
-	}
-
 	return &generateIdeasResponse{
-		Ideas:          ideas.Ideas,
+		Ideas:          response.Ideas,
 		ConversationId: conv.ID,
 	}, nil
 }

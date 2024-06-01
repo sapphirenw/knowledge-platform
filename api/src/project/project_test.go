@@ -3,8 +3,10 @@ package project
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
@@ -17,25 +19,8 @@ func TestCreateProjectIdea(t *testing.T) {
 	pool := testingutils.GetDatabase(t, ctx)
 	c := testingutils.GetTestCustomer(t, ctx, pool)
 
-	// create a custom model to use for generating ideas on the project
-	model, err := llm.CreateLLM(
-		ctx, logger, pool, c, "Idea Generator", "gpt-3.5-turbo", 1.2,
-		"You are inquisitive, yet bold with your outputs. You have a keen eye for what people will want to listen too, without overloading with buzzwords or unnecessarily complex language. You are also pay extreme attention to the instructions you are given.",
-		false,
-	)
-	require.NoError(t, err)
-
 	// create a test project
-	project, err := CreateProject(
-		ctx,
-		pool,
-		logger,
-		c,
-		"Crosscheck Sports",
-		"Creating engaging and informative sports-related content.",
-		model,
-	)
-	require.NoError(t, err)
+	project := getTestProject(t, ctx, logger, pool, c)
 
 	m, err := project.GetGenerationModel(ctx, pool)
 	require.NoError(t, err)
@@ -87,7 +72,30 @@ func TestCreateProjectIdea(t *testing.T) {
 	// print out the conversation
 	conv, err := llm.GetConversation(ctx, logger, pool, response.ConversationId)
 	require.NoError(t, err)
-	require.NotNil(t, conv.LanguageModel)
-	conv.LanguageModel.PrintConversation()
+	conv.PrintConversation()
 	require.Equal(t, 5, len(conv.Messages))
+}
+
+func getTestProject(t *testing.T, ctx context.Context, logger *slog.Logger, pool *pgxpool.Pool, c *queries.Customer) *Project {
+	// create a custom model to use for generating ideas on the project
+	model, err := llm.CreateLLM(
+		ctx, logger, pool, c, "Idea Generator", "gpt-3.5-turbo", 1.2,
+		"You are inquisitive, yet bold with your outputs. You have a keen eye for what people will want to listen too, without overloading with buzzwords or unnecessarily complex language. You are also pay extreme attention to the instructions you are given.",
+		false,
+	)
+	require.NoError(t, err)
+
+	// create a test project
+	project, err := CreateProject(
+		ctx,
+		pool,
+		logger,
+		c,
+		"Crosscheck Sports",
+		"Creating engaging and informative sports-related content.",
+		model,
+	)
+	require.NoError(t, err)
+
+	return project
 }

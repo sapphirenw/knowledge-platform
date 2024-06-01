@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -14,11 +15,11 @@ import (
 type Conversation struct {
 	*queries.Conversation
 
-	LanguageModel  *gollm.LanguageModel
 	Messages       []*ConversationMessage
 	storedMessages int // representation of how many messages are already stored in the database
 
 	logger *slog.Logger
+	New    bool // whether the conversation was created in this request or not
 }
 
 type ConversationMessage struct {
@@ -44,6 +45,42 @@ func (cm *ConversationMessage) ToGoLLMMessage() (*gollm.LanguageModelMessage, er
 	}, nil
 }
 
+// Attemps to parse the conversationId passed to it and fetch a conversation.
+// If no conversation exists, then a new one will be created and returned.
+// No conversation is created on any errors
+func AutoConversation(
+	ctx context.Context,
+	logger *slog.Logger,
+	db queries.DBTX,
+	customerId uuid.UUID,
+	conversationId string,
+	systemMessage string,
+	title string,
+	conversationType string,
+) (*Conversation, error) {
+	var conv *Conversation
+	var err error
+	if conversationId == "" {
+		// create a new conversation
+		conv, err = CreateConversation(ctx, logger, db, customerId, systemMessage, title, conversationType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create the conversation: %s", err)
+		}
+	} else {
+		if _, err := uuid.Parse(conversationId); err != nil {
+			return nil, fmt.Errorf("failed to parse the conversationId")
+		}
+
+		// get the existing conversation
+		conv, err = GetConversation(ctx, logger, db, uuid.MustParse(conversationId))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get the conversation: %s", err)
+		}
+	}
+
+	return conv, err
+}
+
 func CreateConversation(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -62,22 +99,18 @@ func CreateConversation(
 		CustomerID:       customerId,
 		Title:            title,
 		ConversationType: conversationType,
+		SystemMessage:    systemMessage,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the conversation: %s", err)
 	}
 
-	l := logger.With("conversationId", conversation.ID.String())
-
-	// create the gollm object
-	lm := gollm.NewLanguageModel(customerId.String(), l, systemMessage, nil)
-
 	return &Conversation{
 		Conversation:   conversation,
-		LanguageModel:  lm,
 		Messages:       make([]*ConversationMessage, 0),
 		storedMessages: 0,
 		logger:         logger.With("conversationId", conversation.ID.String()),
+		New:            true,
 	}, nil
 }
 
@@ -106,57 +139,154 @@ func GetConversation(
 
 	// make the needed internal lists
 	messages := make([]*ConversationMessage, 0)
-	gollmMessages := make([]*gollm.LanguageModelMessage, 0)
 	for _, item := range msgs {
 		cm := &ConversationMessage{ConversationMessage: item}
 		messages = append(messages, cm)
+	}
 
-		// parse the gollm message
-		gollmMessage, err := cm.ToGoLLMMessage()
+	return &Conversation{
+		Conversation:   conv,
+		Messages:       messages,
+		storedMessages: len(messages),
+		logger:         logger,
+		New:            false,
+	}, nil
+}
+
+// Get the internal messages as gollm message objects
+func (c *Conversation) GoLLMMessages() ([]*gollm.LanguageModelMessage, error) {
+	gollmMessages := make([]*gollm.LanguageModelMessage, 0)
+	for _, item := range c.Messages {
+		gollmMessage, err := item.ToGoLLMMessage()
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse gollm message: %s", err)
 		}
 		gollmMessages = append(gollmMessages, gollmMessage)
 	}
 
-	l := logger.With("conversationId", conv.ID.String())
-	lm := gollm.NewLanguageModelFromConversation(conv.CustomerID.String(), l, gollmMessages, nil)
-
-	return &Conversation{
-		Conversation:   conv,
-		Messages:       messages,
-		LanguageModel:  lm,
-		storedMessages: len(messages),
-		logger:         l,
-	}, nil
+	return gollmMessages, nil
 }
 
 func (c *Conversation) Completion(
 	ctx context.Context,
 	db queries.DBTX,
 	model *LLM,
-	args *CompletionArgs,
+	input string,
 ) (string, error) {
-	c.logger.InfoContext(ctx, "Beginning conversation completion ...")
-	response, err := model.Completion(ctx, c.logger, c.LanguageModel, args)
+	logger := c.logger.With("model", model.ID.String())
+
+	// get the gollm object
+	lm, err := c.getGoLLM(ctx, model)
+	if err != nil {
+		return "", fmt.Errorf("failed to create the gollm: %s", err)
+	}
+
+	logger.InfoContext(ctx, "Beginning conversation completion ...")
+	response, err := model.Completion(ctx, c.logger, lm, &CompletionArgs{
+		Input: input,
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed conversation completion: %s", err)
 	}
 
 	// save the conversation records in the conversation
-	c.logger.InfoContext(ctx, "Saving the conversation ...")
-	if err := c.addMessages(ctx, db, model.Llm, c.LanguageModel.GetConversation()); err != nil {
+	logger.InfoContext(ctx, "Saving the conversation ...")
+	if err := c.addMessages(ctx, db, model.Llm, lm.GetConversation()); err != nil {
 		return "", fmt.Errorf("failed to add the messages to the internal conversation: %s", err)
 	}
 
 	// report the usage
-	c.logger.InfoContext(ctx, "Reporting the usage ...")
-	if err := utils.ReportUsage(ctx, c.logger, db, c.CustomerID, c.LanguageModel.GetTokenRecords(), c.Conversation); err != nil {
+	logger.InfoContext(ctx, "Reporting the usage ...")
+	if err := utils.ReportUsage(ctx, c.logger, db, c.CustomerID, lm.GetTokenRecords(), c.Conversation); err != nil {
 		return "", fmt.Errorf("failed to save the token usage")
 	}
 
-	c.logger.InfoContext(ctx, "Successfully saved conversation")
+	logger.InfoContext(ctx, "Successfully saved conversation")
 	return response, nil
+}
+
+func JsonCompletion[T any](
+	c *Conversation,
+	ctx context.Context,
+	db queries.DBTX,
+	model *LLM,
+	input string,
+	schema string,
+) (*T, error) {
+	var response T
+	c.logger.InfoContext(ctx, "Beginning conversation json completion ...")
+
+	// get the gollm object
+	lm, err := c.getGoLLM(ctx, model)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the gollm: %s", err)
+	}
+
+	rawResponse, err := model.Completion(ctx, c.logger, lm, &CompletionArgs{
+		Input:      input,
+		Json:       true,
+		JsonSchema: schema,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed conversation completion: %s", err)
+	}
+
+	// parse as json
+	c.logger.InfoContext(ctx, "Parsing into json ...")
+	if err := json.Unmarshal([]byte(rawResponse), &response); err != nil {
+		return nil, fmt.Errorf("failed to serialize the json: %s. RAW: %s", err, rawResponse)
+	}
+
+	// save the conversation records in the conversation
+	c.logger.InfoContext(ctx, "Saving the conversation ...")
+	if err := c.addMessages(ctx, db, model.Llm, lm.GetConversation()); err != nil {
+		return nil, fmt.Errorf("failed to add the messages to the internal conversation: %s", err)
+	}
+
+	// report the usage
+	c.logger.InfoContext(ctx, "Reporting the usage ...")
+	if err := utils.ReportUsage(ctx, c.logger, db, c.CustomerID, lm.GetTokenRecords(), c.Conversation); err != nil {
+		return nil, fmt.Errorf("failed to save the token usage")
+	}
+
+	c.logger.InfoContext(ctx, "Successfully saved conversation")
+	return &response, nil
+}
+
+// Correctly sets the system message and creates a new gollm object based on the model that is passed
+func (c *Conversation) getGoLLM(ctx context.Context, model *LLM) (*gollm.LanguageModel, error) {
+	c.logger.DebugContext(ctx, "Creating the internal llm with the passed configuration ...")
+
+	// create the gollm object
+	sysMessageRaw := model.GenerateSystemPrompt(c.Conversation.SystemMessage)
+	gollmMessages, err := c.GoLLMMessages()
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the gollm messages: %s", err)
+	}
+
+	// set the first gollm message
+	sysMessage := gollm.LanguageModelMessage{
+		Role:    gollm.RoleSystem,
+		Message: sysMessageRaw,
+	}
+	if len(gollmMessages) == 0 {
+		gollmMessages = append(gollmMessages, &gollm.LanguageModelMessage{})
+	}
+	gollmMessages[0] = &sysMessage
+
+	// construct the object
+	lm := gollm.NewLanguageModelFromConversation(
+		c.CustomerID.String(),
+		c.logger,
+		gollmMessages,
+		nil,
+	)
+
+	if lm == nil {
+		return nil, fmt.Errorf("failed to create the gollm: %s", err)
+	}
+
+	return lm, nil
 }
 
 // Adds a list of messages to the conversation and updates the database.
@@ -252,4 +382,11 @@ func (c *Conversation) SyncMessages(
 	}
 	c.storedMessages = len(c.Messages)
 	return nil
+}
+
+func (c *Conversation) PrintConversation() {
+	for _, item := range c.Messages {
+		fmt.Printf("[[%s]]\n", item.Role)
+		fmt.Printf("> %s\n---\n", item.Message)
+	}
 }

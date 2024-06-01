@@ -442,6 +442,7 @@ CREATE TABLE conversation(
 
     title TEXT NOT NULL,
     conversation_type TEXT NOT NULL,
+    system_message TEXT NOT NULL,
     metadata JSON DEFAULT '{}',
 
     PRIMARY KEY (id),
@@ -588,30 +589,6 @@ LinkedIn Post
 ############################################################
 */
 
--- general config for creating linkedin posts
-CREATE TABLE linkedin_post_config(
-    id uuid NOT NULL DEFAULT uuid7(),
-    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
-    project_id uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
-
-    -- general config
-    min_sections INT NOT NULL DEFAULT 1,
-    max_sections INT NOT NULL DEFAULT 2,
-    documents_per_post INT NOT NULL DEFAULT 2,
-    website_pages_per_post INT NOT NULL DEFAULT 2,
-
-    -- llm config
-    llm_content_generation_default_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
-    llm_vector_summarization_default_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
-    llm_website_summarization_default_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
-    llm_proof_reading_default_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
-
-    PRIMARY KEY (id),
-
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
 -- linkedin posts
 CREATE TABLE linkedin_post(
     id uuid NOT NULL DEFAULT uuid7(),
@@ -619,8 +596,6 @@ CREATE TABLE linkedin_post(
     project_library_id uuid NOT NULL REFERENCES project_library(id) ON DELETE CASCADE,
     
     project_idea_id uuid NULL REFERENCES project_idea(id) ON DELETE SET NULL,
-
-    additional_instructions TEXT NOT NULL DEFAULT '',
     
     title TEXT NOT NULL,
     asset_id uuid DEFAULT NULL REFERENCES asset_catalog(id) ON DELETE SET NULL,
@@ -643,6 +618,38 @@ CREATE TABLE linkedin_post_conversation(
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- general config for creating linkedin posts
+    CREATE TABLE linkedin_post_config(
+        id uuid NOT NULL DEFAULT uuid7(),
+
+        -- null: default for all users
+        -- not null: tied to a customer's project
+        project_id uuid NULL REFERENCES project(id) ON DELETE CASCADE,
+
+        -- null: default for the entire project
+        -- not null: config for the specific post
+        linkedin_post_id uuid NULL REFERENCES linkedin_post(id) ON DELETE CASCADE,
+
+        -- general config
+        min_sections INT NOT NULL DEFAULT 1,
+        max_sections INT NOT NULL DEFAULT 2,
+        num_documents INT NOT NULL DEFAULT 2,
+        num_website_pages INT NOT NULL DEFAULT 2,
+
+        -- llm config
+        llm_content_generation_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
+        llm_vector_summarization_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
+        llm_website_summarization_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
+        llm_proof_reading_id uuid DEFAULT NULL REFERENCES llm(id) ON DELETE SET NULL,
+
+        PRIMARY KEY (id),
+        CONSTRAINT cnst_unique_linkedin_post_config UNIQUE
+        (linkedin_post_id),
+
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
 
 /*
 ############################################################
@@ -867,29 +874,88 @@ FOR EACH ROW EXECUTE FUNCTION set_is_default_false();
 
 /*
 ############################################################
-LLM default vaules
+Content Types
 ############################################################
 */
-INSERT INTO llm (
-    customer_id, title, model, temperature, instructions, is_default
+INSERT INTO content_type (
+    title, parent
 ) VALUES (
-    NULL,
-    'Basic',
-    'gpt-3.5-turbo',
-    1.00,
-    'You are a friendly, AI Assistant here to help and answer all questions politely and concisely.',
-    true
+    'LinkedIn Post', ''
 );
-INSERT INTO llm (
-    customer_id, title, model, temperature, instructions, is_default
-) VALUES (
-    NULL,
-    'Direct',
-    'gpt-3.5-turbo',
-    1.30,
-    'You are direct and straight forward. You do not mess around or dilly-dally.',
-    true
-);
+
+/*
+############################################################
+LLM defaults and generation configs
+############################################################
+*/
+DO $$
+DECLARE
+    llm_summarization_id uuid;
+    llm_generation_id uuid;
+    llm_proof_id uuid;
+BEGIN
+    /*
+    ############################################################
+    DEFAULT MODELS
+    ############################################################
+    */
+
+    /* Sumarization model */
+    INSERT INTO llm (
+        customer_id, title, model, temperature, instructions, is_default
+    ) VALUES (
+        NULL,
+        'Default Summarization',
+        'gpt-3.5-turbo',
+        0.5,
+        'You are a model that has been specifically designed to summarize content. You are to properly parse the input text, and are to take all relavent facts and defails into account when constructing your summarization. You will be given text as an input, and you will directly reply with the summarization of the content.',
+        true
+    )
+    RETURNING id INTO llm_summarization_id;
+
+    /* Generation model */
+    INSERT INTO llm (
+        customer_id, title, model, temperature, instructions, is_default
+    ) VALUES (
+        NULL,
+        'Default Generation',
+        'claude-3-sonnet-20240229',
+        0.9,
+        'You are a creative and free-spirited model, who is to generate natural language sounding outputs. Make sure you are using words that are common in the English language, which will make you sound as natural as possible. This is to avoid potentially jarring the end user who accesses the content you generate. You will be passed further instructions which you are to follow STRICTLY.',
+        false
+    )
+    RETURNING id INTO llm_generation_id;
+
+    /* Proof reading model */
+    INSERT INTO llm (
+        customer_id, title, model, temperature, instructions, is_default
+    ) VALUES (
+        NULL,
+        'Default Proof-reading',
+        'claude-3-sonnet-20240229',
+        0.3,
+        'You are a model that has been crafted to fix mistakes that you see in the outputs/resposnes of humans or other models. Your tasks range from fact checking based on supplied information, spell-checking and document flow, and JSON schema format correction. You are to follow the additional instructions you are given carefully.',
+        false
+    )
+    RETURNING id INTO llm_proof_id;
+
+    /*
+    ############################################################
+    POST CONFIGS
+    ############################################################
+    */
+
+    INSERT INTO linkedin_post_config (
+        min_sections, max_sections, num_documents, num_website_pages,
+        llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id
+    ) VALUES (
+        1, 3, 2, 2,
+        llm_generation_id,
+        llm_summarization_id,
+        llm_summarization_id,
+        llm_proof_id
+    );
+END $$;
 
 /*
 ############################################################

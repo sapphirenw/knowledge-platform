@@ -26,9 +26,7 @@ func TestConversation(t *testing.T) {
 	require.NoError(t, err)
 
 	// create a completion event
-	response, err := conv.Completion(ctx, pool, model, &CompletionArgs{
-		Input: "Ahoy Matey!!",
-	})
+	response, err := conv.Completion(ctx, pool, model, "Ahoy Matey!!")
 	require.NoError(t, err)
 
 	fmt.Printf("MODEL RESPONSE: %s\n", response)

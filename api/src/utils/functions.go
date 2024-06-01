@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"math"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -82,6 +83,20 @@ func PGXUUIDToGoogleUUID(pgxUUID pgtype.UUID) *uuid.UUID {
 	return &uid
 }
 
+func PGXUUIDFromString(src string) pgtype.UUID {
+	var pid pgtype.UUID
+	pid.Scan(src)
+	return pid
+}
+
+func StringFromPGXUUID(pgxUUID pgtype.UUID) string {
+	uid, err := uuid.FromBytes(pgxUUID.Bytes[:])
+	if err != nil {
+		return ""
+	}
+	return uid.String()
+}
+
 func CleanInput(input string) string {
 	// Replace all whitespace characters with a space
 	input = strings.Join(strings.Fields(input), " ")
@@ -132,4 +147,16 @@ func GenerateRandomString(n int) string {
 		bytes[i] = letters[b%byte(len(letters))]
 	}
 	return string(bytes)
+}
+
+// Convert between 2 structs with equal values using reflection
+func ReflectStructs[A any, B any](a A) B {
+	var b B
+	aVal := reflect.ValueOf(a).Elem()
+	bPtr := reflect.New(reflect.TypeOf(b).Elem())
+	bVal := bPtr.Elem()
+	for i := 0; i < aVal.NumField(); i++ {
+		bVal.Field(i).Set(aVal.Field(i))
+	}
+	return bPtr.Interface().(B)
 }

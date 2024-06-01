@@ -22,6 +22,8 @@ require (
 	go.dpb.io/sitemap v0.0.0-20210828150946-52a1fb6f10fa
 )
 
+replace github.com/jake-landersweb/gollm/v2 => /Users/jakelanders/code/gollm
+
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect

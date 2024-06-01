@@ -128,6 +128,7 @@ type Conversation struct {
 	CustomerID       uuid.UUID          `db:"customer_id" json:"customerId"`
 	Title            string             `db:"title" json:"title"`
 	ConversationType string             `db:"conversation_type" json:"conversationType"`
+	SystemMessage    string             `db:"system_message" json:"systemMessage"`
 	Metadata         []byte             `db:"metadata" json:"metadata"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
@@ -187,32 +188,31 @@ type Folder struct {
 }
 
 type LinkedinPost struct {
-	ID                     uuid.UUID          `db:"id" json:"id"`
-	ProjectID              uuid.UUID          `db:"project_id" json:"projectId"`
-	ProjectLibraryID       uuid.UUID          `db:"project_library_id" json:"projectLibraryId"`
-	ProjectIdeaID          pgtype.UUID        `db:"project_idea_id" json:"projectIdeaId"`
-	AdditionalInstructions string             `db:"additional_instructions" json:"additionalInstructions"`
-	Title                  string             `db:"title" json:"title"`
-	AssetID                pgtype.UUID        `db:"asset_id" json:"assetId"`
-	Metadata               []byte             `db:"metadata" json:"metadata"`
-	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt              pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID               uuid.UUID          `db:"id" json:"id"`
+	ProjectID        uuid.UUID          `db:"project_id" json:"projectId"`
+	ProjectLibraryID uuid.UUID          `db:"project_library_id" json:"projectLibraryId"`
+	ProjectIdeaID    pgtype.UUID        `db:"project_idea_id" json:"projectIdeaId"`
+	Title            string             `db:"title" json:"title"`
+	AssetID          pgtype.UUID        `db:"asset_id" json:"assetId"`
+	Metadata         []byte             `db:"metadata" json:"metadata"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type LinkedinPostConfig struct {
-	ID                               uuid.UUID          `db:"id" json:"id"`
-	CustomerID                       uuid.UUID          `db:"customer_id" json:"customerId"`
-	ProjectID                        uuid.UUID          `db:"project_id" json:"projectId"`
-	MinSections                      int32              `db:"min_sections" json:"minSections"`
-	MaxSections                      int32              `db:"max_sections" json:"maxSections"`
-	DocumentsPerPost                 int32              `db:"documents_per_post" json:"documentsPerPost"`
-	WebsitePagesPerPost              int32              `db:"website_pages_per_post" json:"websitePagesPerPost"`
-	LlmContentGenerationDefaultID    pgtype.UUID        `db:"llm_content_generation_default_id" json:"llmContentGenerationDefaultId"`
-	LlmVectorSummarizationDefaultID  pgtype.UUID        `db:"llm_vector_summarization_default_id" json:"llmVectorSummarizationDefaultId"`
-	LlmWebsiteSummarizationDefaultID pgtype.UUID        `db:"llm_website_summarization_default_id" json:"llmWebsiteSummarizationDefaultId"`
-	LlmProofReadingDefaultID         pgtype.UUID        `db:"llm_proof_reading_default_id" json:"llmProofReadingDefaultId"`
-	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt                        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID                        uuid.UUID          `db:"id" json:"id"`
+	ProjectID                 pgtype.UUID        `db:"project_id" json:"projectId"`
+	LinkedinPostID            pgtype.UUID        `db:"linkedin_post_id" json:"linkedinPostId"`
+	MinSections               int32              `db:"min_sections" json:"minSections"`
+	MaxSections               int32              `db:"max_sections" json:"maxSections"`
+	NumDocuments              int32              `db:"num_documents" json:"numDocuments"`
+	NumWebsitePages           int32              `db:"num_website_pages" json:"numWebsitePages"`
+	LlmContentGenerationID    pgtype.UUID        `db:"llm_content_generation_id" json:"llmContentGenerationId"`
+	LlmVectorSummarizationID  pgtype.UUID        `db:"llm_vector_summarization_id" json:"llmVectorSummarizationId"`
+	LlmWebsiteSummarizationID pgtype.UUID        `db:"llm_website_summarization_id" json:"llmWebsiteSummarizationId"`
+	LlmProofReadingID         pgtype.UUID        `db:"llm_proof_reading_id" json:"llmProofReadingId"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type LinkedinPostConversation struct {

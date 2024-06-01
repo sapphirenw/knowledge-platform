@@ -45,6 +45,7 @@ CREATE TABLE conversation(
 
     title TEXT NOT NULL,
     conversation_type TEXT NOT NULL,
+    system_message TEXT NOT NULL,
     metadata JSON DEFAULT '{}',
 
     PRIMARY KEY (id),
