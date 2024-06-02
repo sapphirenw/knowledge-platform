@@ -229,11 +229,11 @@ func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams)
 
 const createDocumentVector = `-- name: CreateDocumentVector :one
 INSERT INTO document_vector (
-    document_id, vector_store_id, customer_id, index
+    document_id, vector_store_id, customer_id, index, metadata
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
-RETURNING id, document_id, vector_store_id, customer_id, index, created_at
+RETURNING id, document_id, vector_store_id, customer_id, index, metadata, created_at
 `
 
 type CreateDocumentVectorParams struct {
@@ -241,22 +241,24 @@ type CreateDocumentVectorParams struct {
 	VectorStoreID uuid.UUID `db:"vector_store_id" json:"vectorStoreId"`
 	CustomerID    uuid.UUID `db:"customer_id" json:"customerId"`
 	Index         int32     `db:"index" json:"index"`
+	Metadata      []byte    `db:"metadata" json:"metadata"`
 }
 
 // CreateDocumentVector
 //
 //	INSERT INTO document_vector (
-//	    document_id, vector_store_id, customer_id, index
+//	    document_id, vector_store_id, customer_id, index, metadata
 //	) VALUES (
-//	    $1, $2, $3, $4
+//	    $1, $2, $3, $4, $5
 //	)
-//	RETURNING id, document_id, vector_store_id, customer_id, index, created_at
+//	RETURNING id, document_id, vector_store_id, customer_id, index, metadata, created_at
 func (q *Queries) CreateDocumentVector(ctx context.Context, arg *CreateDocumentVectorParams) (*DocumentVector, error) {
 	row := q.db.QueryRow(ctx, createDocumentVector,
 		arg.DocumentID,
 		arg.VectorStoreID,
 		arg.CustomerID,
 		arg.Index,
+		arg.Metadata,
 	)
 	var i DocumentVector
 	err := row.Scan(
@@ -265,6 +267,7 @@ func (q *Queries) CreateDocumentVector(ctx context.Context, arg *CreateDocumentV
 		&i.VectorStoreID,
 		&i.CustomerID,
 		&i.Index,
+		&i.Metadata,
 		&i.CreatedAt,
 	)
 	return &i, err
@@ -719,29 +722,35 @@ func (q *Queries) CreateTokenUsage(ctx context.Context, arg *CreateTokenUsagePar
 
 const createVector = `-- name: CreateVector :one
 INSERT INTO vector_store (
-    raw, embeddings, customer_id
+    customer_id, raw, embeddings, metadata
 ) VALUES (
-    $1, $2, $3
+    $1, $2, $3, $4
 )
 RETURNING id
 `
 
 type CreateVectorParams struct {
+	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
 	Raw        string          `db:"raw" json:"raw"`
 	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
-	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
+	Metadata   []byte          `db:"metadata" json:"metadata"`
 }
 
 // CreateVector
 //
 //	INSERT INTO vector_store (
-//	    raw, embeddings, customer_id
+//	    customer_id, raw, embeddings, metadata
 //	) VALUES (
-//	    $1, $2, $3
+//	    $1, $2, $3, $4
 //	)
 //	RETURNING id
 func (q *Queries) CreateVector(ctx context.Context, arg *CreateVectorParams) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, createVector, arg.Raw, arg.Embeddings, arg.CustomerID)
+	row := q.db.QueryRow(ctx, createVector,
+		arg.CustomerID,
+		arg.Raw,
+		arg.Embeddings,
+		arg.Metadata,
+	)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -806,15 +815,15 @@ func (q *Queries) CreateWebsite(ctx context.Context, arg *CreateWebsiteParams) (
 
 const createWebsitePage = `-- name: CreateWebsitePage :one
 INSERT INTO website_page (
-    customer_id, website_id, url, sha_256
+    customer_id, website_id, url, sha_256, metadata
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
 ON CONFLICT ON CONSTRAINT cnst_unique_website_page
 DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP,
     is_valid = TRUE
-RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at
 `
 
 type CreateWebsitePageParams struct {
@@ -822,26 +831,28 @@ type CreateWebsitePageParams struct {
 	WebsiteID  uuid.UUID `db:"website_id" json:"websiteId"`
 	Url        string    `db:"url" json:"url"`
 	Sha256     string    `db:"sha_256" json:"sha256"`
+	Metadata   []byte    `db:"metadata" json:"metadata"`
 }
 
 // CreateWebsitePage
 //
 //	INSERT INTO website_page (
-//	    customer_id, website_id, url, sha_256
+//	    customer_id, website_id, url, sha_256, metadata
 //	) VALUES (
-//	    $1, $2, $3, $4
+//	    $1, $2, $3, $4, $5
 //	)
 //	ON CONFLICT ON CONSTRAINT cnst_unique_website_page
 //	DO UPDATE SET
 //	    updated_at = CURRENT_TIMESTAMP,
 //	    is_valid = TRUE
-//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at
 func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageParams) (*WebsitePage, error) {
 	row := q.db.QueryRow(ctx, createWebsitePage,
 		arg.CustomerID,
 		arg.WebsiteID,
 		arg.Url,
 		arg.Sha256,
+		arg.Metadata,
 	)
 	var i WebsitePage
 	err := row.Scan(
@@ -851,6 +862,7 @@ func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageP
 		&i.Url,
 		&i.Sha256,
 		&i.IsValid,
+		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -859,11 +871,11 @@ func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageP
 
 const createWebsitePageVector = `-- name: CreateWebsitePageVector :one
 INSERT INTO website_page_vector (
-    website_page_id, vector_store_id, customer_id, index
+    website_page_id, vector_store_id, customer_id, index, metadata
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
-RETURNING id, website_page_id, vector_store_id, customer_id, index, created_at
+RETURNING id, website_page_id, vector_store_id, customer_id, index, metadata, created_at
 `
 
 type CreateWebsitePageVectorParams struct {
@@ -871,22 +883,24 @@ type CreateWebsitePageVectorParams struct {
 	VectorStoreID uuid.UUID `db:"vector_store_id" json:"vectorStoreId"`
 	CustomerID    uuid.UUID `db:"customer_id" json:"customerId"`
 	Index         int32     `db:"index" json:"index"`
+	Metadata      []byte    `db:"metadata" json:"metadata"`
 }
 
 // CreateWebsitePageVector
 //
 //	INSERT INTO website_page_vector (
-//	    website_page_id, vector_store_id, customer_id, index
+//	    website_page_id, vector_store_id, customer_id, index, metadata
 //	) VALUES (
-//	    $1, $2, $3, $4
+//	    $1, $2, $3, $4, $5
 //	)
-//	RETURNING id, website_page_id, vector_store_id, customer_id, index, created_at
+//	RETURNING id, website_page_id, vector_store_id, customer_id, index, metadata, created_at
 func (q *Queries) CreateWebsitePageVector(ctx context.Context, arg *CreateWebsitePageVectorParams) (*WebsitePageVector, error) {
 	row := q.db.QueryRow(ctx, createWebsitePageVector,
 		arg.WebsitePageID,
 		arg.VectorStoreID,
 		arg.CustomerID,
 		arg.Index,
+		arg.Metadata,
 	)
 	var i WebsitePageVector
 	err := row.Scan(
@@ -895,6 +909,7 @@ func (q *Queries) CreateWebsitePageVector(ctx context.Context, arg *CreateWebsit
 		&i.VectorStoreID,
 		&i.CustomerID,
 		&i.Index,
+		&i.Metadata,
 		&i.CreatedAt,
 	)
 	return &i, err
@@ -2208,13 +2223,13 @@ func (q *Queries) GetWebsite(ctx context.Context, id uuid.UUID) (*Website, error
 }
 
 const getWebsitePagesBySite = `-- name: GetWebsitePagesBySite :many
-SELECT id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at FROM website_page
+SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at FROM website_page
 WHERE website_id = $1
 `
 
 // GetWebsitePagesBySite
 //
-//	SELECT id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at FROM website_page
+//	SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at FROM website_page
 //	WHERE website_id = $1
 func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID uuid.UUID) ([]*WebsitePage, error) {
 	rows, err := q.db.Query(ctx, getWebsitePagesBySite, websiteID)
@@ -2232,6 +2247,7 @@ func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID uuid.UUID
 			&i.Url,
 			&i.Sha256,
 			&i.IsValid,
+			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2319,13 +2335,13 @@ func (q *Queries) ListCustomers(ctx context.Context) ([]*Customer, error) {
 }
 
 const listDocumentVectors = `-- name: ListDocumentVectors :many
-SELECT id, document_id, vector_store_id, customer_id, index, created_at FROM document_vector
+SELECT id, document_id, vector_store_id, customer_id, index, metadata, created_at FROM document_vector
 WHERE customer_id = $1
 `
 
 // ListDocumentVectors
 //
-//	SELECT id, document_id, vector_store_id, customer_id, index, created_at FROM document_vector
+//	SELECT id, document_id, vector_store_id, customer_id, index, metadata, created_at FROM document_vector
 //	WHERE customer_id = $1
 func (q *Queries) ListDocumentVectors(ctx context.Context, customerID uuid.UUID) ([]*DocumentVector, error) {
 	rows, err := q.db.Query(ctx, listDocumentVectors, customerID)
@@ -2342,6 +2358,7 @@ func (q *Queries) ListDocumentVectors(ctx context.Context, customerID uuid.UUID)
 			&i.VectorStoreID,
 			&i.CustomerID,
 			&i.Index,
+			&i.Metadata,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -2355,13 +2372,13 @@ func (q *Queries) ListDocumentVectors(ctx context.Context, customerID uuid.UUID)
 }
 
 const listWebsitePageVectors = `-- name: ListWebsitePageVectors :many
-SELECT id, website_page_id, vector_store_id, customer_id, index, created_at FROM website_page_vector
+SELECT id, website_page_id, vector_store_id, customer_id, index, metadata, created_at FROM website_page_vector
 WHERE customer_id = $1
 `
 
 // ListWebsitePageVectors
 //
-//	SELECT id, website_page_id, vector_store_id, customer_id, index, created_at FROM website_page_vector
+//	SELECT id, website_page_id, vector_store_id, customer_id, index, metadata, created_at FROM website_page_vector
 //	WHERE customer_id = $1
 func (q *Queries) ListWebsitePageVectors(ctx context.Context, customerID uuid.UUID) ([]*WebsitePageVector, error) {
 	rows, err := q.db.Query(ctx, listWebsitePageVectors, customerID)
@@ -2378,6 +2395,7 @@ func (q *Queries) ListWebsitePageVectors(ctx context.Context, customerID uuid.UU
 			&i.VectorStoreID,
 			&i.CustomerID,
 			&i.Index,
+			&i.Metadata,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -2478,7 +2496,7 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 }
 
 const queryVectorStoreRaw = `-- name: QueryVectorStoreRaw :many
-SELECT id, raw, embeddings, customer_id, created_at FROM vector_store
+SELECT id, customer_id, raw, embeddings, metadata, created_at FROM vector_store
 WHERE customer_id = $1
 ORDER BY embeddings <#> $3
 LIMIT $2
@@ -2492,7 +2510,7 @@ type QueryVectorStoreRawParams struct {
 
 // QueryVectorStoreRaw
 //
-//	SELECT id, raw, embeddings, customer_id, created_at FROM vector_store
+//	SELECT id, customer_id, raw, embeddings, metadata, created_at FROM vector_store
 //	WHERE customer_id = $1
 //	ORDER BY embeddings <#> $3
 //	LIMIT $2
@@ -2507,9 +2525,10 @@ func (q *Queries) QueryVectorStoreRaw(ctx context.Context, arg *QueryVectorStore
 		var i VectorStore
 		if err := rows.Scan(
 			&i.ID,
+			&i.CustomerID,
 			&i.Raw,
 			&i.Embeddings,
-			&i.CustomerID,
+			&i.Metadata,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -2523,7 +2542,7 @@ func (q *Queries) QueryVectorStoreRaw(ctx context.Context, arg *QueryVectorStore
 }
 
 const queryVectorStoreWebsitePages = `-- name: QueryVectorStoreWebsitePages :many
-SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.created_at, wp.updated_at
+SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.created_at, wp.updated_at
 FROM vector_store vs
 JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 JOIN website_page wp ON wp.id = wpv.website_page_id
@@ -2540,7 +2559,7 @@ type QueryVectorStoreWebsitePagesParams struct {
 
 // QueryVectorStoreWebsitePages
 //
-//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.created_at, wp.updated_at
+//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.created_at, wp.updated_at
 //	FROM vector_store vs
 //	JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 //	JOIN website_page wp ON wp.id = wpv.website_page_id
@@ -2563,6 +2582,7 @@ func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVe
 			&i.Url,
 			&i.Sha256,
 			&i.IsValid,
+			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2652,7 +2672,7 @@ const updateWebsitePageSignature = `-- name: UpdateWebsitePageSignature :one
 UPDATE website_page SET
     sha_256 = $2
 WHERE id = $1
-RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at
 `
 
 type UpdateWebsitePageSignatureParams struct {
@@ -2665,7 +2685,7 @@ type UpdateWebsitePageSignatureParams struct {
 //	UPDATE website_page SET
 //	    sha_256 = $2
 //	WHERE id = $1
-//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, created_at, updated_at
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at
 func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWebsitePageSignatureParams) (*WebsitePage, error) {
 	row := q.db.QueryRow(ctx, updateWebsitePageSignature, arg.ID, arg.Sha256)
 	var i WebsitePage
@@ -2676,6 +2696,7 @@ func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWeb
 		&i.Url,
 		&i.Sha256,
 		&i.IsValid,
+		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

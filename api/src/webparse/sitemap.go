@@ -1,4 +1,4 @@
-package webscrape
+package webparse
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"go.dpb.io/sitemap/data"
 	"go.dpb.io/sitemap/httputil"
 )
+
+// TODO -- improve with: https://github.com/gocolly/colly/blob/master/_examples/shopify_sitemap/shopify_sitemap.go
 
 // Recursively parses a sitemap and returns a list of all the valid domains
 // relating to the site's blacklist and whitelist rules

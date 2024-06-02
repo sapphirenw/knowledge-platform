@@ -1,4 +1,4 @@
-package webscrape
+package webparse
 
 import (
 	"context"
@@ -87,8 +87,9 @@ func ScrapeSingle(
 	ctx context.Context,
 	logger *slog.Logger,
 	page *queries.WebsitePage,
-) ([]byte, error) {
-	var res []byte
+) (*ScrapeResponse, error) {
+	var res string
+	header := ScrapeHeader{}
 	var err error
 
 	// converter and scraper
@@ -96,9 +97,16 @@ func ScrapeSingle(
 	scraper := colly.NewCollector()
 
 	// parse the bodies from the webpage
-	scraper.OnHTML("html", func(e *colly.HTMLElement) {
-		// parse the markdown from the html elements
-		markdown, err := converter.ConvertBytes(e.Response.Body)
+	scraper.OnHTML("body", func(e *colly.HTMLElement) {
+		// parse the response
+		raw, err := e.DOM.Html()
+		if err != nil {
+			logger.ErrorContext(ctx, "Error parsing the html", "error", err)
+			return
+		}
+
+		// parse markdown from the passed html element
+		markdown, err := converter.ConvertString(raw)
 		if err != nil {
 			logger.ErrorContext(ctx, "Error parsing the markdown from the html", "error", err)
 			return
@@ -108,9 +116,20 @@ func ScrapeSingle(
 		res = markdown
 	})
 
+	// parse the header
+	scraper.OnHTML("head", func(e *colly.HTMLElement) {
+		header.Title = e.ChildText("title")
+		header.Description = e.ChildAttr(`meta[name="description"]`, "content")
+
+		// get the keywords
+		keywordsRaw := e.ChildAttr(`meta[name="keywords"]`, "content")
+		keywords := make([]string, 0)
+		keywords = append(keywords, strings.Split(keywordsRaw, ",")...)
+		header.Tags = keywords
+	})
+
 	// error handler
 	scraper.OnError(func(r *colly.Response, err error) {
-
 		logger.ErrorContext(ctx, "There was an issue scraping the url", "url", r.Request.URL, "statusCode", r.StatusCode)
 	})
 
@@ -120,7 +139,10 @@ func ScrapeSingle(
 
 	scraper.Visit(page.Url)
 
-	return res, err
+	return &ScrapeResponse{
+		Header:  &header,
+		Content: res,
+	}, err
 }
 
 func normalizeURL(u *url.URL) (string, error) {

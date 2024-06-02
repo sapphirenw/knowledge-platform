@@ -1,4 +1,4 @@
-package webscrape
+package webparse
 
 import (
 	"context"
@@ -95,7 +95,9 @@ func TestScrapeSingle(t *testing.T) {
 		IsValid:    true,
 	}
 
-	content, err := ScrapeSingle(context.TODO(), logger, page)
+	response, err := ScrapeSingle(context.TODO(), logger, page)
 	require.NoError(t, err)
-	require.NotEmpty(t, content)
+	require.NotNil(t, response.Header)
+	require.NotEmpty(t, response.Content)
+	require.NotEmpty(t, response.Header.Title)
 }

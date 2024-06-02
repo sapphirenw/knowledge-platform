@@ -175,6 +175,7 @@ type DocumentVector struct {
 	VectorStoreID uuid.UUID          `db:"vector_store_id" json:"vectorStoreId"`
 	CustomerID    uuid.UUID          `db:"customer_id" json:"customerId"`
 	Index         int32              `db:"index" json:"index"`
+	Metadata      []byte             `db:"metadata" json:"metadata"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
@@ -298,17 +299,19 @@ type TokenUsage struct {
 
 type VectorStore struct {
 	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	Raw        string             `db:"raw" json:"raw"`
 	Embeddings pgvector.Vector    `db:"embeddings" json:"embeddings"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	Metadata   []byte             `db:"metadata" json:"metadata"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type VectorStoreDefault struct {
 	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	Raw        string             `db:"raw" json:"raw"`
 	Embeddings pgvector.Vector    `db:"embeddings" json:"embeddings"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	Metadata   []byte             `db:"metadata" json:"metadata"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
@@ -330,6 +333,7 @@ type WebsitePage struct {
 	Url        string             `db:"url" json:"url"`
 	Sha256     string             `db:"sha_256" json:"sha256"`
 	IsValid    bool               `db:"is_valid" json:"isValid"`
+	Metadata   []byte             `db:"metadata" json:"metadata"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
@@ -340,5 +344,6 @@ type WebsitePageVector struct {
 	VectorStoreID uuid.UUID          `db:"vector_store_id" json:"vectorStoreId"`
 	CustomerID    uuid.UUID          `db:"customer_id" json:"customerId"`
 	Index         int32              `db:"index" json:"index"`
+	Metadata      []byte             `db:"metadata" json:"metadata"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }

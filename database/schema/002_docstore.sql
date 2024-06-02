@@ -43,6 +43,7 @@ CREATE TABLE document_vector(
     vector_store_id uuid NOT NULL,
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     index INT NOT NULL, -- documents are chunked, so a large document will have multiple vector objects
+    metadata JSONB DEFAULT '{}',
 
     PRIMARY KEY (id),
     CONSTRAINT fk_vector_store FOREIGN KEY (vector_store_id, customer_id) REFERENCES vector_store(id, customer_id) ON DELETE CASCADE,

@@ -3,6 +3,7 @@ package customer
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -16,7 +17,7 @@ import (
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
-	"github.com/sapphirenw/ai-content-creation-api/src/webscrape"
+	"github.com/sapphirenw/ai-content-creation-api/src/webparse"
 )
 
 // Wrapper around the `queries.Customer` object that represents the database object
@@ -272,7 +273,7 @@ func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *
 	}
 
 	// parse the pages from the site
-	urls, err := webscrape.ParseSitemap(ctx, logger, &tmpSite)
+	urls, err := webparse.ParseSitemap(ctx, logger, &tmpSite)
 	if err != nil {
 		return nil, fmt.Errorf("there was an issue parsing the sitemap: %v", err)
 	}
@@ -377,14 +378,14 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 			pLogger.InfoContext(ctx, "Scraping the page ...")
 
 			// scrape the webpage
-			content, err := webscrape.ScrapeSingle(ctx, pLogger, page)
+			response, err := webparse.ScrapeSingle(ctx, pLogger, page)
 			if err != nil {
 				errs <- fmt.Errorf("error scraping the site: %v", err)
 				return
 			}
 
 			// create a signature to compare the old vs new
-			sig := utils.GenerateFingerprint(content)
+			sig := utils.GenerateFingerprint([]byte(response.Content))
 			if page.Sha256 == sig {
 				pLogger.InfoContext(ctx, "This website page has not changed")
 				return
@@ -395,7 +396,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 			pLogger.InfoContext(ctx, "Vecorizing the content ...")
 
 			// embed the content
-			res, err := emb.Embed(ctx, string(content))
+			res, err := emb.Embed(ctx, response.Content)
 			if err != nil {
 				errs <- fmt.Errorf("error embedding the content: %v", err)
 				return
@@ -404,6 +405,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 			// write to index in the list
 			results[index] = &vectorizeWebsiteResult{
 				page:    page,
+				headers: response.Header,
 				sha256:  sig,
 				vectors: res,
 			}
@@ -454,6 +456,12 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 		}
 		item.page = newPage
 
+		// encode the headers from the website page to store with the vectors
+		encodedHeaders, err := json.Marshal(item.headers)
+		if err != nil {
+			return fmt.Errorf("failed to serialize headers: %s", err)
+		}
+
 		plogger.InfoContext(ctx, "Uploading page vectors ...")
 
 		// lastly upload the vectors to the datastore
@@ -463,6 +471,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 				Raw:        vec.Raw,
 				Embeddings: vec.Embedding,
 				CustomerID: c.ID,
+				Metadata:   encodedHeaders,
 			})
 			if err != nil {
 				return fmt.Errorf("error inserting the vector object: %s", err)
@@ -474,6 +483,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 				VectorStoreID: vecId,
 				CustomerID:    c.ID,
 				Index:         int32(index),
+				Metadata:      encodedHeaders,
 			})
 			if err != nil {
 				return fmt.Errorf("error creating document vector relationship: %s", err)

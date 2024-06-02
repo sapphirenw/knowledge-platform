@@ -20,9 +20,10 @@ CREATE TABLE customer(
 -- generic table to hold vectors for all sorts of data
 CREATE TABLE vector_store(
     id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     raw TEXT NOT NULL, -- string utf-8 representation of the data 
     embeddings VECTOR(512) NOT NULL,
-    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+    metadata JSONB DEFAULT '{}',
 
     PRIMARY KEY (id, customer_id), -- customer_id needs to exist in the key for partitioning
 

@@ -261,9 +261,10 @@ CREATE TABLE customer(
 -- generic table to hold vectors for all sorts of data
 CREATE TABLE vector_store(
     id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     raw TEXT NOT NULL, -- string utf-8 representation of the data 
     embeddings VECTOR(512) NOT NULL,
-    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+    metadata JSONB DEFAULT '{}',
 
     PRIMARY KEY (id, customer_id), -- customer_id needs to exist in the key for partitioning
 
@@ -317,6 +318,7 @@ CREATE TABLE document_vector(
     vector_store_id uuid NOT NULL,
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     index INT NOT NULL, -- documents are chunked, so a large document will have multiple vector objects
+    metadata JSONB DEFAULT '{}',
 
     PRIMARY KEY (id),
     CONSTRAINT fk_vector_store FOREIGN KEY (vector_store_id, customer_id) REFERENCES vector_store(id, customer_id) ON DELETE CASCADE,
@@ -372,6 +374,7 @@ CREATE TABLE website_page(
     url TEXT NOT NULL,
     sha_256 CHAR(64) NOT NULL,
     is_valid BOOLEAN NOT NULL DEFAULT TRUE,
+    metadata JSONB DEFAULT '{}',
 
     PRIMARY KEY (id),
     CONSTRAINT cnst_unique_website_page UNIQUE (customer_id, website_id, url), -- pages are only allowed once
@@ -387,6 +390,7 @@ CREATE TABLE website_page_vector(
     vector_store_id uuid NOT NULL,
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     index INT NOT NULL, -- data is chunked, so an index is required to sort the data
+    metadata JSONB DEFAULT '{}',
 
     PRIMARY KEY (id),
     CONSTRAINT fk_vector_store FOREIGN KEY (vector_store_id, customer_id) REFERENCES vector_store(id, customer_id) ON DELETE CASCADE,

@@ -6,7 +6,7 @@ import (
 
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
-	"github.com/sapphirenw/ai-content-creation-api/src/webscrape"
+	"github.com/sapphirenw/ai-content-creation-api/src/webparse"
 )
 
 // returns the raw vectors from the database
@@ -128,17 +128,18 @@ func QueryWebsitePages(ctx context.Context, input *QueryInput, include bool) ([]
 			continue
 		}
 
-		var content []byte
+		var content string
 		if include {
-			content, err = webscrape.ScrapeSingle(ctx, input.Logger, item)
+			response, err := webparse.ScrapeSingle(ctx, input.Logger, item)
 			if err != nil {
 				return nil, fmt.Errorf("failed to scrape the website: %s", err)
 			}
+			content = response.Content
 		}
 
 		pages = append(pages, &WebsitePageResonse{
 			WebsitePage: item,
-			Content:     string(content),
+			Content:     content,
 		})
 		webMap[item.ID.String()] = true
 	}

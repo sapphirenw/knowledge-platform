@@ -21,9 +21,9 @@ RETURNING *;
 
 -- name: CreateWebsitePage :one
 INSERT INTO website_page (
-    customer_id, website_id, url, sha_256
+    customer_id, website_id, url, sha_256, metadata
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
 ON CONFLICT ON CONSTRAINT cnst_unique_website_page
 DO UPDATE SET

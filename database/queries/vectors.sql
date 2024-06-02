@@ -1,16 +1,16 @@
 -- name: CreateVector :one
 INSERT INTO vector_store (
-    raw, embeddings, customer_id
+    customer_id, raw, embeddings, metadata
 ) VALUES (
-    $1, $2, $3
+    $1, $2, $3, $4
 )
 RETURNING id;
 
 -- name: CreateDocumentVector :one
 INSERT INTO document_vector (
-    document_id, vector_store_id, customer_id, index
+    document_id, vector_store_id, customer_id, index, metadata
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
 RETURNING *;
 
@@ -20,9 +20,9 @@ WHERE customer_id = $1;
 
 -- name: CreateWebsitePageVector :one
 INSERT INTO website_page_vector (
-    website_page_id, vector_store_id, customer_id, index
+    website_page_id, vector_store_id, customer_id, index, metadata
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
 RETURNING *;
 
