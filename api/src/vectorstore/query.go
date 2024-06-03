@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/webparse"
@@ -39,7 +40,12 @@ func QueryRaw(ctx context.Context, input *QueryInput) ([]*queries.VectorStore, e
 	return vectors, nil
 }
 
-func QueryDocuments(ctx context.Context, input *QueryInput, include bool) ([]*DocumentResponse, error) {
+func QueryDocuments(
+	ctx context.Context,
+	input *QueryInput,
+	folders []*queries.Folder,
+	include bool,
+) ([]*DocumentResponse, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
@@ -54,11 +60,28 @@ func QueryDocuments(ctx context.Context, input *QueryInput, include bool) ([]*Do
 
 	// send the request to the database
 	model := queries.New(input.DB)
-	rawDocs, err := model.QueryVectorStoreDocuments(ctx, &queries.QueryVectorStoreDocumentsParams{
-		CustomerID: input.CustomerId,
-		Limit:      int32(input.K),
-		Embeddings: vector.Embedding,
-	})
+	var rawDocs []*queries.Document
+	if folders == nil {
+		rawDocs, err = model.QueryVectorStoreDocuments(ctx, &queries.QueryVectorStoreDocumentsParams{
+			CustomerID: input.CustomerId,
+			Limit:      int32(input.K),
+			Embeddings: vector.Embedding,
+		})
+	} else {
+		// parse the ids
+		ids := make([]uuid.UUID, 0)
+		for _, item := range folders {
+			ids = append(ids, item.ID)
+		}
+
+		// query scoped to the folder(s)
+		rawDocs, err = model.QueryVectorStoreDocumentsScoped(ctx, &queries.QueryVectorStoreDocumentsScopedParams{
+			CustomerID: input.CustomerId,
+			Limit:      int32(input.K),
+			Embeddings: vector.Embedding,
+			Column4:    ids,
+		})
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error querying the vector store: %s", err)
 	}
@@ -95,7 +118,12 @@ func QueryDocuments(ctx context.Context, input *QueryInput, include bool) ([]*Do
 	return docs, nil
 }
 
-func QueryWebsitePages(ctx context.Context, input *QueryInput, include bool) ([]*WebsitePageResonse, error) {
+func QueryWebsitePages(
+	ctx context.Context,
+	input *QueryInput,
+	websites []*queries.Website,
+	include bool,
+) ([]*WebsitePageResponse, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
@@ -110,17 +138,34 @@ func QueryWebsitePages(ctx context.Context, input *QueryInput, include bool) ([]
 
 	// send the request to the database
 	model := queries.New(input.DB)
-	pagesRaw, err := model.QueryVectorStoreWebsitePages(ctx, &queries.QueryVectorStoreWebsitePagesParams{
-		CustomerID: input.CustomerId,
-		Limit:      int32(input.K),
-		Embeddings: vector.Embedding,
-	})
+	var pagesRaw []*queries.WebsitePage
+	if websites == nil {
+		pagesRaw, err = model.QueryVectorStoreWebsitePages(ctx, &queries.QueryVectorStoreWebsitePagesParams{
+			CustomerID: input.CustomerId,
+			Limit:      int32(input.K),
+			Embeddings: vector.Embedding,
+		})
+	} else {
+		// parse the passed ids
+		ids := make([]uuid.UUID, 0)
+		for _, item := range websites {
+			ids = append(ids, item.ID)
+		}
+
+		// scope the response to the pages
+		pagesRaw, err = model.QueryVectorStoreWebsitePagesScoped(ctx, &queries.QueryVectorStoreWebsitePagesScopedParams{
+			CustomerID: input.CustomerId,
+			Limit:      int32(input.K),
+			Embeddings: vector.Embedding,
+			Column4:    ids,
+		})
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error querying the vector store: %s", err)
 	}
 
 	// query the website page for the content
-	pages := make([]*WebsitePageResonse, 0)
+	pages := make([]*WebsitePageResponse, 0)
 	webMap := make(map[string]bool, 0)
 	for _, item := range pagesRaw {
 		// skip if the website already has been used
@@ -137,7 +182,7 @@ func QueryWebsitePages(ctx context.Context, input *QueryInput, include bool) ([]
 			content = response.Content
 		}
 
-		pages = append(pages, &WebsitePageResonse{
+		pages = append(pages, &WebsitePageResponse{
 			WebsitePage: item,
 			Content:     content,
 		})

@@ -24,6 +24,6 @@ type handleWebsiteResponse struct {
 }
 
 type queryVectorStoreResponse struct {
-	Documents    []*vectorstore.DocumentResponse   `json:"documents"`
-	WebsitePages []*vectorstore.WebsitePageResonse `json:"websitePages"`
+	Documents    []*vectorstore.DocumentResponse    `json:"documents"`
+	WebsitePages []*vectorstore.WebsitePageResponse `json:"websitePages"`
 }

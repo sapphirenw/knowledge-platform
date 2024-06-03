@@ -242,7 +242,7 @@ func (p *Project) GenerateLinkedInPost(
 	var prompt string
 	if conv.New {
 		// first user message
-		prompt = fmt.Sprintf("Title: %s\nWhat the post should be about:%s", post.Title, args.Input)
+		prompt = fmt.Sprintf("Title: %s\nWhat the post should be about: %s", post.Title, args.Input)
 	} else {
 		// provide feedback
 		prompt = fmt.Sprintf("This was not quite what I am looking for. Please try again with this feedback: %s", args.Input)

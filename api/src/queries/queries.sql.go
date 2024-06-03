@@ -2495,6 +2495,72 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 	return items, nil
 }
 
+const queryVectorStoreDocumentsScoped = `-- name: QueryVectorStoreDocumentsScoped :many
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.created_at, d.updated_at
+FROM vector_store vs
+JOIN document_vector dv ON vs.id = dv.vector_store_id
+JOIN document d ON d.id = dv.document_id
+JOIN folder f ON f.id = d.parent_id
+WHERE vs.customer_id = $1
+AND f.id = ANY($4::uuid[])
+ORDER BY vs.embeddings <#> $3
+LIMIT $2
+`
+
+type QueryVectorStoreDocumentsScopedParams struct {
+	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
+	Limit      int32           `db:"limit" json:"limit"`
+	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
+	Column4    []uuid.UUID     `db:"column_4" json:"column4"`
+}
+
+// QueryVectorStoreDocumentsScoped
+//
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.created_at, d.updated_at
+//	FROM vector_store vs
+//	JOIN document_vector dv ON vs.id = dv.vector_store_id
+//	JOIN document d ON d.id = dv.document_id
+//	JOIN folder f ON f.id = d.parent_id
+//	WHERE vs.customer_id = $1
+//	AND f.id = ANY($4::uuid[])
+//	ORDER BY vs.embeddings <#> $3
+//	LIMIT $2
+func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *QueryVectorStoreDocumentsScopedParams) ([]*Document, error) {
+	rows, err := q.db.Query(ctx, queryVectorStoreDocumentsScoped,
+		arg.CustomerID,
+		arg.Limit,
+		arg.Embeddings,
+		arg.Column4,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Document{}
+	for rows.Next() {
+		var i Document
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.CustomerID,
+			&i.Filename,
+			&i.Type,
+			&i.SizeBytes,
+			&i.Sha256,
+			&i.Validated,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const queryVectorStoreRaw = `-- name: QueryVectorStoreRaw :many
 SELECT id, customer_id, raw, embeddings, metadata, created_at FROM vector_store
 WHERE customer_id = $1
@@ -2568,6 +2634,71 @@ type QueryVectorStoreWebsitePagesParams struct {
 //	LIMIT $2
 func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVectorStoreWebsitePagesParams) ([]*WebsitePage, error) {
 	rows, err := q.db.Query(ctx, queryVectorStoreWebsitePages, arg.CustomerID, arg.Limit, arg.Embeddings)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*WebsitePage{}
+	for rows.Next() {
+		var i WebsitePage
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.WebsiteID,
+			&i.Url,
+			&i.Sha256,
+			&i.IsValid,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const queryVectorStoreWebsitePagesScoped = `-- name: QueryVectorStoreWebsitePagesScoped :many
+SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.created_at, wp.updated_at
+FROM vector_store vs
+JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
+JOIN website_page wp ON wp.id = wpv.website_page_id
+JOIN website w ON w.id = wp.website_id
+WHERE vs.customer_id = $1
+AND w.id = ANY($4::uuid[])
+ORDER BY vs.embeddings <#> $3
+LIMIT $2
+`
+
+type QueryVectorStoreWebsitePagesScopedParams struct {
+	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
+	Limit      int32           `db:"limit" json:"limit"`
+	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
+	Column4    []uuid.UUID     `db:"column_4" json:"column4"`
+}
+
+// QueryVectorStoreWebsitePagesScoped
+//
+//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.created_at, wp.updated_at
+//	FROM vector_store vs
+//	JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
+//	JOIN website_page wp ON wp.id = wpv.website_page_id
+//	JOIN website w ON w.id = wp.website_id
+//	WHERE vs.customer_id = $1
+//	AND w.id = ANY($4::uuid[])
+//	ORDER BY vs.embeddings <#> $3
+//	LIMIT $2
+func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *QueryVectorStoreWebsitePagesScopedParams) ([]*WebsitePage, error) {
+	rows, err := q.db.Query(ctx, queryVectorStoreWebsitePagesScoped,
+		arg.CustomerID,
+		arg.Limit,
+		arg.Embeddings,
+		arg.Column4,
+	)
 	if err != nil {
 		return nil, err
 	}

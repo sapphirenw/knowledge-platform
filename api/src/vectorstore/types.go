@@ -11,7 +11,7 @@ type DocumentResponse struct {
 	Content string `json:"content"`
 }
 
-type WebsitePageResonse struct {
+type WebsitePageResponse struct {
 	*queries.WebsitePage
 
 	Content string `json:"content"`

@@ -66,7 +66,7 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	}
 
 	// get the documents
-	docs, err := vectorstore.QueryDocuments(ctx, input, request.IncludeContent)
+	docs, err := vectorstore.QueryDocuments(ctx, input, nil, request.IncludeContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for documents: %s", err)
 	}
@@ -77,7 +77,7 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	}
 
 	// get the website pages
-	pages, err := vectorstore.QueryWebsitePages(ctx, input, request.IncludeContent)
+	pages, err := vectorstore.QueryWebsitePages(ctx, input, nil, request.IncludeContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for website pages: %s", err)
 	}
@@ -91,5 +91,4 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 		Documents:    docs,
 		WebsitePages: pages,
 	}, nil
-
 }
