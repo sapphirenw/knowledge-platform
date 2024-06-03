@@ -29,6 +29,7 @@ CREATE TABLE llm(
     temperature DOUBLE PRECISION NOT NULL,
     instructions TEXT NOT NULL,
     is_default BOOLEAN NOT NULL DEFAULT false,
+    public BOOLEAN NOT NULL DEFAULT true, -- there will be internal models in some cases
 
     PRIMARY KEY (id),
     CONSTRAINT cnst_unqiue_llm_title UNIQUE
@@ -37,6 +38,7 @@ CREATE TABLE llm(
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_llm_title ON llm(title);
 
 -- ties together conversation messages, can be used to seed an llm
 CREATE TABLE conversation(
@@ -46,7 +48,7 @@ CREATE TABLE conversation(
     title TEXT NOT NULL,
     conversation_type TEXT NOT NULL,
     system_message TEXT NOT NULL,
-    metadata JSON DEFAULT '{}',
+    metadata JSONB DEFAULT '{}',
 
     PRIMARY KEY (id),
 

@@ -29,6 +29,8 @@ CREATE TABLE website_page(
     sha_256 CHAR(64) NOT NULL,
     is_valid BOOLEAN NOT NULL DEFAULT TRUE,
     metadata JSONB DEFAULT '{}',
+    summary TEXT NOT NULL DEFAULT '',
+    summary_sha_256 CHAR(64) NOT NULL DEFAULT '', -- fingerprint at the time the summary was taken
 
     PRIMARY KEY (id),
     CONSTRAINT cnst_unique_website_page UNIQUE (customer_id, website_id, url), -- pages are only allowed once

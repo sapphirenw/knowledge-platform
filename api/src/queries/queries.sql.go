@@ -180,7 +180,7 @@ INSERT INTO document (
 )
 ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
 `
 
 type CreateDocumentParams struct {
@@ -201,7 +201,7 @@ type CreateDocumentParams struct {
 //	)
 //	ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 //	SET updated_at = CURRENT_TIMESTAMP
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
 func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, createDocument,
 		arg.ParentID,
@@ -221,6 +221,8 @@ func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams)
 		&i.SizeBytes,
 		&i.Sha256,
 		&i.Validated,
+		&i.Summary,
+		&i.SummarySha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -355,7 +357,7 @@ INSERT INTO llm (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at
+RETURNING id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at
 `
 
 type CreateLLMParams struct {
@@ -374,7 +376,7 @@ type CreateLLMParams struct {
 //	) VALUES (
 //	    $1, $2, $3, $4, $5, $6
 //	)
-//	RETURNING id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at
+//	RETURNING id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at
 func (q *Queries) CreateLLM(ctx context.Context, arg *CreateLLMParams) (*Llm, error) {
 	row := q.db.QueryRow(ctx, createLLM,
 		arg.CustomerID,
@@ -394,6 +396,7 @@ func (q *Queries) CreateLLM(ctx context.Context, arg *CreateLLMParams) (*Llm, er
 		&i.Temperature,
 		&i.Instructions,
 		&i.IsDefault,
+		&i.Public,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -823,7 +826,7 @@ ON CONFLICT ON CONSTRAINT cnst_unique_website_page
 DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP,
     is_valid = TRUE
-RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
 `
 
 type CreateWebsitePageParams struct {
@@ -845,7 +848,7 @@ type CreateWebsitePageParams struct {
 //	DO UPDATE SET
 //	    updated_at = CURRENT_TIMESTAMP,
 //	    is_valid = TRUE
-//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
 func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageParams) (*WebsitePage, error) {
 	row := q.db.QueryRow(ctx, createWebsitePage,
 		arg.CustomerID,
@@ -863,6 +866,8 @@ func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageP
 		&i.Sha256,
 		&i.IsValid,
 		&i.Metadata,
+		&i.Summary,
+		&i.SummarySha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1168,13 +1173,13 @@ func (q *Queries) GetCustomerByName(ctx context.Context, name string) (*Customer
 const getDefaultLLM = `-- name: GetDefaultLLM :one
 WITH RequiredLLM AS (
     -- First, try to find a customer-specific default if customer_id is provided
-    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
     WHERE llm.customer_id = $1 AND llm.is_default = true
 
     UNION ALL
 
     -- Fallback to a global default if no customer-specific default is found
-    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
     WHERE llm.customer_id IS NULL AND llm.is_default = true
     AND NOT EXISTS (
         SELECT 1
@@ -1183,7 +1188,7 @@ WITH RequiredLLM AS (
     )
     
 )
-SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM RequiredLLM
+SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM RequiredLLM
 LIMIT 1
 `
 
@@ -1196,6 +1201,7 @@ type GetDefaultLLMRow struct {
 	Temperature  float64            `db:"temperature" json:"temperature"`
 	Instructions string             `db:"instructions" json:"instructions"`
 	IsDefault    bool               `db:"is_default" json:"isDefault"`
+	Public       bool               `db:"public" json:"public"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
@@ -1204,13 +1210,13 @@ type GetDefaultLLMRow struct {
 //
 //	WITH RequiredLLM AS (
 //	    -- First, try to find a customer-specific default if customer_id is provided
-//	    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
 //	    WHERE llm.customer_id = $1 AND llm.is_default = true
 //
 //	    UNION ALL
 //
 //	    -- Fallback to a global default if no customer-specific default is found
-//	    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	    SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
 //	    WHERE llm.customer_id IS NULL AND llm.is_default = true
 //	    AND NOT EXISTS (
 //	        SELECT 1
@@ -1219,7 +1225,7 @@ type GetDefaultLLMRow struct {
 //	    )
 //
 //	)
-//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM RequiredLLM
+//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM RequiredLLM
 //	LIMIT 1
 func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*GetDefaultLLMRow, error) {
 	row := q.db.QueryRow(ctx, getDefaultLLM, customerID)
@@ -1233,6 +1239,7 @@ func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*G
 		&i.Temperature,
 		&i.Instructions,
 		&i.IsDefault,
+		&i.Public,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1240,13 +1247,13 @@ func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*G
 }
 
 const getDocument = `-- name: GetDocument :one
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE id = $1 LIMIT 1
 `
 
 // GetDocument
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE id = $1 LIMIT 1
 func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, getDocument, id)
@@ -1260,6 +1267,8 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, err
 		&i.SizeBytes,
 		&i.Sha256,
 		&i.Validated,
+		&i.Summary,
+		&i.SummarySha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1267,13 +1276,13 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, err
 }
 
 const getDocumentsByCustomer = `-- name: GetDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1 AND validated = true
 `
 
 // GetDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND validated = true
 func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsByCustomer, customerID)
@@ -1293,6 +1302,8 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UU
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1307,13 +1318,13 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UU
 }
 
 const getDocumentsFromParent = `-- name: GetDocumentsFromParent :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE parent_id = $1 AND validated = true
 `
 
 // GetDocumentsFromParent
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE parent_id = $1 AND validated = true
 func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsFromParent, parentID)
@@ -1333,6 +1344,8 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UU
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1347,7 +1360,7 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UU
 }
 
 const getDocumentsOlderThan = `-- name: GetDocumentsOlderThan :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1
 AND updated_at < $2
 `
@@ -1359,7 +1372,7 @@ type GetDocumentsOlderThanParams struct {
 
 // GetDocumentsOlderThan
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1
 //	AND updated_at < $2
 func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOlderThanParams) ([]*Document, error) {
@@ -1380,6 +1393,8 @@ func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOl
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1561,14 +1576,44 @@ func (q *Queries) GetFoldersOlderThan(ctx context.Context, arg *GetFoldersOlderT
 	return items, nil
 }
 
+const getInteralLLM = `-- name: GetInteralLLM :one
+SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
+WHERE title = $1 AND public = false
+LIMIT 1
+`
+
+// GetInteralLLM
+//
+//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
+//	WHERE title = $1 AND public = false
+//	LIMIT 1
+func (q *Queries) GetInteralLLM(ctx context.Context, title string) (*Llm, error) {
+	row := q.db.QueryRow(ctx, getInteralLLM, title)
+	var i Llm
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.Color,
+		&i.Model,
+		&i.Temperature,
+		&i.Instructions,
+		&i.IsDefault,
+		&i.Public,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const getLLM = `-- name: GetLLM :one
-SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
 WHERE id = $1
 `
 
 // GetLLM
 //
-//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
 //	WHERE id = $1
 func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*Llm, error) {
 	row := q.db.QueryRow(ctx, getLLM, id)
@@ -1582,6 +1627,7 @@ func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*Llm, error) {
 		&i.Temperature,
 		&i.Instructions,
 		&i.IsDefault,
+		&i.Public,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1589,13 +1635,13 @@ func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*Llm, error) {
 }
 
 const getLLMsByCustomer = `-- name: GetLLMsByCustomer :many
-SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
 WHERE customer_id = $1
 `
 
 // GetLLMsByCustomer
 //
-//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
 //	WHERE customer_id = $1
 func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID) ([]*Llm, error) {
 	rows, err := q.db.Query(ctx, getLLMsByCustomer, customerID)
@@ -1615,6 +1661,7 @@ func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID)
 			&i.Temperature,
 			&i.Instructions,
 			&i.IsDefault,
+			&i.Public,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2004,13 +2051,13 @@ func (q *Queries) GetProjects(ctx context.Context, customerID uuid.UUID) ([]*Pro
 }
 
 const getRootDocumentsByCustomer = `-- name: GetRootDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1 AND parent_id is NULL
 `
 
 // GetRootDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND parent_id is NULL
 func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getRootDocumentsByCustomer, customerID)
@@ -2030,6 +2077,8 @@ func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID uui
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2080,13 +2129,13 @@ func (q *Queries) GetRootFoldersByCustomer(ctx context.Context, customerID uuid.
 }
 
 const getStandardLLMs = `-- name: GetStandardLLMs :many
-SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
 where customer_id IS NULL
 `
 
 // GetStandardLLMs
 //
-//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, created_at, updated_at FROM llm
+//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
 //	where customer_id IS NULL
 func (q *Queries) GetStandardLLMs(ctx context.Context) ([]*Llm, error) {
 	rows, err := q.db.Query(ctx, getStandardLLMs)
@@ -2106,6 +2155,7 @@ func (q *Queries) GetStandardLLMs(ctx context.Context) ([]*Llm, error) {
 			&i.Temperature,
 			&i.Instructions,
 			&i.IsDefault,
+			&i.Public,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2158,13 +2208,13 @@ func (q *Queries) GetTokenUsage(ctx context.Context, customerID uuid.UUID) ([]*T
 }
 
 const getUnvalidatedDocumentsByCustomer = `-- name: GetUnvalidatedDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1 AND validated = false
 `
 
 // GetUnvalidatedDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND validated = false
 func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getUnvalidatedDocumentsByCustomer, customerID)
@@ -2184,6 +2234,8 @@ func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, custome
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2223,13 +2275,13 @@ func (q *Queries) GetWebsite(ctx context.Context, id uuid.UUID) (*Website, error
 }
 
 const getWebsitePagesBySite = `-- name: GetWebsitePagesBySite :many
-SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at FROM website_page
+SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at FROM website_page
 WHERE website_id = $1
 `
 
 // GetWebsitePagesBySite
 //
-//	SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at FROM website_page
+//	SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at FROM website_page
 //	WHERE website_id = $1
 func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID uuid.UUID) ([]*WebsitePage, error) {
 	rows, err := q.db.Query(ctx, getWebsitePagesBySite, websiteID)
@@ -2248,6 +2300,8 @@ func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID uuid.UUID
 			&i.Sha256,
 			&i.IsValid,
 			&i.Metadata,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2412,7 +2466,7 @@ const markDocumentAsUploaded = `-- name: MarkDocumentAsUploaded :one
 UPDATE document
 SET validated = true
 WHERE id = $1
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
 `
 
 // MarkDocumentAsUploaded
@@ -2420,7 +2474,7 @@ RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, valid
 //	UPDATE document
 //	SET validated = true
 //	WHERE id = $1
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
 func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, markDocumentAsUploaded, id)
 	var i Document
@@ -2433,6 +2487,8 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Do
 		&i.SizeBytes,
 		&i.Sha256,
 		&i.Validated,
+		&i.Summary,
+		&i.SummarySha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -2440,7 +2496,7 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Do
 }
 
 const queryVectorStoreDocuments = `-- name: QueryVectorStoreDocuments :many
-SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.created_at, d.updated_at
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.summary, d.summary_sha_256, d.created_at, d.updated_at
 FROM vector_store vs
 JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
@@ -2457,7 +2513,7 @@ type QueryVectorStoreDocumentsParams struct {
 
 // QueryVectorStoreDocuments
 //
-//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.created_at, d.updated_at
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.summary, d.summary_sha_256, d.created_at, d.updated_at
 //	FROM vector_store vs
 //	JOIN document_vector dv ON vs.id = dv.vector_store_id
 //	JOIN document d ON d.id = dv.document_id
@@ -2482,6 +2538,8 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2496,13 +2554,13 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 }
 
 const queryVectorStoreDocumentsScoped = `-- name: QueryVectorStoreDocumentsScoped :many
-SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.created_at, d.updated_at
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.summary, d.summary_sha_256, d.created_at, d.updated_at
 FROM vector_store vs
 JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
 JOIN folder f ON f.id = d.parent_id
 WHERE vs.customer_id = $1
-AND f.id = ANY($4::uuid[])
+AND (f.id = ANY($4::uuid[]) OR d.id = ANY($5::uuid[]))
 ORDER BY vs.embeddings <#> $3
 LIMIT $2
 `
@@ -2512,17 +2570,18 @@ type QueryVectorStoreDocumentsScopedParams struct {
 	Limit      int32           `db:"limit" json:"limit"`
 	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
 	Column4    []uuid.UUID     `db:"column_4" json:"column4"`
+	Column5    []uuid.UUID     `db:"column_5" json:"column5"`
 }
 
 // QueryVectorStoreDocumentsScoped
 //
-//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.created_at, d.updated_at
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.summary, d.summary_sha_256, d.created_at, d.updated_at
 //	FROM vector_store vs
 //	JOIN document_vector dv ON vs.id = dv.vector_store_id
 //	JOIN document d ON d.id = dv.document_id
 //	JOIN folder f ON f.id = d.parent_id
 //	WHERE vs.customer_id = $1
-//	AND f.id = ANY($4::uuid[])
+//	AND (f.id = ANY($4::uuid[]) OR d.id = ANY($5::uuid[]))
 //	ORDER BY vs.embeddings <#> $3
 //	LIMIT $2
 func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *QueryVectorStoreDocumentsScopedParams) ([]*Document, error) {
@@ -2531,6 +2590,7 @@ func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *Quer
 		arg.Limit,
 		arg.Embeddings,
 		arg.Column4,
+		arg.Column5,
 	)
 	if err != nil {
 		return nil, err
@@ -2548,6 +2608,8 @@ func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *Quer
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2608,7 +2670,7 @@ func (q *Queries) QueryVectorStoreRaw(ctx context.Context, arg *QueryVectorStore
 }
 
 const queryVectorStoreWebsitePages = `-- name: QueryVectorStoreWebsitePages :many
-SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.created_at, wp.updated_at
+SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 FROM vector_store vs
 JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 JOIN website_page wp ON wp.id = wpv.website_page_id
@@ -2625,7 +2687,7 @@ type QueryVectorStoreWebsitePagesParams struct {
 
 // QueryVectorStoreWebsitePages
 //
-//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.created_at, wp.updated_at
+//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 //	FROM vector_store vs
 //	JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 //	JOIN website_page wp ON wp.id = wpv.website_page_id
@@ -2649,6 +2711,8 @@ func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVe
 			&i.Sha256,
 			&i.IsValid,
 			&i.Metadata,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2663,13 +2727,13 @@ func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVe
 }
 
 const queryVectorStoreWebsitePagesScoped = `-- name: QueryVectorStoreWebsitePagesScoped :many
-SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.created_at, wp.updated_at
+SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 FROM vector_store vs
 JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 JOIN website_page wp ON wp.id = wpv.website_page_id
 JOIN website w ON w.id = wp.website_id
 WHERE vs.customer_id = $1
-AND w.id = ANY($4::uuid[])
+AND (w.id = ANY($4::uuid[]) OR wp.id = ANY($5::uuid[]))
 ORDER BY vs.embeddings <#> $3
 LIMIT $2
 `
@@ -2679,17 +2743,18 @@ type QueryVectorStoreWebsitePagesScopedParams struct {
 	Limit      int32           `db:"limit" json:"limit"`
 	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
 	Column4    []uuid.UUID     `db:"column_4" json:"column4"`
+	Column5    []uuid.UUID     `db:"column_5" json:"column5"`
 }
 
 // QueryVectorStoreWebsitePagesScoped
 //
-//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.created_at, wp.updated_at
+//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 //	FROM vector_store vs
 //	JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 //	JOIN website_page wp ON wp.id = wpv.website_page_id
 //	JOIN website w ON w.id = wp.website_id
 //	WHERE vs.customer_id = $1
-//	AND w.id = ANY($4::uuid[])
+//	AND (w.id = ANY($4::uuid[]) OR wp.id = ANY($5::uuid[]))
 //	ORDER BY vs.embeddings <#> $3
 //	LIMIT $2
 func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *QueryVectorStoreWebsitePagesScopedParams) ([]*WebsitePage, error) {
@@ -2698,6 +2763,7 @@ func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *Q
 		arg.Limit,
 		arg.Embeddings,
 		arg.Column4,
+		arg.Column5,
 	)
 	if err != nil {
 		return nil, err
@@ -2714,6 +2780,8 @@ func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *Q
 			&i.Sha256,
 			&i.IsValid,
 			&i.Metadata,
+			&i.Summary,
+			&i.SummarySha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2799,11 +2867,52 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg *UpdateCustomerParams)
 	return err
 }
 
+const updateDocumentSummary = `-- name: UpdateDocumentSummary :one
+UPDATE document SET
+    summary = $2,
+    summary_sha_256 = $3
+WHERE id = $1
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
+`
+
+type UpdateDocumentSummaryParams struct {
+	ID            uuid.UUID `db:"id" json:"id"`
+	Summary       string    `db:"summary" json:"summary"`
+	SummarySha256 string    `db:"summary_sha_256" json:"summarySha256"`
+}
+
+// UpdateDocumentSummary
+//
+//	UPDATE document SET
+//	    summary = $2,
+//	    summary_sha_256 = $3
+//	WHERE id = $1
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
+func (q *Queries) UpdateDocumentSummary(ctx context.Context, arg *UpdateDocumentSummaryParams) (*Document, error) {
+	row := q.db.QueryRow(ctx, updateDocumentSummary, arg.ID, arg.Summary, arg.SummarySha256)
+	var i Document
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.CustomerID,
+		&i.Filename,
+		&i.Type,
+		&i.SizeBytes,
+		&i.Sha256,
+		&i.Validated,
+		&i.Summary,
+		&i.SummarySha256,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const updateWebsitePageSignature = `-- name: UpdateWebsitePageSignature :one
 UPDATE website_page SET
     sha_256 = $2
 WHERE id = $1
-RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
 `
 
 type UpdateWebsitePageSignatureParams struct {
@@ -2816,7 +2925,7 @@ type UpdateWebsitePageSignatureParams struct {
 //	UPDATE website_page SET
 //	    sha_256 = $2
 //	WHERE id = $1
-//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, created_at, updated_at
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
 func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWebsitePageSignatureParams) (*WebsitePage, error) {
 	row := q.db.QueryRow(ctx, updateWebsitePageSignature, arg.ID, arg.Sha256)
 	var i WebsitePage
@@ -2828,6 +2937,48 @@ func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWeb
 		&i.Sha256,
 		&i.IsValid,
 		&i.Metadata,
+		&i.Summary,
+		&i.SummarySha256,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const updateWebsitePageSummary = `-- name: UpdateWebsitePageSummary :one
+UPDATE website_page SET
+    summary = $2,
+    summary_sha_256 = $3
+WHERE id = $1
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
+`
+
+type UpdateWebsitePageSummaryParams struct {
+	ID            uuid.UUID `db:"id" json:"id"`
+	Summary       string    `db:"summary" json:"summary"`
+	SummarySha256 string    `db:"summary_sha_256" json:"summarySha256"`
+}
+
+// UpdateWebsitePageSummary
+//
+//	UPDATE website_page SET
+//	    summary = $2,
+//	    summary_sha_256 = $3
+//	WHERE id = $1
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
+func (q *Queries) UpdateWebsitePageSummary(ctx context.Context, arg *UpdateWebsitePageSummaryParams) (*WebsitePage, error) {
+	row := q.db.QueryRow(ctx, updateWebsitePageSummary, arg.ID, arg.Summary, arg.SummarySha256)
+	var i WebsitePage
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.WebsiteID,
+		&i.Url,
+		&i.Sha256,
+		&i.IsValid,
+		&i.Metadata,
+		&i.Summary,
+		&i.SummarySha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

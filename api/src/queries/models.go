@@ -157,16 +157,18 @@ type Customer struct {
 }
 
 type Document struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	ParentID   pgtype.UUID        `db:"parent_id" json:"parentId"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	Filename   string             `db:"filename" json:"filename"`
-	Type       string             `db:"type" json:"type"`
-	SizeBytes  int64              `db:"size_bytes" json:"sizeBytes"`
-	Sha256     string             `db:"sha_256" json:"sha256"`
-	Validated  bool               `db:"validated" json:"validated"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID            uuid.UUID          `db:"id" json:"id"`
+	ParentID      pgtype.UUID        `db:"parent_id" json:"parentId"`
+	CustomerID    uuid.UUID          `db:"customer_id" json:"customerId"`
+	Filename      string             `db:"filename" json:"filename"`
+	Type          string             `db:"type" json:"type"`
+	SizeBytes     int64              `db:"size_bytes" json:"sizeBytes"`
+	Sha256        string             `db:"sha_256" json:"sha256"`
+	Validated     bool               `db:"validated" json:"validated"`
+	Summary       string             `db:"summary" json:"summary"`
+	SummarySha256 string             `db:"summary_sha_256" json:"summarySha256"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type DocumentVector struct {
@@ -233,6 +235,7 @@ type Llm struct {
 	Temperature  float64            `db:"temperature" json:"temperature"`
 	Instructions string             `db:"instructions" json:"instructions"`
 	IsDefault    bool               `db:"is_default" json:"isDefault"`
+	Public       bool               `db:"public" json:"public"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
@@ -327,15 +330,17 @@ type Website struct {
 }
 
 type WebsitePage struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	WebsiteID  uuid.UUID          `db:"website_id" json:"websiteId"`
-	Url        string             `db:"url" json:"url"`
-	Sha256     string             `db:"sha_256" json:"sha256"`
-	IsValid    bool               `db:"is_valid" json:"isValid"`
-	Metadata   []byte             `db:"metadata" json:"metadata"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID            uuid.UUID          `db:"id" json:"id"`
+	CustomerID    uuid.UUID          `db:"customer_id" json:"customerId"`
+	WebsiteID     uuid.UUID          `db:"website_id" json:"websiteId"`
+	Url           string             `db:"url" json:"url"`
+	Sha256        string             `db:"sha_256" json:"sha256"`
+	IsValid       bool               `db:"is_valid" json:"isValid"`
+	Metadata      []byte             `db:"metadata" json:"metadata"`
+	Summary       string             `db:"summary" json:"summary"`
+	SummarySha256 string             `db:"summary_sha_256" json:"summarySha256"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type WebsitePageVector struct {

@@ -56,17 +56,18 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	// create a vector input
 	embs := c.GetEmbeddings(ctx)
 	input := &vectorstore.QueryInput{
-		CustomerId: c.ID,
-		Docstore:   store,
-		Embeddings: embs,
-		DB:         db,
-		Query:      request.Query,
-		K:          request.K,
-		Logger:     logger,
+		CustomerId:     c.ID,
+		Docstore:       store,
+		Embeddings:     embs,
+		DB:             db,
+		Query:          request.Query,
+		K:              request.K,
+		Logger:         logger,
+		IncludeContent: request.IncludeContent,
 	}
 
 	// get the documents
-	docs, err := vectorstore.QueryDocuments(ctx, input, nil, request.IncludeContent)
+	docs, err := vectorstore.QueryDocuments(ctx, &vectorstore.QueryDocstoreInput{QueryInput: input})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for documents: %s", err)
 	}
@@ -77,7 +78,7 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	}
 
 	// get the website pages
-	pages, err := vectorstore.QueryWebsitePages(ctx, input, nil, request.IncludeContent)
+	pages, err := vectorstore.QueryWebsitePages(ctx, &vectorstore.QueryWebsitePagesInput{QueryInput: input})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for website pages: %s", err)
 	}

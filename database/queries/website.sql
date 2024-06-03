@@ -37,6 +37,13 @@ UPDATE website_page SET
 WHERE id = $1
 RETURNING *;
 
+-- name: UpdateWebsitePageSummary :one
+UPDATE website_page SET
+    summary = $2,
+    summary_sha_256 = $3
+WHERE id = $1
+RETURNING *;
+
 -- name: GetWebsitePagesBySite :many
 SELECT * FROM website_page
 WHERE website_id = $1;

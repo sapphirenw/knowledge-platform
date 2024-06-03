@@ -28,6 +28,13 @@ ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 
+-- name: UpdateDocumentSummary :one
+UPDATE document SET
+    summary = $2,
+    summary_sha_256 = $3
+WHERE id = $1
+RETURNING *;
+
 -- name: MarkDocumentAsUploaded :one
 UPDATE document
 SET validated = true

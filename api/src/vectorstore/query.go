@@ -3,8 +3,8 @@ package vectorstore
 import (
 	"context"
 	"fmt"
+	"strings"
 
-	"github.com/google/uuid"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/webparse"
@@ -32,6 +32,10 @@ func QueryRaw(ctx context.Context, input *QueryInput) ([]*queries.VectorStore, e
 		Embeddings: vector.Embedding,
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "db cannot be empty") {
+			input.Logger.InfoContext(ctx, "The result was empty")
+			return []*queries.VectorStore{}, nil
+		}
 		return nil, fmt.Errorf("error querying the vector store")
 	}
 
@@ -42,12 +46,10 @@ func QueryRaw(ctx context.Context, input *QueryInput) ([]*queries.VectorStore, e
 
 func QueryDocuments(
 	ctx context.Context,
-	input *QueryInput,
-	folders []*queries.Folder,
-	include bool,
+	input *QueryDocstoreInput,
 ) ([]*DocumentResponse, error) {
 	if err := input.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("the input was not valid: %s", err)
 	}
 
 	input.Logger.InfoContext(ctx, "Querying vector store for related documents ...")
@@ -61,28 +63,27 @@ func QueryDocuments(
 	// send the request to the database
 	model := queries.New(input.DB)
 	var rawDocs []*queries.Document
-	if folders == nil {
+	if len(input.FolderIds) == 0 && len(input.DocumentIds) == 0 {
 		rawDocs, err = model.QueryVectorStoreDocuments(ctx, &queries.QueryVectorStoreDocumentsParams{
 			CustomerID: input.CustomerId,
 			Limit:      int32(input.K),
 			Embeddings: vector.Embedding,
 		})
 	} else {
-		// parse the ids
-		ids := make([]uuid.UUID, 0)
-		for _, item := range folders {
-			ids = append(ids, item.ID)
-		}
-
-		// query scoped to the folder(s)
+		// query scoped to the folders and/or documents
 		rawDocs, err = model.QueryVectorStoreDocumentsScoped(ctx, &queries.QueryVectorStoreDocumentsScopedParams{
 			CustomerID: input.CustomerId,
 			Limit:      int32(input.K),
 			Embeddings: vector.Embedding,
-			Column4:    ids,
+			Column4:    input.FolderIds,
+			Column5:    input.DocumentIds,
 		})
 	}
 	if err != nil {
+		if strings.Contains(err.Error(), "db cannot be empty") {
+			input.Logger.InfoContext(ctx, "The result was empty")
+			return []*DocumentResponse{}, nil
+		}
 		return nil, fmt.Errorf("error querying the vector store: %s", err)
 	}
 
@@ -102,7 +103,7 @@ func QueryDocuments(
 
 		var content string
 
-		if include {
+		if input.IncludeContent {
 			content, err = doc.GetCleanedContents(ctx, input.Docstore)
 			if err != nil {
 				return nil, fmt.Errorf("error getting the cleaned contents: %s", err)
@@ -120,14 +121,11 @@ func QueryDocuments(
 
 func QueryWebsitePages(
 	ctx context.Context,
-	input *QueryInput,
-	websites []*queries.Website,
-	include bool,
+	input *QueryWebsitePagesInput,
 ) ([]*WebsitePageResponse, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
-
 	input.Logger.InfoContext(ctx, "Querying vector store for related website pages ...")
 
 	// send the request
@@ -139,28 +137,27 @@ func QueryWebsitePages(
 	// send the request to the database
 	model := queries.New(input.DB)
 	var pagesRaw []*queries.WebsitePage
-	if websites == nil {
+	if len(input.WebsiteIds) == 0 && len(input.WebsitePageIds) == 0 {
 		pagesRaw, err = model.QueryVectorStoreWebsitePages(ctx, &queries.QueryVectorStoreWebsitePagesParams{
 			CustomerID: input.CustomerId,
 			Limit:      int32(input.K),
 			Embeddings: vector.Embedding,
 		})
 	} else {
-		// parse the passed ids
-		ids := make([]uuid.UUID, 0)
-		for _, item := range websites {
-			ids = append(ids, item.ID)
-		}
-
-		// scope the response to the pages
+		// scope the response to the website and/or pages
 		pagesRaw, err = model.QueryVectorStoreWebsitePagesScoped(ctx, &queries.QueryVectorStoreWebsitePagesScopedParams{
 			CustomerID: input.CustomerId,
 			Limit:      int32(input.K),
 			Embeddings: vector.Embedding,
-			Column4:    ids,
+			Column4:    input.WebsiteIds,
+			Column5:    input.WebsitePageIds,
 		})
 	}
 	if err != nil {
+		if strings.Contains(err.Error(), "db cannot be empty") {
+			input.Logger.InfoContext(ctx, "The result was empty")
+			return []*WebsitePageResponse{}, nil
+		}
 		return nil, fmt.Errorf("error querying the vector store: %s", err)
 	}
 
@@ -174,7 +171,7 @@ func QueryWebsitePages(
 		}
 
 		var content string
-		if include {
+		if input.IncludeContent {
 			response, err := webparse.ScrapeSingle(ctx, input.Logger, item)
 			if err != nil {
 				return nil, fmt.Errorf("failed to scrape the website: %s", err)

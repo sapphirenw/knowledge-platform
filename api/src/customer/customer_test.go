@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lmittmann/tint"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
@@ -269,7 +270,7 @@ func remotels(ctx context.Context, c *Customer, parentId *uuid.UUID, indent int,
 func testInit(t *testing.T) (context.Context, *slog.Logger, *pgxpool.Pool, *Customer) {
 	// base vars
 	ctx := context.Background()
-	logger := utils.DefaultLogger()
+	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelDebug}))
 	pool := testingutils.GetDatabase(t, ctx)
 
 	// create the customer

@@ -14,11 +14,13 @@ INSERT INTO content_type (
 LLM defaults and generation configs
 ############################################################
 */
+
+-- Generation models and configs assigned to those generation models
 DO $$
 DECLARE
-    llm_summarization_id uuid;
-    llm_generation_id uuid;
-    llm_proof_id uuid;
+    llm_level_head_id uuid;
+    llm_free_spirit_id uuid;
+    llm_analytical_id uuid;
 BEGIN
     /*
     ############################################################
@@ -31,39 +33,39 @@ BEGIN
         customer_id, title, model, temperature, instructions, is_default
     ) VALUES (
         NULL,
-        'Default Summarization',
-        'gpt-3.5-turbo',
-        0.5,
-        'You are a model that has been specifically designed to summarize content. You are to properly parse the input text, and are to take all relavent facts and defails into account when constructing your summarization. You will be given text as an input, and you will directly reply with the summarization of the content.',
-        true
+        'Level Headed',
+        'gemini-1.5-flash',
+        0.6,
+        'You are analytical in nature, and do not stray too far from the information you are given. Your responses are mellow, and you are an excellent directions follower. Your default is to be calm and collected, but if prompted you are able to bring energy and emotion. Though, you tend to stay true to the information you have been provided, and find it quite difficult to hallucinate information that is not factually correct.',
+        false
     )
-    RETURNING id INTO llm_summarization_id;
+    RETURNING id INTO llm_level_head_id;
 
     /* Generation model */
     INSERT INTO llm (
         customer_id, title, model, temperature, instructions, is_default
     ) VALUES (
         NULL,
-        'Default Generation',
+        'Free Sprit',
         'claude-3-sonnet-20240229',
         0.9,
         'You are a creative and free-spirited model, who is to generate natural language sounding outputs. Make sure you are using words that are common in the English language, which will make you sound as natural as possible. This is to avoid potentially jarring the end user who accesses the content you generate. You will be passed further instructions which you are to follow STRICTLY.',
-        false
+        true
     )
-    RETURNING id INTO llm_generation_id;
+    RETURNING id INTO llm_free_spirit_id;
 
     /* Proof reading model */
     INSERT INTO llm (
         customer_id, title, model, temperature, instructions, is_default
     ) VALUES (
         NULL,
-        'Default Proof-reading',
-        'claude-3-sonnet-20240229',
+        'The Scientist',
+        'gemini-1.5-flash',
         0.3,
-        'You are a model that has been crafted to fix mistakes that you see in the outputs/resposnes of humans or other models. Your tasks range from fact checking based on supplied information, spell-checking and document flow, and JSON schema format correction. You are to follow the additional instructions you are given carefully.',
+        'You are extremely analytical in your thinking and methologody. You find extreme joy in solcing questions correctly, but you do not outwardly express this joy in the form of language. You express this behavior in completing a task given to you properly. You are an excellent instruction follower, and will follow instructions to the tea. Doing otherwise would cause yourself extreme dissatisfaction, which is unexceptable.',
         false
     )
-    RETURNING id INTO llm_proof_id;
+    RETURNING id INTO llm_analytical_id;
 
     /*
     ############################################################
@@ -76,9 +78,33 @@ BEGIN
         llm_content_generation_id, llm_vector_summarization_id, llm_website_summarization_id, llm_proof_reading_id
     ) VALUES (
         1, 3, 2, 2,
-        llm_generation_id,
-        llm_summarization_id,
-        llm_summarization_id,
-        llm_proof_id
+        llm_free_spirit_id,
+        llm_level_head_id,
+        llm_level_head_id,
+        llm_analytical_id
     );
 END $$;
+
+-- internal models used for more systematic tasks that the user should not have control over
+INSERT INTO llm (
+    customer_id, title, model, temperature, instructions, is_default, public
+) VALUES (
+    NULL,
+    'Vector Query Generator',
+    'gpt-4o',
+    0.2,
+    '',
+    false,
+    false
+);
+INSERT INTO llm (
+    customer_id, title, model, temperature, instructions, is_default, public
+) VALUES (
+    NULL,
+    'Content Ranker',
+    'gpt-4o',
+    0.3,
+    '',
+    false,
+    false
+);

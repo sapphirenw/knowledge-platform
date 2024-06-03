@@ -2,12 +2,14 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
+	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -89,6 +91,7 @@ func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtyp
 			Temperature:  tmp.Temperature,
 			Instructions: tmp.Instructions,
 			IsDefault:    tmp.IsDefault,
+			Public:       tmp.Public,
 			CreatedAt:    tmp.CreatedAt,
 			UpdatedAt:    tmp.UpdatedAt,
 		}
@@ -98,6 +101,15 @@ func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtyp
 }
 
 func (model *LLM) GenerateSystemPrompt(prompt string) string {
+	if model.Instructions == "" && prompt == "" {
+		return "Follow the internal instructions you have been given."
+	}
+	if model.Instructions == "" {
+		return prompt
+	}
+	if prompt == "" {
+		return model.Instructions
+	}
 	return fmt.Sprintf(prompts.LLM_SYSTEM, model.Instructions, prompt)
 }
 
@@ -115,7 +127,7 @@ func (model *LLM) Completion(ctx context.Context, logger *slog.Logger, lm *gollm
 		return "", fmt.Errorf("cannot have an empty schema with json mode enabled")
 	}
 
-	l := logger.With("args", *args)
+	l := logger.With("completionType", "multi", "args", *args)
 	l.InfoContext(ctx, "Sending the completion request ...")
 
 	// check whether to add llm specific instructions
@@ -144,4 +156,79 @@ func (model *LLM) Completion(ctx context.Context, logger *slog.Logger, lm *gollm
 	l.InfoContext(ctx, "Successfully sent the request")
 
 	return response, nil
+}
+
+type SingleCompletionResponse[T any] struct {
+	Result       T
+	UsageRecords []*tokens.TokenRecord
+}
+
+// for performing a single shot completion against an llm, and reporting the usage to the database.
+// This is not to be used for conversations, only single operations against the model.
+func SingleCompletion(
+	ctx context.Context,
+	model *LLM,
+	logger *slog.Logger,
+	customerId uuid.UUID,
+	sysMessage string,
+	usageRecords chan *tokens.TokenRecord,
+	args *CompletionArgs,
+) (string, error) {
+	if args == nil || args.Input == "" {
+		return "", fmt.Errorf("the input cannot be empty")
+	}
+	if args.Json && args.JsonSchema == "" {
+		return "", fmt.Errorf("cannot have an empty schema with json mode enabled")
+	}
+
+	l := logger.With("completionType", "single", "args", *args)
+	l.DebugContext(ctx, "Creating the gollm ...")
+	lm := gollm.NewLanguageModel(customerId.String(), l, sysMessage, nil)
+	l.InfoContext(ctx, "Sending the completion request ...")
+
+	input := &gollm.CompletionInput{
+		Model:       model.Model,
+		Temperature: model.Temperature,
+		Json:        args.Json,
+		JsonSchema:  args.JsonSchema,
+		Input:       args.Input,
+	}
+
+	response, err := lm.DynamicCompletion(ctx, input)
+	if err != nil {
+		return "", fmt.Errorf("failed the dynamic completion: %s", err)
+	}
+	l.DebugContext(ctx, "Gathered response")
+
+	// parse usage records
+	for _, item := range lm.GetTokenRecords() {
+		usageRecords <- item
+	}
+
+	l.InfoContext(ctx, "Successfully sent the one-shot request")
+	return response, nil
+}
+
+func SingleCompletionJson[T any](
+	ctx context.Context,
+	model *LLM,
+	logger *slog.Logger,
+	customerId uuid.UUID,
+	sysMessage string,
+	usageRecords chan *tokens.TokenRecord,
+	args *CompletionArgs,
+) (*T, error) {
+	var result T
+
+	response, err := SingleCompletion(ctx, model, logger, customerId, sysMessage, usageRecords, args)
+	if err != nil {
+		return nil, err
+	}
+
+	// parse the json
+	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %s", err)
+	}
+
+	return &result, nil
 }

@@ -52,7 +52,7 @@ JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
 JOIN folder f ON f.id = d.parent_id
 WHERE vs.customer_id = $1
-AND f.id = ANY($4::uuid[])
+AND (f.id = ANY($4::uuid[]) OR d.id = ANY($5::uuid[]))
 ORDER BY vs.embeddings <#> $3
 LIMIT $2;
 
@@ -72,6 +72,6 @@ JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 JOIN website_page wp ON wp.id = wpv.website_page_id
 JOIN website w ON w.id = wp.website_id
 WHERE vs.customer_id = $1
-AND w.id = ANY($4::uuid[])
+AND (w.id = ANY($4::uuid[]) OR wp.id = ANY($5::uuid[]))
 ORDER BY vs.embeddings <#> $3
 LIMIT $2;

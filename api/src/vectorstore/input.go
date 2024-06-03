@@ -24,6 +24,9 @@ type QueryInput struct {
 
 	// can inbed the vector incase the input is re-used, or user already embedded content
 	Vector *ltypes.EmbeddingsData
+
+	// whether to include the raw content or not
+	IncludeContent bool
 }
 
 func (input *QueryInput) Validate() error {
@@ -77,4 +80,18 @@ func (input *QueryInput) GetVectors(ctx context.Context) (*ltypes.EmbeddingsData
 	}
 
 	return vector, nil
+}
+
+type QueryDocstoreInput struct {
+	*QueryInput
+
+	FolderIds   []uuid.UUID
+	DocumentIds []uuid.UUID
+}
+
+type QueryWebsitePagesInput struct {
+	*QueryInput
+
+	WebsiteIds     []uuid.UUID
+	WebsitePageIds []uuid.UUID
 }

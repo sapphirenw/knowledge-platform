@@ -38,3 +38,8 @@ WHERE customer_id = $1;
 -- name: GetStandardLLMs :many
 SELECT * FROM llm
 where customer_id IS NULL;
+
+-- name: GetInteralLLM :one
+SELECT * FROM llm
+WHERE title = $1 AND public = false
+LIMIT 1;
