@@ -20,14 +20,14 @@ func TestRag(t *testing.T) {
 	}()
 	ctx, logger, pool, c := testInit(t)
 
-	response1, err := c.RAG(ctx, pool, &RAGRequest{
+	response1, err := c.RAG(ctx, pool, &ragRequest{
 		ConversationId: "",
 		Input:          "What is the meaning of the world",
 	})
 	require.NoError(t, err)
 	fmt.Println(response1.Response)
 
-	response2, err := c.RAG(ctx, pool, &RAGRequest{
+	response2, err := c.RAG(ctx, pool, &ragRequest{
 		ConversationId: response1.ConverationId,
 		Input:          "Are you sure",
 	})

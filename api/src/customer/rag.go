@@ -3,64 +3,107 @@ package customer
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/request"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/sapphirenw/ai-content-creation-api/src/vectorstore"
 )
 
-type RAGRequest struct {
+type ragRequest struct {
 	// general params
-	ConversationId string
-	Input          string
-	CheckQuality   bool
+	ConversationId string `json:"conversationId"`
+	Input          string `json:"input"`
+	CheckQuality   bool   `json:"checkQuality"`
 
 	// models
-	SummaryModelId string
-	ChatModelId    string
+	SummaryModelId string `json:"summaryModelId"`
+	ChatModelId    string `json:"chatModelId"`
 
 	// ids for scoped content
-	FolderIds      []string
-	DocumentIds    []string
-	WebsiteIds     []string
-	WebsitePageIds []string
+	FolderIds      []string `json:"folderIds"`
+	DocumentIds    []string `json:"documentIds"`
+	WebsiteIds     []string `json:"websiteIds"`
+	WebsitePageIds []string `json:"websitePageIds"`
 }
 
-type RAGResponse struct {
+func (r ragRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string)
+	return p
+}
+
+type ragResponse struct {
 	ConverationId string                 `json:"converationId"`
 	Documents     []*queries.Document    `json:"documents"`
 	WebsitePages  []*queries.WebsitePage `json:"websitePages"`
 	Response      string                 `json:"response"`
 }
 
+func handleRAG(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	// parse the request
+	body, valid := request.Decode[ragRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	// start a transaction
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		c.logger.Error("failed to start transaction", "error", err)
+		http.Error(w, "There was a database issue", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	response, err := c.RAG(r.Context(), tx, &body)
+	if err != nil {
+		tx.Rollback(r.Context())
+		c.logger.Error("failed to query the vectorstore", "error", err)
+		http.Error(w, "There was an internal issue", http.StatusInternalServerError)
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, response)
+}
+
 func (c *Customer) RAG(
 	ctx context.Context,
 	db queries.DBTX,
-	args *RAGRequest,
-) (*RAGResponse, error) {
+	args *ragRequest,
+) (*ragResponse, error) {
 	logger := c.logger.With("function", "RAG")
 	logger.InfoContext(ctx, "Beginning document retrieval pathway")
 	dmodel := queries.New(db)
 
-	// get the required structures
+	/// INITIAL SETUP
+
 	logger.DebugContext(ctx, "Getting required objects ...")
+	// get docstore
 	docstore, err := c.GetDocstore(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the docstore: %s", err)
 	}
+	// get embeddings
 	embs := c.GetEmbeddings(ctx)
 
-	// track all token usage across this request
+	// track all token usage across this request through a buffered channel
 	usageRecords := make(chan *tokens.TokenRecord, 100)
 
-	/// get the conversation
+	// get the conversation
 	logger.InfoContext(ctx, "Getting conversation ...")
 	conv, err := llm.AutoConversation(ctx, logger, db, c.ID, args.ConversationId, prompts.RAG_COMPLETE_SYSTEM_PROMPT, "Information Chat", "rag")
 	if err != nil {
@@ -76,7 +119,7 @@ func (c *Customer) RAG(
 		return nil, fmt.Errorf("failed to get the chat llm: %s", err)
 	}
 
-	/// generate a simpler query based on the users request
+	/// GENERATE A SIMPLE QUERY BASED ON USERS INPUT
 
 	// get the llm
 	vectorQueryModel, err := dmodel.GetInteralLLM(ctx, "Vector Query Generator")
@@ -100,8 +143,8 @@ func (c *Customer) RAG(
 	// parse the query list
 	simpleQueries := strings.Split(simpleQueryResponse, ",")
 
-	/// query the vector store (potentially multiple times based on the returned query list)
-	/// and collect into a list of documents and website pages
+	/// QUERY THE VECTOR STORE (POTENTIALLY MULTIPLE TIMES BASED ON THE RETURNED QUERY LIST)
+	/// AND COLLECT INTO A LIST OF DOCUMENTS AND WEBSITE PAGES
 
 	// create structures for routines
 	var wg sync.WaitGroup
@@ -110,6 +153,7 @@ func (c *Customer) RAG(
 	pages := make(chan *vectorstore.WebsitePageResponse, k*len(simpleQueries))
 	errCh := make(chan error, 2*len(simpleQueries))
 
+	// compose a query for the vectorstore
 	queryInput := vectorstore.QueryInput{
 		CustomerId:     c.ID,
 		Docstore:       docstore,
@@ -120,7 +164,7 @@ func (c *Customer) RAG(
 		IncludeContent: true,
 	}
 
-	// parse the args for the associated ids
+	// parse the args for the scoped ids when performing the vector query
 	websiteIds := make([]uuid.UUID, len(args.WebsiteIds))
 	for _, item := range args.WebsiteIds {
 		parsed, err := uuid.Parse(item)
@@ -507,7 +551,7 @@ func (c *Customer) RAG(
 	}
 
 	/// return to the user
-	return &RAGResponse{
+	return &ragResponse{
 		ConverationId: conv.ID.String(),
 		Documents:     returnDocs,
 		WebsitePages:  returnPages,

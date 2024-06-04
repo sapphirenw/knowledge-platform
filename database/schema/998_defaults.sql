@@ -28,7 +28,6 @@ BEGIN
     ############################################################
     */
 
-    /* Sumarization model */
     INSERT INTO llm (
         customer_id, title, model, temperature, instructions, is_default
     ) VALUES (
@@ -41,7 +40,6 @@ BEGIN
     )
     RETURNING id INTO llm_level_head_id;
 
-    /* Generation model */
     INSERT INTO llm (
         customer_id, title, model, temperature, instructions, is_default
     ) VALUES (
@@ -54,7 +52,6 @@ BEGIN
     )
     RETURNING id INTO llm_free_spirit_id;
 
-    /* Proof reading model */
     INSERT INTO llm (
         customer_id, title, model, temperature, instructions, is_default
     ) VALUES (
@@ -86,6 +83,7 @@ BEGIN
 END $$;
 
 -- internal models used for more systematic tasks that the user should not have control over
+-- these models do not contain a personality, and more shells for the llm model they wrap around
 INSERT INTO llm (
     customer_id, title, model, temperature, instructions, is_default, public
 ) VALUES (

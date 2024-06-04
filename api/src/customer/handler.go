@@ -47,6 +47,9 @@ func Handler(mux chi.Router) {
 	// project
 	mux.Post("/createProject", customerHandler(createProject))
 
+	// rag
+	mux.Post("/rag", customerHandler(handleRAG))
+
 }
 
 // Custom handler that parses the customerId from the request, fetches the customer from the database
