@@ -2,6 +2,11 @@
 db-schema:
 	awk 'FNR==1{print ""}1' ./schema/*.sql > ./schema.sql
 
+sql: db-schema
+	awk 'FNR==1{print ""}1' ./queries/* > ./queries.sql
+	sqlc generate
+	rm ./queries.sql
+
 clean:
 	rm -rf ./data
 	docker ps -a --filter "ancestor=database_aicontent-db" -q | xargs -r docker rm -f

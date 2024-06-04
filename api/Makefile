@@ -1,13 +1,8 @@
 include $(shell sed 's/export //g' .env > .env.make && echo .env.make)
 export
 
-sql:
-	$(MAKE) -C ../database -f ../database/Makefile db-schema
-	awk 'FNR==1{print ""}1' ../database/queries/* > ../database/queries.sql
-	sqlc generate
-	rm ../database/queries.sql
-
-run: sql
+run:
+	$(MAKE) -C ../database -f ../database/Makefile sql
 	go run ./src/*.go
 
 # tests for various packages
