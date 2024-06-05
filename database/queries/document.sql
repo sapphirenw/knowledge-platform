@@ -20,9 +20,9 @@ WHERE customer_id = $1 AND validated = false;
 
 -- name: CreateDocument :one
 INSERT INTO document (
-    parent_id, customer_id, filename, type, size_bytes, sha_256
+    parent_id, customer_id, filename, type, size_bytes, sha_256, datastore_type, datastore_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7, $8
 )
 ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP

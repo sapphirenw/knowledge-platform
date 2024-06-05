@@ -1,5 +1,103 @@
 /*
 ############################################################
+Available Models
+############################################################
+*/
+
+-- google
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'gemini-1.5-pro',
+    'google',
+    'Gemini 1.5 Pro',
+    'Mid-size multimodal model that supports up to 1 million tokens',
+    -- 1048576, -- actual length, but costst double
+    128000,
+    8192,
+    3.50,
+    10.50
+);
+INSERT INTO available_model (
+    id, provider, display_name, description, input_token_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'gemini-1.5-flash',
+    'google',
+    'Gemini 1.5 Flash',
+    'Fast and versatile multimodal model for scaling across diverse tasks',
+    -- 1048576, -- actual length, but costs double
+    128000,
+    8192,
+    0.35,
+    1.05
+);
+
+-- openai
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'gpt-4o',
+    'openai',
+    'GPT-4o',
+    '',
+    128000,
+    8192,
+    5.00,
+    5.00
+);
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'gpt-3.5-turbo',
+    'openai',
+    'GPT-3.5 Turbo',
+    '',
+    16385,
+    4096,
+    0.50,
+    1.50
+);
+
+-- anthropic
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'claude-3-opus',
+    'anthropic',
+    'Claude-3 Opus',
+    'The most powerful model from Anthropic. Slow but powerful and creative.',
+    200000,
+    4096,
+    15.00,
+    75.00
+);
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'claude-3-sonnet',
+    'anthropic',
+    'Claude-3 Sonnet',
+    'A balance of performance and cost from Anthropic',
+    200000,
+    4096,
+    3.00,
+    15.00
+);
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'claude-3-haiku',
+    'anthropic',
+    'Claude-3 Haiku',
+    'Small but instant model from Anthropic',
+    200000,
+    4096,
+    0.25,
+    1.25
+);
+
+/*
+############################################################
 Content Types
 ############################################################
 */

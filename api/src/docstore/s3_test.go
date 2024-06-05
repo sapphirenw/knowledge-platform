@@ -28,18 +28,27 @@ func TestS3Docstore(t *testing.T) {
 
 	// read a document
 	filename := "s3.txt"
+	filetype := "txt"
 	data, err := os.ReadFile("../../resources/" + filename)
 	require.NoError(t, err)
 
-	filetype, err := ParseFileType(filename)
+	docId, err := uuid.NewV7()
 	require.NoError(t, err)
 
 	// create a doc from this data
-	doc, err := NewDocumentFromRaw(customer, filename, data)
-	require.NoError(t, err)
+	doc := &queries.Document{
+		ID:          docId,
+		CustomerID:  customer.ID,
+		Filename:    filename,
+		Type:        filetype,
+		SizeBytes:   int64(len(data)),
+		Sha256:      utils.GenerateFingerprint(data),
+		Validated:   false,
+		DatastoreID: fmt.Sprintf("%s/%s_%s", customer.ID.String(), docId.String(), filename),
+	}
 
 	// create the pre-signed url
-	url, err := store.GeneratePresignedUrl(ctx, doc)
+	url, err := store.GeneratePresignedUrl(ctx, doc, doc.Filename, doc.DatastoreID)
 	require.NoError(t, err)
 
 	// create the upload request
@@ -47,7 +56,7 @@ func TestS3Docstore(t *testing.T) {
 	require.NoError(t, err)
 
 	// set the headers
-	request.Header.Set("Content-Type", string(filetype))
+	request.Header.Set("Content-Type", filetype)
 	client := &http.Client{}
 
 	// send the request
@@ -63,6 +72,6 @@ func TestS3Docstore(t *testing.T) {
 	}
 
 	// delete the doc
-	err = store.DeleteFile(ctx, doc.UniqueID)
+	err = store.DeleteFile(ctx, doc.DatastoreID)
 	require.NoError(t, err)
 }

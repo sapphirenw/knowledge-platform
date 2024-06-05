@@ -3,6 +3,8 @@ package docstore
 import (
 	"context"
 	"log/slog"
+
+	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 )
 
 // faux implementation to use when storing the documents is not necessary
@@ -18,7 +20,12 @@ func NewTODODocstore(logger *slog.Logger) (*TODODocstore, error) {
 	}, nil
 }
 
-func (d *TODODocstore) GeneratePresignedUrl(ctx context.Context, doc *Document) (string, error) {
+func (d *TODODocstore) GeneratePresignedUrl(
+	ctx context.Context,
+	doc *queries.Document,
+	contentType string,
+	remoteId string,
+) (string, error) {
 	return "", nil
 }
 

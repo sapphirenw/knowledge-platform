@@ -48,22 +48,15 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	logger := c.logger.With("request", request)
 	logger.InfoContext(ctx, "Querying vectorstore ...")
 
-	store, err := c.GetDocstore(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get docstore: %s", err)
-	}
-
 	// create a vector input
 	embs := c.GetEmbeddings(ctx)
 	input := &vectorstore.QueryInput{
-		CustomerId:     c.ID,
-		Docstore:       store,
-		Embeddings:     embs,
-		DB:             db,
-		Query:          request.Query,
-		K:              request.K,
-		Logger:         logger,
-		IncludeContent: request.IncludeContent,
+		CustomerId: c.ID,
+		Embeddings: embs,
+		DB:         db,
+		Query:      request.Query,
+		K:          request.K,
+		Logger:     logger,
 	}
 
 	// get the documents

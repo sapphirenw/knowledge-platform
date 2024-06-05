@@ -8,13 +8,6 @@ Maintain semantic meaning but make your query short. You are able to respond wit
 You are to respond ONLY with the simplified query(s), WITHOUT any comments or additions.
 `
 
-// 0 args
-const RAG_SUMMARY_SYSTEM_PROMPT = `
-You are a model that has been designed to create simple summaries from inputs that the user passes.
-You must include the relevant information that the user has provided, without makeing your summary too long.
-You are to respond ONLY with the summary, WITHOUT any comments or additions.
-`
-
 const RAG_RANKER_SYSTEM_PROMPT = `
 You are a model that has been specifically designed to rank a piece of content's relevance to a query.
 You are to be methodical in your ranking, which is subjective at best, and perform a truthful and accurate evaluation of the source against the query.

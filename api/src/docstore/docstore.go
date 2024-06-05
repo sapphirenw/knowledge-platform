@@ -2,11 +2,18 @@ package docstore
 
 import (
 	"context"
+
+	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 )
 
 type RemoteDocstore interface {
 	// Requests a pre-signed url a client can use to upload a file
-	GeneratePresignedUrl(ctx context.Context, doc *Document) (string, error)
+	GeneratePresignedUrl(
+		ctx context.Context,
+		doc *queries.Document,
+		contentType string,
+		remoteId string,
+	) (string, error)
 
 	// downloads the raw file contents from the remote docstore
 	DownloadFile(ctx context.Context, uniqueId string) ([]byte, error)

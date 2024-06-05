@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -16,7 +17,7 @@ import (
 )
 
 type LLM struct {
-	*queries.Llm
+	*queries.GetLLMRow // object with the model and the token usage information baked in
 }
 
 func CreateLLM(
@@ -25,7 +26,7 @@ func CreateLLM(
 	db queries.DBTX,
 	customer *queries.Customer,
 	title string,
-	modelName string,
+	availableModelId string,
 	temperature float64,
 	instructions string,
 	isDefault bool,
@@ -36,8 +37,8 @@ func CreateLLM(
 	if title == "" {
 		return nil, fmt.Errorf("title cannot be empty")
 	}
-	if modelName == "" {
-		return nil, fmt.Errorf("modelName cannot be empty")
+	if availableModelId == "" {
+		return nil, fmt.Errorf("availableModelId cannot be empty")
 	}
 	if temperature < 0 {
 		return nil, fmt.Errorf("tempurature cannot be negative")
@@ -47,10 +48,21 @@ func CreateLLM(
 	}
 
 	dmodel := queries.New(db)
+
+	// get the available model
+	amodel, err := dmodel.GetAvailableModel(ctx, availableModelId)
+	if err != nil {
+		return nil, fmt.Errorf("there was not model found: %s", err)
+	}
+	if amodel.IsDepreciated {
+		return nil, fmt.Errorf("this model has been depreciated: %s", err)
+	}
+
+	// create the llm object
 	model, err := dmodel.CreateLLM(ctx, &queries.CreateLLMParams{
 		CustomerID:   utils.GoogleUUIDToPGXUUID(customer.ID),
 		Title:        title,
-		Model:        modelName,
+		Model:        amodel.ID,
 		Temperature:  temperature,
 		Instructions: instructions,
 		IsDefault:    isDefault,
@@ -59,14 +71,20 @@ func CreateLLM(
 		return nil, fmt.Errorf("failed to create model: %s", err)
 	}
 
-	return &LLM{Llm: model}, nil
+	// get the generated object
+	obj, err := dmodel.GetLLM(ctx, model.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the newly created object: %s", err)
+	}
+
+	return &LLM{GetLLMRow: obj}, nil
 }
 
 // Fetches an llm with the passed id. If the id is not valid, then the customer's default is used
 func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtype.UUID) (*LLM, error) {
 	model := queries.New(db)
 
-	var llm *queries.Llm
+	var llm *queries.GetLLMRow
 	var err error
 
 	// check if valid pgxid
@@ -83,21 +101,20 @@ func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtyp
 		if err != nil {
 			return nil, fmt.Errorf("error fetching the default llm: %s", err)
 		}
-		llm = &queries.Llm{
-			ID:           tmp.ID,
-			CustomerID:   tmp.CustomerID,
-			Title:        tmp.Title,
-			Model:        tmp.Model,
-			Temperature:  tmp.Temperature,
-			Instructions: tmp.Instructions,
-			IsDefault:    tmp.IsDefault,
-			Public:       tmp.Public,
-			CreatedAt:    tmp.CreatedAt,
-			UpdatedAt:    tmp.UpdatedAt,
-		}
+		llm = (*queries.GetLLMRow)(unsafe.Pointer(tmp))
 	}
 
-	return &LLM{Llm: llm}, nil
+	return &LLM{GetLLMRow: llm}, nil
+}
+
+func (model *LLM) GetEstimatedTokens(input string) (int32, error) {
+	tokens, err := gollm.TokenEstimate(&gollm.CompletionInput{
+		Model: model.Model,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to estimate token usage: %s", err)
+	}
+	return int32(tokens), nil
 }
 
 func (model *LLM) GenerateSystemPrompt(prompt string) string {

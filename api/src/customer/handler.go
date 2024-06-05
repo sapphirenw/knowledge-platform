@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
-	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
+	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
 )
@@ -113,7 +113,7 @@ func documentHandler(
 		r *http.Request,
 		pool *pgxpool.Pool,
 		c *Customer,
-		doc *docstore.Document,
+		doc *datastore.Document,
 	),
 ) http.HandlerFunc {
 	return http.HandlerFunc(
@@ -128,7 +128,7 @@ func documentHandler(
 			}
 
 			// parse as a docstore doc
-			doc, err := docstore.NewDocument(r.Context(), pool, documentId)
+			doc, err := datastore.GetDocument(r.Context(), c.logger, pool, documentId)
 			if err != nil {
 				c.logger.Error("Error parsing as a docstore doc", "error", err)
 				http.Error(w, fmt.Sprintf("There was an internal issue: %s", err), http.StatusInternalServerError)

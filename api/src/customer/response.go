@@ -2,8 +2,8 @@ package customer
 
 import (
 	"github.com/google/uuid"
+	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
-	"github.com/sapphirenw/ai-content-creation-api/src/vectorstore"
 )
 
 type generatePresignedUrlResponse struct {
@@ -24,6 +24,6 @@ type handleWebsiteResponse struct {
 }
 
 type queryVectorStoreResponse struct {
-	Documents    []*vectorstore.DocumentResponse    `json:"documents"`
-	WebsitePages []*vectorstore.WebsitePageResponse `json:"websitePages"`
+	Documents    []*datastore.Document    `json:"documents"`
+	WebsitePages []*datastore.WebsitePage `json:"websitePages"`
 }

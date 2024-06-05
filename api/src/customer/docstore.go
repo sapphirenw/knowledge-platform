@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
+	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
 )
@@ -101,7 +101,7 @@ func notifyOfSuccessfulUpload(
 	r *http.Request,
 	pool *pgxpool.Pool,
 	c *Customer,
-	doc *docstore.Document,
+	doc *datastore.Document,
 ) {
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
@@ -129,7 +129,7 @@ func getDocument(
 	r *http.Request,
 	pool *pgxpool.Pool,
 	c *Customer,
-	doc *docstore.Document,
+	doc *datastore.Document,
 ) {
 	request.Encode(w, r, c.logger, http.StatusOK, doc.Document)
 }

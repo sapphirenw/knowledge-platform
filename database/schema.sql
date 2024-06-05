@@ -264,13 +264,17 @@ CREATE TABLE vector_store(
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     raw TEXT NOT NULL, -- string utf-8 representation of the data 
     embeddings VECTOR(512) NOT NULL,
-    metadata JSONB DEFAULT '{}',
+    content_type TEXT NOT NULL, -- the type of content. document, website_page, etc.
+    object_id uuid NOT NULL, -- id that this object ties to
+    object_parent_id uuid, -- id that the object's parent is tied to
+    metadata JSONB DEFAULT '{}', -- includes AT LEAST two fields: object
 
     PRIMARY KEY (id, customer_id), -- customer_id needs to exist in the key for partitioning
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 ) PARTITION BY LIST(customer_id);
 CREATE INDEX ON vector_store USING hnsw (embeddings vector_ip_ops);
+CREATE INDEX idx_vector_store_object_id ON vector_store(object_id);
 CREATE TABLE vector_store_default PARTITION OF vector_store DEFAULT; -- default
 
 /*
@@ -302,6 +306,8 @@ CREATE TABLE document(
     size_bytes BIGINT NOT NULL, -- size of the document in terms of bytes
     sha_256 CHAR(64) NOT NULL, -- a fingerprint of the document's contents
     validated BOOLEAN NOT NULL DEFAULT false, -- whether the object exists in datastore
+    datastore_type TEXT NOT NULL DEFAULT 's3', -- s3, etc.
+    datastore_id TEXT NOT NULL, -- id of the document in the remote datastore
     summary TEXT NOT NULL DEFAULT '',
     summary_sha_256 CHAR(64) NOT NULL DEFAULT '', -- fingerprint at the time the summary was taken
 
@@ -422,6 +428,28 @@ CREATE TABLE content_type(
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- list of available models and metadata about them
+CREATE TABLE available_model(
+    id VARCHAR(256) NOT NULL,
+    provider TEXT NOT NULL, -- gemini, openai, etc.
+    display_name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    input_token_limit INT NOT NULL,
+    output_token_limit INT NOT NULL,
+
+    currency TEXT NOT NULL DEFAULT 'USD',
+    input_cost_per_million_tokens NUMERIC(4,2) NOT NULL,
+    output_cost_per_million_tokens NUMERIC(4,2) NOT NULL,
+
+    depreciated_warning BOOLEAN NOT NULL DEFAULT false,
+    is_depreciated BOOLEAN NOT NULL DEFAULT false,
+
+    PRIMARY KEY (id),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- saved llm configurations for content creation
 -- there are defaults for all customers to use, and customers can also save default configurations
 CREATE TABLE llm(
@@ -430,7 +458,7 @@ CREATE TABLE llm(
 
     title TEXT NOT NULL,
     color VARCHAR(7) DEFAULT NULL, -- #ffffff
-    model TEXT NOT NULL,
+    model VARCHAR(256) NOT NULL REFERENCES available_model(id) ON DELETE CASCADE, -- the model referenced
     temperature DOUBLE PRECISION NOT NULL,
     instructions TEXT NOT NULL,
     is_default BOOLEAN NOT NULL DEFAULT false,
@@ -881,6 +909,104 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_is_default_before_insert_or_update
 BEFORE INSERT OR UPDATE ON llm
 FOR EACH ROW EXECUTE FUNCTION set_is_default_false();
+
+/*
+############################################################
+Available Models
+############################################################
+*/
+
+-- google
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'gemini-1.5-pro',
+    'google',
+    'Gemini 1.5 Pro',
+    'Mid-size multimodal model that supports up to 1 million tokens',
+    -- 1048576, -- actual length, but costst double
+    128000,
+    8192,
+    3.50,
+    10.50
+);
+INSERT INTO available_model (
+    id, provider, display_name, description, input_token_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'gemini-1.5-flash',
+    'google',
+    'Gemini 1.5 Flash',
+    'Fast and versatile multimodal model for scaling across diverse tasks',
+    -- 1048576, -- actual length, but costs double
+    128000,
+    8192,
+    0.35,
+    1.05
+);
+
+-- openai
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'gpt-4o',
+    'openai',
+    'GPT-4o',
+    '',
+    128000,
+    8192,
+    5.00,
+    5.00
+);
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'gpt-3.5-turbo',
+    'openai',
+    'GPT-3.5 Turbo',
+    '',
+    16385,
+    4096,
+    0.50,
+    1.50
+);
+
+-- anthropic
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'claude-3-opus',
+    'anthropic',
+    'Claude-3 Opus',
+    'The most powerful model from Anthropic. Slow but powerful and creative.',
+    200000,
+    4096,
+    15.00,
+    75.00
+);
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'claude-3-sonnet',
+    'anthropic',
+    'Claude-3 Sonnet',
+    'A balance of performance and cost from Anthropic',
+    200000,
+    4096,
+    3.00,
+    15.00
+);
+INSERT INTO available_model (
+    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+) VALUES (
+    'claude-3-haiku',
+    'anthropic',
+    'Claude-3 Haiku',
+    'Small but instant model from Anthropic',
+    200000,
+    4096,
+    0.25,
+    1.25
+);
 
 /*
 ############################################################

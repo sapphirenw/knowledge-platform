@@ -191,7 +191,7 @@ func (c *Conversation) Completion(
 
 	// save the conversation records in the conversation
 	logger.InfoContext(ctx, "Saving the conversation ...")
-	if err := c.addMessages(ctx, db, model.Llm, lm.GetConversation()); err != nil {
+	if err := c.addMessages(ctx, db, model, lm.GetConversation()); err != nil {
 		return "", fmt.Errorf("failed to add the messages to the internal conversation: %s", err)
 	}
 
@@ -239,7 +239,7 @@ func JsonCompletion[T any](
 
 	// save the conversation records in the conversation
 	c.logger.InfoContext(ctx, "Saving the conversation ...")
-	if err := c.addMessages(ctx, db, model.Llm, lm.GetConversation()); err != nil {
+	if err := c.addMessages(ctx, db, model, lm.GetConversation()); err != nil {
 		return nil, fmt.Errorf("failed to add the messages to the internal conversation: %s", err)
 	}
 
@@ -293,7 +293,7 @@ func (c *Conversation) getGoLLM(ctx context.Context, model *LLM) (*gollm.Languag
 func (c *Conversation) addMessages(
 	ctx context.Context,
 	db queries.DBTX,
-	model *queries.Llm,
+	model *LLM,
 	messages []*gollm.LanguageModelMessage,
 ) error {
 	for index := range len(messages) {
@@ -327,7 +327,7 @@ func (c *Conversation) addMessages(
 func (c *Conversation) replaceMessages(
 	ctx context.Context,
 	db queries.DBTX,
-	model *queries.Llm,
+	model *LLM,
 	messages []*gollm.LanguageModelMessage,
 ) error {
 	// create a copy of the messages

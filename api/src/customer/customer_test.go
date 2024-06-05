@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lmittmann/tint"
-	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
+	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -178,7 +178,7 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, dir
 				return err
 			}
 
-			filetype, err := docstore.ParseFileType(file.Name())
+			filetype, err := datastore.ParseFileType(file.Name())
 			if err != nil {
 				return fmt.Errorf("failed to parse filetype: %s", err)
 			}

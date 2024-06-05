@@ -22,13 +22,29 @@ type AssetCatalog struct {
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
+type AvailableModel struct {
+	ID                         string             `db:"id" json:"id"`
+	Provider                   string             `db:"provider" json:"provider"`
+	DisplayName                string             `db:"display_name" json:"displayName"`
+	Description                string             `db:"description" json:"description"`
+	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
+	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
+	Currency                   string             `db:"currency" json:"currency"`
+	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
+	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
+	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
+	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
+	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
 type BlogCategory struct {
 	ID           uuid.UUID          `db:"id" json:"id"`
 	CustomerID   uuid.UUID          `db:"customer_id" json:"customerId"`
 	ProjectID    uuid.UUID          `db:"project_id" json:"projectId"`
 	Title        string             `db:"title" json:"title"`
-	TextColorHex pgtype.Text        `db:"text_color_hex" json:"textColorHex"`
-	BgColorHex   pgtype.Text        `db:"bg_color_hex" json:"bgColorHex"`
+	TextColorHex *string            `db:"text_color_hex" json:"textColorHex"`
+	BgColorHex   *string            `db:"bg_color_hex" json:"bgColorHex"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
@@ -50,7 +66,7 @@ type BlogPostConfig struct {
 	CustomerID                       uuid.UUID          `db:"customer_id" json:"customerId"`
 	ProjectID                        uuid.UUID          `db:"project_id" json:"projectId"`
 	MainTopic                        string             `db:"main_topic" json:"mainTopic"`
-	Url                              pgtype.Text        `db:"url" json:"url"`
+	Url                              *string            `db:"url" json:"url"`
 	Metadata                         []byte             `db:"metadata" json:"metadata"`
 	MinSections                      int32              `db:"min_sections" json:"minSections"`
 	MaxSections                      int32              `db:"max_sections" json:"maxSections"`
@@ -165,6 +181,8 @@ type Document struct {
 	SizeBytes     int64              `db:"size_bytes" json:"sizeBytes"`
 	Sha256        string             `db:"sha_256" json:"sha256"`
 	Validated     bool               `db:"validated" json:"validated"`
+	DatastoreType string             `db:"datastore_type" json:"datastoreType"`
+	DatastoreID   string             `db:"datastore_id" json:"datastoreId"`
 	Summary       string             `db:"summary" json:"summary"`
 	SummarySha256 string             `db:"summary_sha_256" json:"summarySha256"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
@@ -230,7 +248,7 @@ type Llm struct {
 	ID           uuid.UUID          `db:"id" json:"id"`
 	CustomerID   pgtype.UUID        `db:"customer_id" json:"customerId"`
 	Title        string             `db:"title" json:"title"`
-	Color        pgtype.Text        `db:"color" json:"color"`
+	Color        *string            `db:"color" json:"color"`
 	Model        string             `db:"model" json:"model"`
 	Temperature  float64            `db:"temperature" json:"temperature"`
 	Instructions string             `db:"instructions" json:"instructions"`
@@ -301,21 +319,27 @@ type TokenUsage struct {
 }
 
 type VectorStore struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	Raw        string             `db:"raw" json:"raw"`
-	Embeddings pgvector.Vector    `db:"embeddings" json:"embeddings"`
-	Metadata   []byte             `db:"metadata" json:"metadata"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	ID             uuid.UUID          `db:"id" json:"id"`
+	CustomerID     uuid.UUID          `db:"customer_id" json:"customerId"`
+	Raw            string             `db:"raw" json:"raw"`
+	Embeddings     *pgvector.Vector   `db:"embeddings" json:"embeddings"`
+	ContentType    string             `db:"content_type" json:"contentType"`
+	ObjectID       uuid.UUID          `db:"object_id" json:"objectId"`
+	ObjectParentID pgtype.UUID        `db:"object_parent_id" json:"objectParentId"`
+	Metadata       []byte             `db:"metadata" json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type VectorStoreDefault struct {
-	ID         uuid.UUID          `db:"id" json:"id"`
-	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	Raw        string             `db:"raw" json:"raw"`
-	Embeddings pgvector.Vector    `db:"embeddings" json:"embeddings"`
-	Metadata   []byte             `db:"metadata" json:"metadata"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	ID             uuid.UUID          `db:"id" json:"id"`
+	CustomerID     uuid.UUID          `db:"customer_id" json:"customerId"`
+	Raw            string             `db:"raw" json:"raw"`
+	Embeddings     *pgvector.Vector   `db:"embeddings" json:"embeddings"`
+	ContentType    string             `db:"content_type" json:"contentType"`
+	ObjectID       uuid.UUID          `db:"object_id" json:"objectId"`
+	ObjectParentID pgtype.UUID        `db:"object_parent_id" json:"objectParentId"`
+	Metadata       []byte             `db:"metadata" json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type Website struct {

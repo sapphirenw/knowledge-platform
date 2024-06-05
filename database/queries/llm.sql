@@ -7,8 +7,9 @@ INSERT INTO llm (
 RETURNING *;
 
 -- name: GetLLM :one
-SELECT * FROM llm
-WHERE id = $1;
+SELECT llm.*, am.* FROM llm
+INNER JOIN available_model am ON am.id = llm.model
+WHERE llm.id = $1;
 
 -- name: GetDefaultLLM :one
 WITH RequiredLLM AS (
@@ -26,20 +27,24 @@ WITH RequiredLLM AS (
         FROM llm
         WHERE llm.customer_id = $1 AND llm.is_default = true
     )
-    
 )
-SELECT * FROM RequiredLLM
+SELECT llm.*, am.*
+FROM RequiredLLM llm
+INNER JOIN available_model am ON am.id = llm.model
 LIMIT 1;
 
 -- name: GetLLMsByCustomer :many
-SELECT * FROM llm
+SELECT llm.*, am.* FROM llm
+INNER JOIN available_model am ON am.id = llm.model
 WHERE customer_id = $1;
 
 -- name: GetStandardLLMs :many
-SELECT * FROM llm
+SELECT llm.*, am.* FROM llm
+INNER JOIN available_model am ON am.id = llm.model
 where customer_id IS NULL;
 
 -- name: GetInteralLLM :one
-SELECT * FROM llm
+SELECT llm.*, am.* FROM llm
+INNER JOIN available_model am ON am.id = llm.model
 WHERE title = $1 AND public = false
 LIMIT 1;

@@ -174,34 +174,36 @@ func (q *Queries) CreateCustomer(ctx context.Context, name string) (*Customer, e
 
 const createDocument = `-- name: CreateDocument :one
 INSERT INTO document (
-    parent_id, customer_id, filename, type, size_bytes, sha_256
+    parent_id, customer_id, filename, type, size_bytes, sha_256, datastore_type, datastore_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7, $8
 )
 ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
 `
 
 type CreateDocumentParams struct {
-	ParentID   pgtype.UUID `db:"parent_id" json:"parentId"`
-	CustomerID uuid.UUID   `db:"customer_id" json:"customerId"`
-	Filename   string      `db:"filename" json:"filename"`
-	Type       string      `db:"type" json:"type"`
-	SizeBytes  int64       `db:"size_bytes" json:"sizeBytes"`
-	Sha256     string      `db:"sha_256" json:"sha256"`
+	ParentID      pgtype.UUID `db:"parent_id" json:"parentId"`
+	CustomerID    uuid.UUID   `db:"customer_id" json:"customerId"`
+	Filename      string      `db:"filename" json:"filename"`
+	Type          string      `db:"type" json:"type"`
+	SizeBytes     int64       `db:"size_bytes" json:"sizeBytes"`
+	Sha256        string      `db:"sha_256" json:"sha256"`
+	DatastoreType string      `db:"datastore_type" json:"datastoreType"`
+	DatastoreID   string      `db:"datastore_id" json:"datastoreId"`
 }
 
 // CreateDocument
 //
 //	INSERT INTO document (
-//	    parent_id, customer_id, filename, type, size_bytes, sha_256
+//	    parent_id, customer_id, filename, type, size_bytes, sha_256, datastore_type, datastore_id
 //	) VALUES (
-//	    $1, $2, $3, $4, $5, $6
+//	    $1, $2, $3, $4, $5, $6, $7, $8
 //	)
 //	ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 //	SET updated_at = CURRENT_TIMESTAMP
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
 func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, createDocument,
 		arg.ParentID,
@@ -210,6 +212,8 @@ func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams)
 		arg.Type,
 		arg.SizeBytes,
 		arg.Sha256,
+		arg.DatastoreType,
+		arg.DatastoreID,
 	)
 	var i Document
 	err := row.Scan(
@@ -221,6 +225,8 @@ func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams)
 		&i.SizeBytes,
 		&i.Sha256,
 		&i.Validated,
+		&i.DatastoreType,
+		&i.DatastoreID,
 		&i.Summary,
 		&i.SummarySha256,
 		&i.CreatedAt,
@@ -725,26 +731,29 @@ func (q *Queries) CreateTokenUsage(ctx context.Context, arg *CreateTokenUsagePar
 
 const createVector = `-- name: CreateVector :one
 INSERT INTO vector_store (
-    customer_id, raw, embeddings, metadata
+    customer_id, raw, embeddings, content_type, object_id, object_parent_id, metadata
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5, $6, $7
 )
 RETURNING id
 `
 
 type CreateVectorParams struct {
-	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
-	Raw        string          `db:"raw" json:"raw"`
-	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
-	Metadata   []byte          `db:"metadata" json:"metadata"`
+	CustomerID     uuid.UUID        `db:"customer_id" json:"customerId"`
+	Raw            string           `db:"raw" json:"raw"`
+	Embeddings     *pgvector.Vector `db:"embeddings" json:"embeddings"`
+	ContentType    string           `db:"content_type" json:"contentType"`
+	ObjectID       uuid.UUID        `db:"object_id" json:"objectId"`
+	ObjectParentID pgtype.UUID      `db:"object_parent_id" json:"objectParentId"`
+	Metadata       []byte           `db:"metadata" json:"metadata"`
 }
 
 // CreateVector
 //
 //	INSERT INTO vector_store (
-//	    customer_id, raw, embeddings, metadata
+//	    customer_id, raw, embeddings, content_type, object_id, object_parent_id, metadata
 //	) VALUES (
-//	    $1, $2, $3, $4
+//	    $1, $2, $3, $4, $5, $6, $7
 //	)
 //	RETURNING id
 func (q *Queries) CreateVector(ctx context.Context, arg *CreateVectorParams) (uuid.UUID, error) {
@@ -752,6 +761,9 @@ func (q *Queries) CreateVector(ctx context.Context, arg *CreateVectorParams) (uu
 		arg.CustomerID,
 		arg.Raw,
 		arg.Embeddings,
+		arg.ContentType,
+		arg.ObjectID,
+		arg.ObjectParentID,
 		arg.Metadata,
 	)
 	var id uuid.UUID
@@ -1020,6 +1032,120 @@ func (q *Queries) DeleteWebsitePagesOlderThan(ctx context.Context, arg *DeleteWe
 	return err
 }
 
+const getAvailableModel = `-- name: GetAvailableModel :one
+SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+WHERE id = $1
+`
+
+// GetAvailableModel
+//
+//	SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+//	WHERE id = $1
+func (q *Queries) GetAvailableModel(ctx context.Context, id string) (*AvailableModel, error) {
+	row := q.db.QueryRow(ctx, getAvailableModel, id)
+	var i AvailableModel
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.DisplayName,
+		&i.Description,
+		&i.InputTokenLimit,
+		&i.OutputTokenLimit,
+		&i.Currency,
+		&i.InputCostPerMillionTokens,
+		&i.OutputCostPerMillionTokens,
+		&i.DepreciatedWarning,
+		&i.IsDepreciated,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getAvailableModels = `-- name: GetAvailableModels :many
+SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+`
+
+// GetAvailableModels
+//
+//	SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+func (q *Queries) GetAvailableModels(ctx context.Context) ([]*AvailableModel, error) {
+	rows, err := q.db.Query(ctx, getAvailableModels)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*AvailableModel{}
+	for rows.Next() {
+		var i AvailableModel
+		if err := rows.Scan(
+			&i.ID,
+			&i.Provider,
+			&i.DisplayName,
+			&i.Description,
+			&i.InputTokenLimit,
+			&i.OutputTokenLimit,
+			&i.Currency,
+			&i.InputCostPerMillionTokens,
+			&i.OutputCostPerMillionTokens,
+			&i.DepreciatedWarning,
+			&i.IsDepreciated,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAvailableModelsScoped = `-- name: GetAvailableModelsScoped :many
+SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+WHERE provider = $1
+`
+
+// GetAvailableModelsScoped
+//
+//	SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+//	WHERE provider = $1
+func (q *Queries) GetAvailableModelsScoped(ctx context.Context, provider string) ([]*AvailableModel, error) {
+	rows, err := q.db.Query(ctx, getAvailableModelsScoped, provider)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*AvailableModel{}
+	for rows.Next() {
+		var i AvailableModel
+		if err := rows.Scan(
+			&i.ID,
+			&i.Provider,
+			&i.DisplayName,
+			&i.Description,
+			&i.InputTokenLimit,
+			&i.OutputTokenLimit,
+			&i.Currency,
+			&i.InputCostPerMillionTokens,
+			&i.OutputCostPerMillionTokens,
+			&i.DepreciatedWarning,
+			&i.IsDepreciated,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getConversation = `-- name: GetConversation :one
 SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
 WHERE id = $1
@@ -1186,24 +1312,38 @@ WITH RequiredLLM AS (
         FROM llm
         WHERE llm.customer_id = $1 AND llm.is_default = true
     )
-    
 )
-SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM RequiredLLM
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+FROM RequiredLLM llm
+INNER JOIN available_model am ON am.id = llm.model
 LIMIT 1
 `
 
 type GetDefaultLLMRow struct {
-	ID           uuid.UUID          `db:"id" json:"id"`
-	CustomerID   pgtype.UUID        `db:"customer_id" json:"customerId"`
-	Title        string             `db:"title" json:"title"`
-	Color        pgtype.Text        `db:"color" json:"color"`
-	Model        string             `db:"model" json:"model"`
-	Temperature  float64            `db:"temperature" json:"temperature"`
-	Instructions string             `db:"instructions" json:"instructions"`
-	IsDefault    bool               `db:"is_default" json:"isDefault"`
-	Public       bool               `db:"public" json:"public"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID                         uuid.UUID          `db:"id" json:"id"`
+	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
+	Title                      string             `db:"title" json:"title"`
+	Color                      *string            `db:"color" json:"color"`
+	Model                      string             `db:"model" json:"model"`
+	Temperature                float64            `db:"temperature" json:"temperature"`
+	Instructions               string             `db:"instructions" json:"instructions"`
+	IsDefault                  bool               `db:"is_default" json:"isDefault"`
+	Public                     bool               `db:"public" json:"public"`
+	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID_2                       string             `db:"id_2" json:"id2"`
+	Provider                   string             `db:"provider" json:"provider"`
+	DisplayName                string             `db:"display_name" json:"displayName"`
+	Description                string             `db:"description" json:"description"`
+	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
+	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
+	Currency                   string             `db:"currency" json:"currency"`
+	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
+	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
+	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
+	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
+	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
+	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
 }
 
 // GetDefaultLLM
@@ -1223,9 +1363,10 @@ type GetDefaultLLMRow struct {
 //	        FROM llm
 //	        WHERE llm.customer_id = $1 AND llm.is_default = true
 //	    )
-//
 //	)
-//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM RequiredLLM
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+//	FROM RequiredLLM llm
+//	INNER JOIN available_model am ON am.id = llm.model
 //	LIMIT 1
 func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*GetDefaultLLMRow, error) {
 	row := q.db.QueryRow(ctx, getDefaultLLM, customerID)
@@ -1242,18 +1383,31 @@ func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*G
 		&i.Public,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ID_2,
+		&i.Provider,
+		&i.DisplayName,
+		&i.Description,
+		&i.InputTokenLimit,
+		&i.OutputTokenLimit,
+		&i.Currency,
+		&i.InputCostPerMillionTokens,
+		&i.OutputCostPerMillionTokens,
+		&i.DepreciatedWarning,
+		&i.IsDepreciated,
+		&i.CreatedAt_2,
+		&i.UpdatedAt_2,
 	)
 	return &i, err
 }
 
 const getDocument = `-- name: GetDocument :one
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE id = $1 LIMIT 1
 `
 
 // GetDocument
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE id = $1 LIMIT 1
 func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, getDocument, id)
@@ -1267,6 +1421,8 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, err
 		&i.SizeBytes,
 		&i.Sha256,
 		&i.Validated,
+		&i.DatastoreType,
+		&i.DatastoreID,
 		&i.Summary,
 		&i.SummarySha256,
 		&i.CreatedAt,
@@ -1276,13 +1432,13 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, err
 }
 
 const getDocumentsByCustomer = `-- name: GetDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1 AND validated = true
 `
 
 // GetDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND validated = true
 func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsByCustomer, customerID)
@@ -1302,6 +1458,8 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UU
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
 			&i.CreatedAt,
@@ -1318,13 +1476,13 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UU
 }
 
 const getDocumentsFromParent = `-- name: GetDocumentsFromParent :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE parent_id = $1 AND validated = true
 `
 
 // GetDocumentsFromParent
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE parent_id = $1 AND validated = true
 func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsFromParent, parentID)
@@ -1344,6 +1502,8 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UU
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
 			&i.CreatedAt,
@@ -1360,7 +1520,7 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UU
 }
 
 const getDocumentsOlderThan = `-- name: GetDocumentsOlderThan :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1
 AND updated_at < $2
 `
@@ -1372,7 +1532,7 @@ type GetDocumentsOlderThanParams struct {
 
 // GetDocumentsOlderThan
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1
 //	AND updated_at < $2
 func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOlderThanParams) ([]*Document, error) {
@@ -1393,6 +1553,8 @@ func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOl
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
 			&i.CreatedAt,
@@ -1577,19 +1739,48 @@ func (q *Queries) GetFoldersOlderThan(ctx context.Context, arg *GetFoldersOlderT
 }
 
 const getInteralLLM = `-- name: GetInteralLLM :one
-SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+INNER JOIN available_model am ON am.id = llm.model
 WHERE title = $1 AND public = false
 LIMIT 1
 `
 
+type GetInteralLLMRow struct {
+	ID                         uuid.UUID          `db:"id" json:"id"`
+	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
+	Title                      string             `db:"title" json:"title"`
+	Color                      *string            `db:"color" json:"color"`
+	Model                      string             `db:"model" json:"model"`
+	Temperature                float64            `db:"temperature" json:"temperature"`
+	Instructions               string             `db:"instructions" json:"instructions"`
+	IsDefault                  bool               `db:"is_default" json:"isDefault"`
+	Public                     bool               `db:"public" json:"public"`
+	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID_2                       string             `db:"id_2" json:"id2"`
+	Provider                   string             `db:"provider" json:"provider"`
+	DisplayName                string             `db:"display_name" json:"displayName"`
+	Description                string             `db:"description" json:"description"`
+	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
+	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
+	Currency                   string             `db:"currency" json:"currency"`
+	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
+	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
+	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
+	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
+	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
+	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+}
+
 // GetInteralLLM
 //
-//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+//	INNER JOIN available_model am ON am.id = llm.model
 //	WHERE title = $1 AND public = false
 //	LIMIT 1
-func (q *Queries) GetInteralLLM(ctx context.Context, title string) (*Llm, error) {
+func (q *Queries) GetInteralLLM(ctx context.Context, title string) (*GetInteralLLMRow, error) {
 	row := q.db.QueryRow(ctx, getInteralLLM, title)
-	var i Llm
+	var i GetInteralLLMRow
 	err := row.Scan(
 		&i.ID,
 		&i.CustomerID,
@@ -1602,22 +1793,64 @@ func (q *Queries) GetInteralLLM(ctx context.Context, title string) (*Llm, error)
 		&i.Public,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ID_2,
+		&i.Provider,
+		&i.DisplayName,
+		&i.Description,
+		&i.InputTokenLimit,
+		&i.OutputTokenLimit,
+		&i.Currency,
+		&i.InputCostPerMillionTokens,
+		&i.OutputCostPerMillionTokens,
+		&i.DepreciatedWarning,
+		&i.IsDepreciated,
+		&i.CreatedAt_2,
+		&i.UpdatedAt_2,
 	)
 	return &i, err
 }
 
 const getLLM = `-- name: GetLLM :one
-SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
-WHERE id = $1
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+INNER JOIN available_model am ON am.id = llm.model
+WHERE llm.id = $1
 `
+
+type GetLLMRow struct {
+	ID                         uuid.UUID          `db:"id" json:"id"`
+	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
+	Title                      string             `db:"title" json:"title"`
+	Color                      *string            `db:"color" json:"color"`
+	Model                      string             `db:"model" json:"model"`
+	Temperature                float64            `db:"temperature" json:"temperature"`
+	Instructions               string             `db:"instructions" json:"instructions"`
+	IsDefault                  bool               `db:"is_default" json:"isDefault"`
+	Public                     bool               `db:"public" json:"public"`
+	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID_2                       string             `db:"id_2" json:"id2"`
+	Provider                   string             `db:"provider" json:"provider"`
+	DisplayName                string             `db:"display_name" json:"displayName"`
+	Description                string             `db:"description" json:"description"`
+	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
+	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
+	Currency                   string             `db:"currency" json:"currency"`
+	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
+	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
+	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
+	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
+	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
+	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+}
 
 // GetLLM
 //
-//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
-//	WHERE id = $1
-func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*Llm, error) {
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+//	INNER JOIN available_model am ON am.id = llm.model
+//	WHERE llm.id = $1
+func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*GetLLMRow, error) {
 	row := q.db.QueryRow(ctx, getLLM, id)
-	var i Llm
+	var i GetLLMRow
 	err := row.Scan(
 		&i.ID,
 		&i.CustomerID,
@@ -1630,28 +1863,70 @@ func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*Llm, error) {
 		&i.Public,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ID_2,
+		&i.Provider,
+		&i.DisplayName,
+		&i.Description,
+		&i.InputTokenLimit,
+		&i.OutputTokenLimit,
+		&i.Currency,
+		&i.InputCostPerMillionTokens,
+		&i.OutputCostPerMillionTokens,
+		&i.DepreciatedWarning,
+		&i.IsDepreciated,
+		&i.CreatedAt_2,
+		&i.UpdatedAt_2,
 	)
 	return &i, err
 }
 
 const getLLMsByCustomer = `-- name: GetLLMsByCustomer :many
-SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+INNER JOIN available_model am ON am.id = llm.model
 WHERE customer_id = $1
 `
 
+type GetLLMsByCustomerRow struct {
+	ID                         uuid.UUID          `db:"id" json:"id"`
+	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
+	Title                      string             `db:"title" json:"title"`
+	Color                      *string            `db:"color" json:"color"`
+	Model                      string             `db:"model" json:"model"`
+	Temperature                float64            `db:"temperature" json:"temperature"`
+	Instructions               string             `db:"instructions" json:"instructions"`
+	IsDefault                  bool               `db:"is_default" json:"isDefault"`
+	Public                     bool               `db:"public" json:"public"`
+	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID_2                       string             `db:"id_2" json:"id2"`
+	Provider                   string             `db:"provider" json:"provider"`
+	DisplayName                string             `db:"display_name" json:"displayName"`
+	Description                string             `db:"description" json:"description"`
+	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
+	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
+	Currency                   string             `db:"currency" json:"currency"`
+	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
+	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
+	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
+	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
+	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
+	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+}
+
 // GetLLMsByCustomer
 //
-//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+//	INNER JOIN available_model am ON am.id = llm.model
 //	WHERE customer_id = $1
-func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID) ([]*Llm, error) {
+func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID) ([]*GetLLMsByCustomerRow, error) {
 	rows, err := q.db.Query(ctx, getLLMsByCustomer, customerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*Llm{}
+	items := []*GetLLMsByCustomerRow{}
 	for rows.Next() {
-		var i Llm
+		var i GetLLMsByCustomerRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.CustomerID,
@@ -1664,6 +1939,19 @@ func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID)
 			&i.Public,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ID_2,
+			&i.Provider,
+			&i.DisplayName,
+			&i.Description,
+			&i.InputTokenLimit,
+			&i.OutputTokenLimit,
+			&i.Currency,
+			&i.InputCostPerMillionTokens,
+			&i.OutputCostPerMillionTokens,
+			&i.DepreciatedWarning,
+			&i.IsDepreciated,
+			&i.CreatedAt_2,
+			&i.UpdatedAt_2,
 		); err != nil {
 			return nil, err
 		}
@@ -2051,13 +2339,13 @@ func (q *Queries) GetProjects(ctx context.Context, customerID uuid.UUID) ([]*Pro
 }
 
 const getRootDocumentsByCustomer = `-- name: GetRootDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1 AND parent_id is NULL
 `
 
 // GetRootDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND parent_id is NULL
 func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getRootDocumentsByCustomer, customerID)
@@ -2077,6 +2365,8 @@ func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID uui
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
 			&i.CreatedAt,
@@ -2129,23 +2419,52 @@ func (q *Queries) GetRootFoldersByCustomer(ctx context.Context, customerID uuid.
 }
 
 const getStandardLLMs = `-- name: GetStandardLLMs :many
-SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+INNER JOIN available_model am ON am.id = llm.model
 where customer_id IS NULL
 `
 
+type GetStandardLLMsRow struct {
+	ID                         uuid.UUID          `db:"id" json:"id"`
+	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
+	Title                      string             `db:"title" json:"title"`
+	Color                      *string            `db:"color" json:"color"`
+	Model                      string             `db:"model" json:"model"`
+	Temperature                float64            `db:"temperature" json:"temperature"`
+	Instructions               string             `db:"instructions" json:"instructions"`
+	IsDefault                  bool               `db:"is_default" json:"isDefault"`
+	Public                     bool               `db:"public" json:"public"`
+	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID_2                       string             `db:"id_2" json:"id2"`
+	Provider                   string             `db:"provider" json:"provider"`
+	DisplayName                string             `db:"display_name" json:"displayName"`
+	Description                string             `db:"description" json:"description"`
+	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
+	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
+	Currency                   string             `db:"currency" json:"currency"`
+	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
+	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
+	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
+	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
+	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
+	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+}
+
 // GetStandardLLMs
 //
-//	SELECT id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at FROM llm
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+//	INNER JOIN available_model am ON am.id = llm.model
 //	where customer_id IS NULL
-func (q *Queries) GetStandardLLMs(ctx context.Context) ([]*Llm, error) {
+func (q *Queries) GetStandardLLMs(ctx context.Context) ([]*GetStandardLLMsRow, error) {
 	rows, err := q.db.Query(ctx, getStandardLLMs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*Llm{}
+	items := []*GetStandardLLMsRow{}
 	for rows.Next() {
-		var i Llm
+		var i GetStandardLLMsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.CustomerID,
@@ -2158,6 +2477,19 @@ func (q *Queries) GetStandardLLMs(ctx context.Context) ([]*Llm, error) {
 			&i.Public,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ID_2,
+			&i.Provider,
+			&i.DisplayName,
+			&i.Description,
+			&i.InputTokenLimit,
+			&i.OutputTokenLimit,
+			&i.Currency,
+			&i.InputCostPerMillionTokens,
+			&i.OutputCostPerMillionTokens,
+			&i.DepreciatedWarning,
+			&i.IsDepreciated,
+			&i.CreatedAt_2,
+			&i.UpdatedAt_2,
 		); err != nil {
 			return nil, err
 		}
@@ -2208,13 +2540,13 @@ func (q *Queries) GetTokenUsage(ctx context.Context, customerID uuid.UUID) ([]*T
 }
 
 const getUnvalidatedDocumentsByCustomer = `-- name: GetUnvalidatedDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1 AND validated = false
 `
 
 // GetUnvalidatedDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND validated = false
 func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getUnvalidatedDocumentsByCustomer, customerID)
@@ -2234,6 +2566,8 @@ func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, custome
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
 			&i.CreatedAt,
@@ -2466,7 +2800,7 @@ const markDocumentAsUploaded = `-- name: MarkDocumentAsUploaded :one
 UPDATE document
 SET validated = true
 WHERE id = $1
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
 `
 
 // MarkDocumentAsUploaded
@@ -2474,7 +2808,7 @@ RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, valid
 //	UPDATE document
 //	SET validated = true
 //	WHERE id = $1
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
 func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, markDocumentAsUploaded, id)
 	var i Document
@@ -2487,6 +2821,8 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Do
 		&i.SizeBytes,
 		&i.Sha256,
 		&i.Validated,
+		&i.DatastoreType,
+		&i.DatastoreID,
 		&i.Summary,
 		&i.SummarySha256,
 		&i.CreatedAt,
@@ -2495,8 +2831,165 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Do
 	return &i, err
 }
 
+const queryVectorStore = `-- name: QueryVectorStore :many
+SELECT
+    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at, d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at, wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+FROM vector_store vs
+LEFT JOIN document_vector dv ON dv.vector_store_id = vs.object_id
+LEFT JOIN document d ON d.id = dv.document_id
+LEFT JOIN folder f ON f.id = d.parent_id 
+LEFT JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
+LEFT JOIN website_page wp ON wp.id = wpv.website_page_id
+LEFT JOIN website w ON wp.website_id = w.id
+WHERE vs.customer_id = $1
+AND (
+    (d.id = ANY($4::uuid[]) OR $4 IS NULL)
+    OR
+    (f.id = ANY($5::uuid[]) OR $5 IS NULL)
+    OR
+    (wp.id = ANY($6::uuid[]) OR $6 IS NULL)
+    OR
+    (w.id = ANY($7::uuid[]) OR $7 IS NULL)
+)
+ORDER BY vs.embeddings <#> $3
+LIMIT $2
+`
+
+type QueryVectorStoreParams struct {
+	CustomerID uuid.UUID        `db:"customer_id" json:"customerId"`
+	Limit      int32            `db:"limit" json:"limit"`
+	Embeddings *pgvector.Vector `db:"embeddings" json:"embeddings"`
+	Column4    []uuid.UUID      `db:"column_4" json:"column4"`
+	Column5    []uuid.UUID      `db:"column_5" json:"column5"`
+	Column6    []uuid.UUID      `db:"column_6" json:"column6"`
+	Column7    []uuid.UUID      `db:"column_7" json:"column7"`
+}
+
+type QueryVectorStoreRow struct {
+	ID              uuid.UUID          `db:"id" json:"id"`
+	CustomerID      uuid.UUID          `db:"customer_id" json:"customerId"`
+	Raw             string             `db:"raw" json:"raw"`
+	Embeddings      *pgvector.Vector   `db:"embeddings" json:"embeddings"`
+	ContentType     string             `db:"content_type" json:"contentType"`
+	ObjectID        uuid.UUID          `db:"object_id" json:"objectId"`
+	ObjectParentID  pgtype.UUID        `db:"object_parent_id" json:"objectParentId"`
+	Metadata        []byte             `db:"metadata" json:"metadata"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	ID_2            pgtype.UUID        `db:"id_2" json:"id2"`
+	ParentID        pgtype.UUID        `db:"parent_id" json:"parentId"`
+	CustomerID_2    pgtype.UUID        `db:"customer_id_2" json:"customerId2"`
+	Filename        *string            `db:"filename" json:"filename"`
+	Type            *string            `db:"type" json:"type"`
+	SizeBytes       *int64             `db:"size_bytes" json:"sizeBytes"`
+	Sha256          *string            `db:"sha_256" json:"sha256"`
+	Validated       *bool              `db:"validated" json:"validated"`
+	DatastoreType   *string            `db:"datastore_type" json:"datastoreType"`
+	DatastoreID     *string            `db:"datastore_id" json:"datastoreId"`
+	Summary         *string            `db:"summary" json:"summary"`
+	SummarySha256   *string            `db:"summary_sha_256" json:"summarySha256"`
+	CreatedAt_2     pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	ID_3            pgtype.UUID        `db:"id_3" json:"id3"`
+	CustomerID_3    pgtype.UUID        `db:"customer_id_3" json:"customerId3"`
+	WebsiteID       pgtype.UUID        `db:"website_id" json:"websiteId"`
+	Url             *string            `db:"url" json:"url"`
+	Sha256_2        *string            `db:"sha_256_2" json:"sha2562"`
+	IsValid         *bool              `db:"is_valid" json:"isValid"`
+	Metadata_2      []byte             `db:"metadata_2" json:"metadata2"`
+	Summary_2       *string            `db:"summary_2" json:"summary2"`
+	SummarySha256_2 *string            `db:"summary_sha_256_2" json:"summarySha2562"`
+	CreatedAt_3     pgtype.Timestamptz `db:"created_at_3" json:"createdAt3"`
+	UpdatedAt_2     pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+}
+
+// QueryVectorStore
+//
+//	SELECT
+//	    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at, d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at, wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+//	FROM vector_store vs
+//	LEFT JOIN document_vector dv ON dv.vector_store_id = vs.object_id
+//	LEFT JOIN document d ON d.id = dv.document_id
+//	LEFT JOIN folder f ON f.id = d.parent_id
+//	LEFT JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
+//	LEFT JOIN website_page wp ON wp.id = wpv.website_page_id
+//	LEFT JOIN website w ON wp.website_id = w.id
+//	WHERE vs.customer_id = $1
+//	AND (
+//	    (d.id = ANY($4::uuid[]) OR $4 IS NULL)
+//	    OR
+//	    (f.id = ANY($5::uuid[]) OR $5 IS NULL)
+//	    OR
+//	    (wp.id = ANY($6::uuid[]) OR $6 IS NULL)
+//	    OR
+//	    (w.id = ANY($7::uuid[]) OR $7 IS NULL)
+//	)
+//	ORDER BY vs.embeddings <#> $3
+//	LIMIT $2
+func (q *Queries) QueryVectorStore(ctx context.Context, arg *QueryVectorStoreParams) ([]*QueryVectorStoreRow, error) {
+	rows, err := q.db.Query(ctx, queryVectorStore,
+		arg.CustomerID,
+		arg.Limit,
+		arg.Embeddings,
+		arg.Column4,
+		arg.Column5,
+		arg.Column6,
+		arg.Column7,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*QueryVectorStoreRow{}
+	for rows.Next() {
+		var i QueryVectorStoreRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Raw,
+			&i.Embeddings,
+			&i.ContentType,
+			&i.ObjectID,
+			&i.ObjectParentID,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.ID_2,
+			&i.ParentID,
+			&i.CustomerID_2,
+			&i.Filename,
+			&i.Type,
+			&i.SizeBytes,
+			&i.Sha256,
+			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
+			&i.Summary,
+			&i.SummarySha256,
+			&i.CreatedAt_2,
+			&i.UpdatedAt,
+			&i.ID_3,
+			&i.CustomerID_3,
+			&i.WebsiteID,
+			&i.Url,
+			&i.Sha256_2,
+			&i.IsValid,
+			&i.Metadata_2,
+			&i.Summary_2,
+			&i.SummarySha256_2,
+			&i.CreatedAt_3,
+			&i.UpdatedAt_2,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const queryVectorStoreDocuments = `-- name: QueryVectorStoreDocuments :many
-SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.summary, d.summary_sha_256, d.created_at, d.updated_at
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at
 FROM vector_store vs
 JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
@@ -2506,14 +2999,14 @@ LIMIT $2
 `
 
 type QueryVectorStoreDocumentsParams struct {
-	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
-	Limit      int32           `db:"limit" json:"limit"`
-	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
+	CustomerID uuid.UUID        `db:"customer_id" json:"customerId"`
+	Limit      int32            `db:"limit" json:"limit"`
+	Embeddings *pgvector.Vector `db:"embeddings" json:"embeddings"`
 }
 
 // QueryVectorStoreDocuments
 //
-//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.summary, d.summary_sha_256, d.created_at, d.updated_at
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at
 //	FROM vector_store vs
 //	JOIN document_vector dv ON vs.id = dv.vector_store_id
 //	JOIN document d ON d.id = dv.document_id
@@ -2538,6 +3031,8 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
 			&i.CreatedAt,
@@ -2554,7 +3049,7 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 }
 
 const queryVectorStoreDocumentsScoped = `-- name: QueryVectorStoreDocumentsScoped :many
-SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.summary, d.summary_sha_256, d.created_at, d.updated_at
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at
 FROM vector_store vs
 JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
@@ -2566,16 +3061,16 @@ LIMIT $2
 `
 
 type QueryVectorStoreDocumentsScopedParams struct {
-	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
-	Limit      int32           `db:"limit" json:"limit"`
-	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
-	Column4    []uuid.UUID     `db:"column_4" json:"column4"`
-	Column5    []uuid.UUID     `db:"column_5" json:"column5"`
+	CustomerID uuid.UUID        `db:"customer_id" json:"customerId"`
+	Limit      int32            `db:"limit" json:"limit"`
+	Embeddings *pgvector.Vector `db:"embeddings" json:"embeddings"`
+	Column4    []uuid.UUID      `db:"column_4" json:"column4"`
+	Column5    []uuid.UUID      `db:"column_5" json:"column5"`
 }
 
 // QueryVectorStoreDocumentsScoped
 //
-//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.summary, d.summary_sha_256, d.created_at, d.updated_at
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at
 //	FROM vector_store vs
 //	JOIN document_vector dv ON vs.id = dv.vector_store_id
 //	JOIN document d ON d.id = dv.document_id
@@ -2608,6 +3103,8 @@ func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *Quer
 			&i.SizeBytes,
 			&i.Sha256,
 			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
 			&i.CreatedAt,
@@ -2624,21 +3121,21 @@ func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *Quer
 }
 
 const queryVectorStoreRaw = `-- name: QueryVectorStoreRaw :many
-SELECT id, customer_id, raw, embeddings, metadata, created_at FROM vector_store
+SELECT id, customer_id, raw, embeddings, content_type, object_id, object_parent_id, metadata, created_at FROM vector_store
 WHERE customer_id = $1
 ORDER BY embeddings <#> $3
 LIMIT $2
 `
 
 type QueryVectorStoreRawParams struct {
-	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
-	Limit      int32           `db:"limit" json:"limit"`
-	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
+	CustomerID uuid.UUID        `db:"customer_id" json:"customerId"`
+	Limit      int32            `db:"limit" json:"limit"`
+	Embeddings *pgvector.Vector `db:"embeddings" json:"embeddings"`
 }
 
 // QueryVectorStoreRaw
 //
-//	SELECT id, customer_id, raw, embeddings, metadata, created_at FROM vector_store
+//	SELECT id, customer_id, raw, embeddings, content_type, object_id, object_parent_id, metadata, created_at FROM vector_store
 //	WHERE customer_id = $1
 //	ORDER BY embeddings <#> $3
 //	LIMIT $2
@@ -2656,6 +3153,9 @@ func (q *Queries) QueryVectorStoreRaw(ctx context.Context, arg *QueryVectorStore
 			&i.CustomerID,
 			&i.Raw,
 			&i.Embeddings,
+			&i.ContentType,
+			&i.ObjectID,
+			&i.ObjectParentID,
 			&i.Metadata,
 			&i.CreatedAt,
 		); err != nil {
@@ -2680,9 +3180,9 @@ LIMIT $2
 `
 
 type QueryVectorStoreWebsitePagesParams struct {
-	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
-	Limit      int32           `db:"limit" json:"limit"`
-	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
+	CustomerID uuid.UUID        `db:"customer_id" json:"customerId"`
+	Limit      int32            `db:"limit" json:"limit"`
+	Embeddings *pgvector.Vector `db:"embeddings" json:"embeddings"`
 }
 
 // QueryVectorStoreWebsitePages
@@ -2739,11 +3239,11 @@ LIMIT $2
 `
 
 type QueryVectorStoreWebsitePagesScopedParams struct {
-	CustomerID uuid.UUID       `db:"customer_id" json:"customerId"`
-	Limit      int32           `db:"limit" json:"limit"`
-	Embeddings pgvector.Vector `db:"embeddings" json:"embeddings"`
-	Column4    []uuid.UUID     `db:"column_4" json:"column4"`
-	Column5    []uuid.UUID     `db:"column_5" json:"column5"`
+	CustomerID uuid.UUID        `db:"customer_id" json:"customerId"`
+	Limit      int32            `db:"limit" json:"limit"`
+	Embeddings *pgvector.Vector `db:"embeddings" json:"embeddings"`
+	Column4    []uuid.UUID      `db:"column_4" json:"column4"`
+	Column5    []uuid.UUID      `db:"column_5" json:"column5"`
 }
 
 // QueryVectorStoreWebsitePagesScoped
@@ -2872,7 +3372,7 @@ UPDATE document SET
     summary = $2,
     summary_sha_256 = $3
 WHERE id = $1
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
 `
 
 type UpdateDocumentSummaryParams struct {
@@ -2887,7 +3387,7 @@ type UpdateDocumentSummaryParams struct {
 //	    summary = $2,
 //	    summary_sha_256 = $3
 //	WHERE id = $1
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, summary, summary_sha_256, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
 func (q *Queries) UpdateDocumentSummary(ctx context.Context, arg *UpdateDocumentSummaryParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, updateDocumentSummary, arg.ID, arg.Summary, arg.SummarySha256)
 	var i Document
@@ -2900,6 +3400,8 @@ func (q *Queries) UpdateDocumentSummary(ctx context.Context, arg *UpdateDocument
 		&i.SizeBytes,
 		&i.Sha256,
 		&i.Validated,
+		&i.DatastoreType,
+		&i.DatastoreID,
 		&i.Summary,
 		&i.SummarySha256,
 		&i.CreatedAt,

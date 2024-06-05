@@ -23,11 +23,15 @@ CREATE TABLE vector_store(
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     raw TEXT NOT NULL, -- string utf-8 representation of the data 
     embeddings VECTOR(512) NOT NULL,
-    metadata JSONB DEFAULT '{}',
+    content_type TEXT NOT NULL, -- the type of content. document, website_page, etc.
+    object_id uuid NOT NULL, -- id that this object ties to
+    object_parent_id uuid, -- id that the object's parent is tied to
+    metadata JSONB DEFAULT '{}', -- includes AT LEAST two fields: object
 
     PRIMARY KEY (id, customer_id), -- customer_id needs to exist in the key for partitioning
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 ) PARTITION BY LIST(customer_id);
 CREATE INDEX ON vector_store USING hnsw (embeddings vector_ip_ops);
+CREATE INDEX idx_vector_store_object_id ON vector_store(object_id);
 CREATE TABLE vector_store_default PARTITION OF vector_store DEFAULT; -- default

@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
@@ -29,6 +30,8 @@ func NewS3Docstore(ctx context.Context, bucket string, logger *slog.Logger) (*S3
 		logger = utils.DefaultLogger()
 	}
 	l := logger.With("docstore", "s3", "s3_bucket", bucket)
+
+	// TODO -- make client configurations global instead of creaing new everytime
 
 	// setup aws config using env
 	config, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-west-2"))
@@ -70,15 +73,20 @@ func NewS3Docstore(ctx context.Context, bucket string, logger *slog.Logger) (*S3
 // 	return result.Location, nil
 // }
 
-func (d *S3Docstore) GeneratePresignedUrl(ctx context.Context, doc *Document) (string, error) {
+func (d *S3Docstore) GeneratePresignedUrl(
+	ctx context.Context,
+	doc *queries.Document,
+	contentType string,
+	remoteId string,
+) (string, error) {
 	l := d.logger.With("doc", doc.Filename)
 	l.InfoContext(ctx, "Generating a presigned url ...")
 	// Set the desired parameters for the pre-signed URL
 	presignClient := s3.NewPresignClient(d.client)
 	params := &s3.PutObjectInput{
 		Bucket:         aws.String(d.bucket),
-		Key:            aws.String(doc.UniqueID),
-		ContentType:    aws.String(string(doc.Filetype)),
+		Key:            aws.String(remoteId),
+		ContentType:    aws.String(contentType),
 		ChecksumSHA256: aws.String(doc.Sha256),
 	}
 

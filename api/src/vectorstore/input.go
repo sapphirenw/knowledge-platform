@@ -8,14 +8,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/ltypes"
-	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
 type QueryInput struct {
 	CustomerId uuid.UUID
-	Docstore   docstore.RemoteDocstore
+	// Docstore   docstore.RemoteDocstore
 	Embeddings gollm.Embeddings
 	DB         queries.DBTX
 	Query      string
@@ -24,17 +23,11 @@ type QueryInput struct {
 
 	// can inbed the vector incase the input is re-used, or user already embedded content
 	Vector *ltypes.EmbeddingsData
-
-	// whether to include the raw content or not
-	IncludeContent bool
 }
 
 func (input *QueryInput) Validate() error {
 	if input == nil {
 		return fmt.Errorf("input cannot be nil")
-	}
-	if input.Docstore == nil {
-		return fmt.Errorf("docstore cannot be nil")
 	}
 	if input.Embeddings == nil {
 		return fmt.Errorf("embeddings cannot be empty")
@@ -91,6 +84,16 @@ type QueryDocstoreInput struct {
 
 type QueryWebsitePagesInput struct {
 	*QueryInput
+
+	WebsiteIds     []uuid.UUID
+	WebsitePageIds []uuid.UUID
+}
+
+type QueryAllInput struct {
+	*QueryInput
+
+	FolderIds   []uuid.UUID
+	DocumentIds []uuid.UUID
 
 	WebsiteIds     []uuid.UUID
 	WebsitePageIds []uuid.UUID

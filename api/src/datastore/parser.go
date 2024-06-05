@@ -1,4 +1,4 @@
-package docstore
+package datastore
 
 import (
 	"bytes"
@@ -19,8 +19,8 @@ func ParseHTML(data []byte) (string, error) {
 }
 
 // Will attempt to parse the data from the supplied mimetype
-func ParseDynamic(data []byte, mime string) (string, error) {
-	resp, err := docconv.Convert(bytes.NewBuffer(data), mime, true)
+func ParseDynamic(data []byte, filetype Filetype) (string, error) {
+	resp, err := docconv.Convert(bytes.NewBuffer(data), string(filetype), true)
 	if err != nil {
 		return "", fmt.Errorf("there was an issue parsing the data: %v", err)
 	}

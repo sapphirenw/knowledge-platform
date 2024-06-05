@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/ltypes"
+	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -210,13 +211,13 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 	}
 
 	// create the document
-	doc, err := docstore.NewDocumentFromDocument(d)
+	doc, err := datastore.NewDocumentFromDocument(ctx, logger, d)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse the database document: %s", err)
 	}
 
 	// generate the pre-signed url
-	url, err := store.GeneratePresignedUrl(ctx, doc)
+	url, err := store.GeneratePresignedUrl(ctx, doc.Document, doc.Type, doc.DatastoreID)
 	if err != nil {
 		return nil, fmt.Errorf("there was an issue generating the presigned url: %v", err)
 	}
@@ -469,7 +470,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 			// create raw vector object
 			vecId, err := model.CreateVector(ctx, &queries.CreateVectorParams{
 				Raw:        vec.Raw,
-				Embeddings: vec.Embedding,
+				Embeddings: &vec.Embedding,
 				CustomerID: c.ID,
 				Metadata:   encodedHeaders,
 			})
@@ -573,14 +574,14 @@ func (c *Customer) PurgeDatastore(
 		go func(doc queries.Document) {
 			defer wg.Done()
 			l := logger.With("doc", doc)
-			dsDoc, err := docstore.NewDocumentFromDocument(&doc)
+			dsDoc, err := datastore.NewDocumentFromDocument(ctx, l, &doc)
 			if err != nil {
 				l.ErrorContext(ctx, "failed to create the docstore doc", "error", err)
 				failedDocIds <- doc.ID
 				return
 			}
 			l.InfoContext(ctx, "Attempting to delete from datastore")
-			if err := store.DeleteFile(ctx, dsDoc.UniqueID); err != nil {
+			if err := store.DeleteFile(ctx, dsDoc.DatastoreID); err != nil {
 				l.ErrorContext(ctx, "error deleting from datastore", "error", err)
 				failedDocIds <- doc.ID
 				return
@@ -661,12 +662,6 @@ func (c *Customer) VectorizeDatastore(
 	logger := c.logger.With()
 	logger.InfoContext(ctx, "Vectorizing datastore ...")
 
-	// get the docstore
-	store, err := c.GetDocstore(ctx)
-	if err != nil {
-		return fmt.Errorf("error getting the docstore: %s", err)
-	}
-
 	// get the embeddings
 	emb := c.GetEmbeddings(ctx)
 
@@ -683,7 +678,7 @@ func (c *Customer) VectorizeDatastore(
 
 	// create a type to store the embeddings data
 	type embeddingResponse struct {
-		doc     *docstore.Document
+		doc     *datastore.Document
 		vectors []*ltypes.EmbeddingsData
 	}
 
@@ -702,7 +697,7 @@ func (c *Customer) VectorizeDatastore(
 			defer wg.Done()
 			l := logger.With("doc", d)
 
-			doc, err := docstore.NewDocumentFromDocument(&d)
+			doc, err := datastore.NewDocumentFromDocument(ctx, l, &d)
 			if err != nil {
 				l.ErrorContext(ctx, "failed parsing the database doc: %s", err)
 				errCh <- err
@@ -711,7 +706,7 @@ func (c *Customer) VectorizeDatastore(
 
 			// get the cleaned data from the document and a parser
 			l.InfoContext(ctx, "Fetching document from datastore ...")
-			cleaned, err := doc.GetCleanedContents(ctx, store)
+			cleaned, err := doc.GetCleaned(ctx)
 			if err != nil {
 				l.ErrorContext(ctx, "there was an issue getting the cleaned document: %s", err)
 				errCh <- err
@@ -730,7 +725,7 @@ func (c *Customer) VectorizeDatastore(
 
 			// embed the content
 			l.InfoContext(ctx, "Embedding the document ...")
-			res, err := emb.Embed(ctx, cleaned)
+			res, err := emb.Embed(ctx, cleaned.String())
 			if err != nil {
 				l.ErrorContext(ctx, "error embedding the content: %v", err)
 				errCh <- err
@@ -781,7 +776,7 @@ func (c *Customer) VectorizeDatastore(
 			// create raw vector object
 			vecId, err := model.CreateVector(ctx, &queries.CreateVectorParams{
 				Raw:        vec.Raw,
-				Embeddings: vec.Embedding,
+				Embeddings: &vec.Embedding,
 				CustomerID: c.ID,
 			})
 			if err != nil {

@@ -1,4 +1,4 @@
-package docstore
+package datastore
 
 import (
 	"fmt"

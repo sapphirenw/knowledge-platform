@@ -27,6 +27,8 @@ CREATE TABLE document(
     size_bytes BIGINT NOT NULL, -- size of the document in terms of bytes
     sha_256 CHAR(64) NOT NULL, -- a fingerprint of the document's contents
     validated BOOLEAN NOT NULL DEFAULT false, -- whether the object exists in datastore
+    datastore_type TEXT NOT NULL DEFAULT 's3', -- s3, etc.
+    datastore_id TEXT NOT NULL, -- id of the document in the remote datastore
     summary TEXT NOT NULL DEFAULT '',
     summary_sha_256 CHAR(64) NOT NULL DEFAULT '', -- fingerprint at the time the summary was taken
 
