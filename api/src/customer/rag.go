@@ -21,8 +21,8 @@ import (
 
 type ragRequest struct {
 	// general params
-	ConversationId string `json:"conversationId"`
 	Input          string `json:"input"`
+	ConversationId string `json:"conversationId"`
 	CheckQuality   bool   `json:"checkQuality"`
 
 	// models
@@ -151,7 +151,6 @@ func (c *Customer) RAG(
 	k := 2 // number of objects to query
 	docs := make(chan *vectorstore.DocumentResponse, k*len(simpleQueries))
 	pages := make(chan *vectorstore.WebsitePageResponse, k*len(simpleQueries))
-	errCh := make(chan error, 2*len(simpleQueries))
 
 	// compose a query for the vectorstore
 	queryInput := vectorstore.QueryInput{
@@ -196,69 +195,46 @@ func (c *Customer) RAG(
 
 	logger.InfoContext(ctx, "Querying the users information for each simple query ...")
 	for _, item := range simpleQueries {
-		l := logger.With("query", item)
+		queryInput.Query = item
+		l := logger.With("query", queryInput.Query)
 		l.InfoContext(ctx, "Running query ...")
 
 		// get the docs
-		wg.Add(1)
-		go func(q string, input vectorstore.QueryInput) {
-			defer wg.Done()
-			l.InfoContext(ctx, "Querying documents ...")
+		l.InfoContext(ctx, "Querying documents ...")
+		docResponse, err := vectorstore.QueryDocuments(ctx, &vectorstore.QueryDocstoreInput{
+			QueryInput:  &queryInput,
+			FolderIds:   folderIds,
+			DocumentIds: documentIds,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to query the documents: %s", err)
+		}
 
-			input.Query = q
-			response, err := vectorstore.QueryDocuments(ctx, &vectorstore.QueryDocstoreInput{
-				QueryInput:  &input,
-				FolderIds:   folderIds,
-				DocumentIds: documentIds,
-			})
-			if err != nil {
-				l.ErrorContext(ctx, "failed to query the documents", "error", err)
-				errCh <- err
-				return
-			}
-
-			for _, doc := range response {
-				docs <- doc
-			}
-		}(item, queryInput)
+		for _, doc := range docResponse {
+			docs <- doc
+		}
 
 		// get the pages
-		wg.Add(1)
-		go func(q string, input vectorstore.QueryInput) {
-			defer wg.Done()
+		l.InfoContext(ctx, "Querying website pages ...")
 
-			l.InfoContext(ctx, "Querying website pages ...")
+		pageResponse, err := vectorstore.QueryWebsitePages(ctx, &vectorstore.QueryWebsitePagesInput{
+			QueryInput:     &queryInput,
+			WebsiteIds:     websiteIds,
+			WebsitePageIds: websitePageIds,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to query the website pages: %s", err)
+		}
 
-			input.Query = q
-			response, err := vectorstore.QueryWebsitePages(ctx, &vectorstore.QueryWebsitePagesInput{
-				QueryInput:     &input,
-				WebsiteIds:     websiteIds,
-				WebsitePageIds: websitePageIds,
-			})
-			if err != nil {
-				l.ErrorContext(ctx, "failed to query the website pages", "error", err)
-				errCh <- err
-			}
-
-			for _, page := range response {
-				pages <- page
-			}
-		}(item, queryInput)
+		for _, page := range pageResponse {
+			pages <- page
+		}
 	}
 
 	// collect the items
-	logger.DebugContext(ctx, "Waiting for go-routines to finish ...")
-	wg.Wait()
 	logger.DebugContext(ctx, "Collecting channels ...")
 	close(docs)
 	close(pages)
-	close(errCh)
-
-	// check for errors
-	logger.DebugContext(ctx, "Checking for errors ...")
-	for err := range errCh {
-		return nil, err
-	}
 
 	/// spawn go-routines for each document and website page
 
@@ -278,7 +254,7 @@ func (c *Customer) RAG(
 	rankerLLM := &llm.LLM{Llm: rankerModel}
 
 	// channel for critical errors
-	errCh = make(chan error)
+	errCh := make(chan error, k*len(simpleQueries))
 
 	// objects to update
 	updateDocs := make(chan *vectorstore.DocumentResponse, k*len(simpleQueries))
