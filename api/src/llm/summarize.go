@@ -19,7 +19,7 @@ func (llm *LLM) Summarize(
 	ctx context.Context,
 	logger *slog.Logger,
 	customerId uuid.UUID,
-	usageRecords chan *tokens.TokenRecord,
+	tokenRecords chan *tokens.TokenRecord,
 	input string,
 ) (string, error) {
 	// chunk the string if needed
@@ -53,7 +53,7 @@ func (llm *LLM) Summarize(
 			response, err := SingleCompletion(
 				ctx, llm, logger, customerId,
 				prompts.SUMMARY_SYSTEM_PROMPT,
-				usageRecords,
+				tokenRecords,
 				&CompletionArgs{Input: chunk},
 			)
 			if err != nil {

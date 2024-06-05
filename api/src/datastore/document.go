@@ -171,3 +171,16 @@ func (d *Document) GetCleaned(ctx context.Context) (*bytes.Buffer, error) {
 func (d *Document) GetSha256() (string, error) {
 	return d.Sha256, nil
 }
+
+func (d *Document) getSummary() string {
+	if d.Summary == "" || d.Sha256 != d.SummarySha256 {
+		return ""
+	}
+	return d.Summary
+}
+
+func (d *Document) setSummary(s string) error {
+	d.Summary = s
+	d.SummarySha256 = d.Sha256
+	return nil
+}

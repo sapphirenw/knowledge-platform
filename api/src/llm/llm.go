@@ -188,7 +188,7 @@ func SingleCompletion(
 	logger *slog.Logger,
 	customerId uuid.UUID,
 	sysMessage string,
-	usageRecords chan *tokens.TokenRecord,
+	tokenRecords chan *tokens.TokenRecord,
 	args *CompletionArgs,
 ) (string, error) {
 	if args == nil || args.Input == "" {
@@ -219,7 +219,7 @@ func SingleCompletion(
 
 	// parse usage records
 	for _, item := range lm.GetTokenRecords() {
-		usageRecords <- item
+		tokenRecords <- item
 	}
 
 	l.InfoContext(ctx, "Successfully sent the one-shot request")

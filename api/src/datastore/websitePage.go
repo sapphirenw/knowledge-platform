@@ -79,3 +79,16 @@ func (p *WebsitePage) GetCleaned(ctx context.Context) (*bytes.Buffer, error) {
 func (p *WebsitePage) GetSha256() (string, error) {
 	return p.Sha256, nil
 }
+
+func (p *WebsitePage) getSummary() string {
+	if p.Summary == "" || p.Sha256 != p.SummarySha256 {
+		return ""
+	}
+	return p.Summary
+}
+
+func (p *WebsitePage) setSummary(s string) error {
+	p.Summary = s
+	p.SummarySha256 = p.Sha256
+	return nil
+}
