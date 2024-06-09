@@ -14,7 +14,8 @@ require (
 	github.com/gocolly/colly/v2 v2.1.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.5.4
-	github.com/jake-landersweb/gollm/v2 v2.4.0
+	github.com/jake-landersweb/gollm/v2 v2.5.1
+	github.com/lmittmann/tint v1.0.4
 	github.com/pgvector/pgvector-go v0.1.1
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.30.0
@@ -22,7 +23,7 @@ require (
 	go.dpb.io/sitemap v0.0.0-20210828150946-52a1fb6f10fa
 )
 
-replace github.com/jake-landersweb/gollm/v2 => /Users/jakelanders/code/gollm
+// replace github.com/jake-landersweb/gollm/v2 => /Users/jakelanders/code/gollm
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
@@ -80,7 +81,6 @@ require (
 	github.com/kennygrant/sanitize v1.2.4 // indirect
 	github.com/klauspost/compress v1.16.0 // indirect
 	github.com/levigross/exp-html v0.0.0-20120902181939-8df60c69a8f5 // indirect
-	github.com/lmittmann/tint v1.0.4 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
