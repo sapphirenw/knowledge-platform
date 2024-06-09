@@ -79,12 +79,15 @@ INSERT INTO conversation_message (
     instructions,
     role,
     message,
-    index
-) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8 )
+    index,
+    tool_use_id,
+    tool_name,
+    tool_arguments
+) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 )
 ON CONFLICT (conversation_id, index)
 DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, created_at, updated_at
+RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, created_at, updated_at
 `
 
 type CreateConversationMessageParams struct {
@@ -96,6 +99,9 @@ type CreateConversationMessageParams struct {
 	Role           string      `db:"role" json:"role"`
 	Message        string      `db:"message" json:"message"`
 	Index          int32       `db:"index" json:"index"`
+	ToolUseID      string      `db:"tool_use_id" json:"toolUseId"`
+	ToolName       string      `db:"tool_name" json:"toolName"`
+	ToolArguments  []byte      `db:"tool_arguments" json:"toolArguments"`
 }
 
 // CreateConversationMessage
@@ -108,12 +114,15 @@ type CreateConversationMessageParams struct {
 //	    instructions,
 //	    role,
 //	    message,
-//	    index
-//	) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8 )
+//	    index,
+//	    tool_use_id,
+//	    tool_name,
+//	    tool_arguments
+//	) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 )
 //	ON CONFLICT (conversation_id, index)
 //	DO UPDATE SET
 //	    updated_at = CURRENT_TIMESTAMP
-//	RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, created_at, updated_at
+//	RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, created_at, updated_at
 func (q *Queries) CreateConversationMessage(ctx context.Context, arg *CreateConversationMessageParams) (*ConversationMessage, error) {
 	row := q.db.QueryRow(ctx, createConversationMessage,
 		arg.ConversationID,
@@ -124,6 +133,9 @@ func (q *Queries) CreateConversationMessage(ctx context.Context, arg *CreateConv
 		arg.Role,
 		arg.Message,
 		arg.Index,
+		arg.ToolUseID,
+		arg.ToolName,
+		arg.ToolArguments,
 	)
 	var i ConversationMessage
 	err := row.Scan(
@@ -136,6 +148,9 @@ func (q *Queries) CreateConversationMessage(ctx context.Context, arg *CreateConv
 		&i.Role,
 		&i.Message,
 		&i.Index,
+		&i.ToolUseID,
+		&i.ToolName,
+		&i.ToolArguments,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1172,14 +1187,14 @@ func (q *Queries) GetConversation(ctx context.Context, id uuid.UUID) (*Conversat
 }
 
 const getConversationMessages = `-- name: GetConversationMessages :many
-SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, created_at, updated_at FROM conversation_message
+SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, created_at, updated_at FROM conversation_message
 WHERE conversation_id = $1
 ORDER BY index ASC
 `
 
 // GetConversationMessages
 //
-//	SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, created_at, updated_at FROM conversation_message
+//	SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, created_at, updated_at FROM conversation_message
 //	WHERE conversation_id = $1
 //	ORDER BY index ASC
 func (q *Queries) GetConversationMessages(ctx context.Context, conversationID uuid.UUID) ([]*ConversationMessage, error) {
@@ -1201,6 +1216,9 @@ func (q *Queries) GetConversationMessages(ctx context.Context, conversationID uu
 			&i.Role,
 			&i.Message,
 			&i.Index,
+			&i.ToolUseID,
+			&i.ToolName,
+			&i.ToolArguments,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/ltypes"
+	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -368,6 +369,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 
 	// create a results slice for the data
 	results := make([]*vectorizeWebsiteResult, len(pages))
+	tokenRecsChannel := make(chan *tokens.UsageRecord, len(pages))
 	errs := make(chan error, len(pages))
 
 	for i, item := range pages {
@@ -403,12 +405,14 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 				return
 			}
 
+			tokenRecsChannel <- res.Usage
+
 			// write to index in the list
 			results[index] = &vectorizeWebsiteResult{
 				page:    page,
 				headers: response.Header,
 				sha256:  sig,
-				vectors: res,
+				vectors: res.Embeddings,
 			}
 
 			pLogger.InfoContext(ctx, "Successfully processed page")
@@ -420,9 +424,14 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 	// wait for the routines to finish
 	wg.Wait()
 	close(errs)
+	close(tokenRecsChannel)
 
 	// report vectors
-	if err := utils.ReportUsage(ctx, logger, txn, c.ID, emb.GetTokenRecords(), nil); err != nil {
+	tokenRecords := make([]*tokens.UsageRecord, 0)
+	for item := range tokenRecsChannel {
+		tokenRecords = append(tokenRecords, item)
+	}
+	if err := utils.ReportUsage(ctx, logger, txn, c.ID, tokenRecords, nil); err != nil {
 		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 
@@ -689,6 +698,7 @@ func (c *Customer) VectorizeDatastore(
 
 	// process all docs in paralell
 	var wg sync.WaitGroup
+	tokenRecsChannel := make(chan *tokens.UsageRecord)
 	errCh := make(chan error)
 
 	for i, item := range docs {
@@ -731,11 +741,12 @@ func (c *Customer) VectorizeDatastore(
 				errCh <- err
 				return
 			}
+			tokenRecsChannel <- res.Usage
 
 			// add to the result
 			vectors[index] = &embeddingResponse{
 				doc:     doc,
-				vectors: res,
+				vectors: res.Embeddings,
 			}
 
 			l.InfoContext(ctx, "Successfully processed document")
@@ -745,9 +756,14 @@ func (c *Customer) VectorizeDatastore(
 	// wait for threads
 	wg.Wait()
 	close(errCh)
+	close(tokenRecsChannel)
 
 	// report vectors
-	if err := utils.ReportUsage(ctx, logger, txn, c.ID, emb.GetTokenRecords(), nil); err != nil {
+	tokenRecords := make([]*tokens.UsageRecord, 0)
+	for item := range tokenRecsChannel {
+		tokenRecords = append(tokenRecords, item)
+	}
+	if err := utils.ReportUsage(ctx, logger, txn, c.ID, tokenRecords, nil); err != nil {
 		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 

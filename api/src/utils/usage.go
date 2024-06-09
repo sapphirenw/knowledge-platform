@@ -16,7 +16,7 @@ func ReportUsage(
 	logger *slog.Logger,
 	db queries.DBTX,
 	customerId uuid.UUID,
-	records []*tokens.TokenRecord,
+	records []*tokens.UsageRecord,
 	conversation *queries.Conversation, // optional conversation to tie the usage to
 ) error {
 	logger.InfoContext(ctx, "Reporting usage", "records", len(records))

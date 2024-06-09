@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -230,7 +231,7 @@ func (p *Project) GenerateLinkedInPost(
 
 	// get the conversation
 	conv, err := llm.AutoConversation(
-		ctx, logger, db, p.CustomerID, args.ConversationId, prompts.LINKEDIN_POST_SYSTEM,
+		ctx, logger, db, p.CustomerID, genModel, args.ConversationId, prompts.LINKEDIN_POST_SYSTEM,
 		fmt.Sprintf("LinkedIn Post: %s-conv", post.Title),
 		"linkedin-post",
 	)
@@ -251,14 +252,14 @@ func (p *Project) GenerateLinkedInPost(
 	logger.InfoContext(ctx, "Sending completion request ...")
 
 	// create the post
-	response, err := conv.Completion(ctx, db, genModel, prompt)
+	response, err := conv.Completion(ctx, db, genModel, gollm.NewUserMessage(prompt), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send the completion: %s", err)
 	}
 
 	return &generateLinkedInPostResponse{
 		ConversationId: conv.ID,
-		Messages:       conv.Messages,
-		LatestMessage:  response,
+		Messages:       conv.GetMessages(),
+		LatestMessage:  response.Message.Message,
 	}, nil
 }

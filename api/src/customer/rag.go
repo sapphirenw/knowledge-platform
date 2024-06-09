@@ -87,7 +87,7 @@ func (c *Customer) RAG(
 	// embs := c.GetEmbeddings(ctx)
 
 	// // track all token usage across this request through a buffered channel
-	// usageRecords := make(chan *tokens.TokenRecord, 100)
+	// usageRecords := make(chan *tokens.UsageRecord, 100)
 
 	// // get the conversation
 	// logger.InfoContext(ctx, "Getting conversation ...")
@@ -465,7 +465,7 @@ func (c *Customer) RAG(
 	// 	defer wg.Done()
 	// 	// report all token usage
 	// 	logger.InfoContext(ctx, "Reporting usage ...")
-	// 	totalRecords := make([]*tokens.TokenRecord, 0)
+	// 	totalRecords := make([]*tokens.UsageRecord, 0)
 	// 	for item := range usageRecords {
 	// 		totalRecords = append(totalRecords, item)
 	// 	}

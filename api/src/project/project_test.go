@@ -73,7 +73,7 @@ func TestCreateProjectIdea(t *testing.T) {
 	conv, err := llm.GetConversation(ctx, logger, pool, response.ConversationId)
 	require.NoError(t, err)
 	conv.PrintConversation()
-	require.Equal(t, 5, len(conv.Messages))
+	require.Equal(t, 5, len(conv.GetMessages()))
 }
 
 func getTestProject(t *testing.T, ctx context.Context, logger *slog.Logger, pool *pgxpool.Pool, c *queries.Customer) *Project {

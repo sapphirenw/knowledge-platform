@@ -160,6 +160,9 @@ type ConversationMessage struct {
 	Role           string             `db:"role" json:"role"`
 	Message        string             `db:"message" json:"message"`
 	Index          int32              `db:"index" json:"index"`
+	ToolUseID      string             `db:"tool_use_id" json:"toolUseId"`
+	ToolName       string             `db:"tool_name" json:"toolName"`
+	ToolArguments  []byte             `db:"tool_arguments" json:"toolArguments"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }

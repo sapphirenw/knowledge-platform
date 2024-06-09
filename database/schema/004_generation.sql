@@ -95,6 +95,11 @@ CREATE TABLE conversation_message(
     message TEXT NOT NULL,
     index INT NOT NULL,
 
+    -- function call information
+    tool_use_id TEXT NOT NULL DEFAULT '',
+    tool_name TEXT NOT NULL DEFAULT '',
+    tool_arguments JSONB NULL DEFAULT '{}',
+
     PRIMARY KEY (id),
     CONSTRAINT cnst_conversation_message_unique UNIQUE
     (conversation_id, index),

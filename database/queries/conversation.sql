@@ -21,8 +21,11 @@ INSERT INTO conversation_message (
     instructions,
     role,
     message,
-    index
-) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8 )
+    index,
+    tool_use_id,
+    tool_name,
+    tool_arguments
+) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 )
 ON CONFLICT (conversation_id, index)
 DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP

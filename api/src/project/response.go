@@ -2,7 +2,7 @@ package project
 
 import (
 	"github.com/google/uuid"
-	"github.com/sapphirenw/ai-content-creation-api/src/llm"
+	"github.com/jake-landersweb/gollm/v2/src/gollm"
 )
 
 type generateIdeasResponse struct {
@@ -11,7 +11,7 @@ type generateIdeasResponse struct {
 }
 
 type generateLinkedInPostResponse struct {
-	ConversationId uuid.UUID                  `json:"conversationId"`
-	Messages       []*llm.ConversationMessage `json:"messages"`
-	LatestMessage  string                     `json:"latestMessage"`
+	ConversationId uuid.UUID        `json:"conversationId"`
+	Messages       []*gollm.Message `json:"messages"`
+	LatestMessage  string           `json:"latestMessage"`
 }

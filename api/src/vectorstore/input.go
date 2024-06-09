@@ -62,12 +62,12 @@ func (input *QueryInput) GetVectors(ctx context.Context) (*ltypes.EmbeddingsData
 		if err != nil {
 			return nil, fmt.Errorf("error sending the embedding request: %s", err)
 		}
-		if len(response) == 0 {
+		if len(response.Embeddings) == 0 {
 			return nil, fmt.Errorf("there were no embeddings returned")
 		}
 
-		input.Vector = response[0]
-		vector = response[0]
+		input.Vector = response.Embeddings[0]
+		vector = response.Embeddings[0]
 	} else {
 		vector = input.Vector
 	}

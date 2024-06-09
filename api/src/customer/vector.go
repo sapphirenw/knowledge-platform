@@ -66,7 +66,7 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	}
 
 	// report the usage
-	if err := utils.ReportUsage(ctx, logger, db, c.ID, embs.GetTokenRecords(), nil); err != nil {
+	if err := utils.ReportUsage(ctx, logger, db, c.ID, embs.GetUsageRecords(), nil); err != nil {
 		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 
@@ -77,7 +77,7 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	}
 
 	// report the usage
-	if err := utils.ReportUsage(ctx, logger, db, c.ID, embs.GetTokenRecords(), nil); err != nil {
+	if err := utils.ReportUsage(ctx, logger, db, c.ID, embs.GetUsageRecords(), nil); err != nil {
 		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
 	}
 

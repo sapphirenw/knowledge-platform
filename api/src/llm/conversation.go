@@ -8,41 +8,47 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
+	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
 type Conversation struct {
 	*queries.Conversation
-
-	Messages       []*ConversationMessage
-	storedMessages int // representation of how many messages are already stored in the database
-
-	logger *slog.Logger
-	New    bool // whether the conversation was created in this request or not
+	messages     []*gollm.Message      // internal message conversation stored
+	usageRecords []*tokens.UsageRecord // token records stored with this conversation. Ephemeral, not sourced from the database on re-load
+	logger       *slog.Logger
+	New          bool // whether the conversation was created in this request or not
 }
 
-type ConversationMessage struct {
-	*queries.ConversationMessage
-}
-
-func (cm *ConversationMessage) ToGoLLMMessage() (*gollm.LanguageModelMessage, error) {
-	var role gollm.LanguageModelRole
-	switch cm.Role {
-	case gollm.RoleSystem.ToString():
-		role = gollm.RoleSystem
-	case gollm.RoleUser.ToString():
-		role = gollm.RoleUser
-	case gollm.RoleAI.ToString():
-		role = gollm.RoleAI
-	default:
-		return nil, fmt.Errorf("invalid role in message: %s", cm.Role)
+func GoLLMMessageFromDB(cm *queries.ConversationMessage) *gollm.Message {
+	msg := &gollm.Message{
+		Message: cm.Message,
 	}
 
-	return &gollm.LanguageModelMessage{
-		Role:    role,
-		Message: cm.Message,
-	}, nil
+	var args map[string]any
+	json.Unmarshal(cm.ToolArguments, &args) // okay for this to fail
+
+	switch cm.Role {
+	case gollm.RoleSystem.ToString():
+		msg.Role = gollm.RoleSystem
+	case gollm.RoleUser.ToString():
+		msg.Role = gollm.RoleUser
+	case gollm.RoleAI.ToString():
+		msg.Role = gollm.RoleAI
+	case gollm.RoleToolCall.ToString():
+		// get the function call arguments
+		msg.Role = gollm.RoleToolCall
+		msg.ToolUseID = cm.ToolUseID
+		msg.ToolName = cm.ToolName
+		msg.ToolArguments = args
+	case gollm.RoleToolResult.ToString():
+		msg.Role = gollm.RoleToolResult
+		msg.ToolUseID = cm.ToolUseID
+		msg.ToolName = cm.ToolName
+	}
+
+	return msg
 }
 
 // Attemps to parse the conversationId passed to it and fetch a conversation.
@@ -53,6 +59,7 @@ func AutoConversation(
 	logger *slog.Logger,
 	db queries.DBTX,
 	customerId uuid.UUID,
+	model *LLM,
 	conversationId string,
 	systemMessage string,
 	title string,
@@ -62,7 +69,7 @@ func AutoConversation(
 	var err error
 	if conversationId == "" {
 		// create a new conversation
-		conv, err = CreateConversation(ctx, logger, db, customerId, systemMessage, title, conversationType)
+		conv, err = CreateConversation(ctx, logger, db, customerId, model, systemMessage, title, conversationType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create the conversation: %s", err)
 		}
@@ -86,6 +93,7 @@ func CreateConversation(
 	logger *slog.Logger,
 	db queries.DBTX,
 	customerId uuid.UUID,
+	model *LLM,
 	systemMessage string,
 	title string,
 	conversationType string,
@@ -105,13 +113,20 @@ func CreateConversation(
 		return nil, fmt.Errorf("failed to create the conversation: %s", err)
 	}
 
-	return &Conversation{
-		Conversation:   conversation,
-		Messages:       make([]*ConversationMessage, 0),
-		storedMessages: 0,
-		logger:         logger.With("conversationId", conversation.ID.String()),
-		New:            true,
-	}, nil
+	// create the conversation record
+	conv := &Conversation{
+		Conversation: conversation,
+		messages:     make([]*gollm.Message, 0),
+		logger:       logger.With("conversationId", conversation.ID.String()),
+		New:          true,
+	}
+
+	// Add the system message
+	if err := conv.saveMessage(ctx, db, model, gollm.NewSystemMessage(systemMessage)); err != nil {
+		return nil, fmt.Errorf("failed to sync the messages: %s", err)
+	}
+
+	return conv, nil
 }
 
 // Fetches a conversation and messages from a given conversationID
@@ -138,255 +153,163 @@ func GetConversation(
 	logger.DebugContext(ctx, "Fetched messages from database", "length", len(msgs))
 
 	// make the needed internal lists
-	messages := make([]*ConversationMessage, 0)
+	messages := make([]*gollm.Message, 0)
 	for _, item := range msgs {
-		cm := &ConversationMessage{ConversationMessage: item}
-		messages = append(messages, cm)
+		messages = append(messages, GoLLMMessageFromDB(item))
 	}
 
 	return &Conversation{
-		Conversation:   conv,
-		Messages:       messages,
-		storedMessages: len(messages),
-		logger:         logger,
-		New:            false,
+		Conversation: conv,
+		messages:     messages,
+		logger:       logger,
+		New:          false,
 	}, nil
 }
 
-// Get the internal messages as gollm message objects
-func (c *Conversation) GoLLMMessages() ([]*gollm.LanguageModelMessage, error) {
-	gollmMessages := make([]*gollm.LanguageModelMessage, 0)
-	for _, item := range c.Messages {
-		gollmMessage, err := item.ToGoLLMMessage()
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse gollm message: %s", err)
-		}
-		gollmMessages = append(gollmMessages, gollmMessage)
-	}
-
-	return gollmMessages, nil
-}
-
-func (c *Conversation) Completion(
+// Contains a JSON argument that should not be exposed if not necessary for normal conversations.
+// The `Completion` function calls this with an empty schema.
+func (c *Conversation) internalCompletion(
 	ctx context.Context,
 	db queries.DBTX,
 	model *LLM,
-	input string,
-) (string, error) {
+	message *gollm.Message,
+	tools []*gollm.Tool,
+	schema string,
+) (*gollm.CompletionResponse, error) {
 	logger := c.logger.With("model", model.ID.String())
 
-	// get the gollm object
-	lm, err := c.getGoLLM(ctx, model)
-	if err != nil {
-		return "", fmt.Errorf("failed to create the gollm: %s", err)
-	}
+	// create a copy of the messages array
+	messages := make([]*gollm.Message, len(c.messages))
+	copy(messages, c.messages)
+	// add the passed message
+	messages = append(messages, message)
 
+	// run the completion
 	logger.InfoContext(ctx, "Beginning conversation completion ...")
-	response, err := model.Completion(ctx, c.logger, lm, &CompletionArgs{
-		Input: input,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed conversation completion: %s", err)
-	}
-
-	// save the conversation records in the conversation
-	logger.InfoContext(ctx, "Saving the conversation ...")
-	if err := c.addMessages(ctx, db, model, lm.GetConversation()); err != nil {
-		return "", fmt.Errorf("failed to add the messages to the internal conversation: %s", err)
-	}
-
-	// report the usage
-	logger.InfoContext(ctx, "Reporting the usage ...")
-	if err := utils.ReportUsage(ctx, c.logger, db, c.CustomerID, lm.GetTokenRecords(), c.Conversation); err != nil {
-		return "", fmt.Errorf("failed to save the token usage")
-	}
-
-	logger.InfoContext(ctx, "Successfully saved conversation")
-	return response, nil
-}
-
-func JsonCompletion[T any](
-	c *Conversation,
-	ctx context.Context,
-	db queries.DBTX,
-	model *LLM,
-	input string,
-	schema string,
-) (*T, error) {
-	var response T
-	c.logger.InfoContext(ctx, "Beginning conversation json completion ...")
-
-	// get the gollm object
-	lm, err := c.getGoLLM(ctx, model)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create the gollm: %s", err)
-	}
-
-	rawResponse, err := model.Completion(ctx, c.logger, lm, &CompletionArgs{
-		Input:      input,
-		Json:       true,
+	response, err := model.Completion(ctx, c.logger, &CompletionArgs{
+		CustomerID: c.CustomerID.String(),
+		Messages:   messages,
+		Tools:      tools,
+		Json:       schema != "",
 		JsonSchema: schema,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed conversation completion: %s", err)
 	}
 
-	// parse as json
-	c.logger.InfoContext(ctx, "Parsing into json ...")
-	if err := json.Unmarshal([]byte(rawResponse), &response); err != nil {
-		return nil, fmt.Errorf("failed to serialize the json: %s. RAW: %s", err, rawResponse)
-	}
-
-	// save the conversation records in the conversation
-	c.logger.InfoContext(ctx, "Saving the conversation ...")
-	if err := c.addMessages(ctx, db, model, lm.GetConversation()); err != nil {
-		return nil, fmt.Errorf("failed to add the messages to the internal conversation: %s", err)
-	}
-
 	// report the usage
-	c.logger.InfoContext(ctx, "Reporting the usage ...")
-	if err := utils.ReportUsage(ctx, c.logger, db, c.CustomerID, lm.GetTokenRecords(), c.Conversation); err != nil {
+	c.usageRecords = append(c.usageRecords, response.UsageRecord)
+	logger.InfoContext(ctx, "Reporting the usage ...")
+	if err := utils.ReportUsage(ctx, c.logger, db, c.CustomerID, c.usageRecords, c.Conversation); err != nil {
+		c.messages = c.messages[:len(c.messages)-1]
 		return nil, fmt.Errorf("failed to save the token usage")
 	}
 
-	c.logger.InfoContext(ctx, "Successfully saved conversation")
-	return &response, nil
+	// add messages to the conversation
+	logger.InfoContext(ctx, "Saving the input message ...")
+	if err := c.saveMessage(ctx, db, model, message); err != nil {
+		c.messages = c.messages[:len(c.messages)-1]
+		return nil, fmt.Errorf("failed to save the input message to the conversation: %s", err)
+	}
+	logger.InfoContext(ctx, "Saving the output message ...")
+	if err := c.saveMessage(ctx, db, model, response.Message); err != nil {
+		c.messages = c.messages[:len(c.messages)-1]
+		return nil, fmt.Errorf("failed to save the output message to the conversation: %s", err)
+	}
+
+	logger.InfoContext(ctx, "Successfully saved conversation")
+	return response, nil
 }
 
-// Correctly sets the system message and creates a new gollm object based on the model that is passed
-func (c *Conversation) getGoLLM(ctx context.Context, model *LLM) (*gollm.LanguageModel, error) {
-	c.logger.DebugContext(ctx, "Creating the internal llm with the passed configuration ...")
+func (c *Conversation) Completion(
+	ctx context.Context,
+	db queries.DBTX,
+	model *LLM,
+	message *gollm.Message,
+	tools []*gollm.Tool,
+) (*gollm.CompletionResponse, error) {
+	return c.internalCompletion(ctx, db, model, message, tools, "")
+}
 
-	// create the gollm object
-	sysMessageRaw := model.GenerateSystemPrompt(c.Conversation.SystemMessage)
-	gollmMessages, err := c.GoLLMMessages()
+// Send a JSON completion against the model where the response is automatically serialized
+// from the response message. This function calls `Conversation.Completion` under the hood.
+// Note: This will not response with the entire response object as seen in Completion. Ensure
+// there is no information in this object that you need.
+func JsonCompletion[T any](
+	conv *Conversation,
+	ctx context.Context,
+	db queries.DBTX,
+	model *LLM,
+	message *gollm.Message,
+	tools []*gollm.Tool,
+	schema string,
+) (*T, error) {
+	// check the emssage
+	if message.Role == gollm.RoleToolCall || message.Role == gollm.RoleToolResult {
+		return nil, fmt.Errorf("the role cannot be a tool result or response to use JSON mode")
+	}
+
+	// create a completion
+	response, err := conv.internalCompletion(ctx, db, model, message, tools, schema)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the gollm messages: %s", err)
+		return nil, err
 	}
 
-	// set the first gollm message
-	sysMessage := gollm.LanguageModelMessage{
-		Role:    gollm.RoleSystem,
-		Message: sysMessageRaw,
-	}
-	if len(gollmMessages) == 0 {
-		gollmMessages = append(gollmMessages, &gollm.LanguageModelMessage{})
-	}
-	gollmMessages[0] = &sysMessage
-
-	// construct the object
-	lm := gollm.NewLanguageModelFromConversation(
-		c.CustomerID.String(),
-		c.logger,
-		gollmMessages,
-		nil,
-	)
-
-	if lm == nil {
-		return nil, fmt.Errorf("failed to create the gollm: %s", err)
+	// serialize the response
+	var resp T
+	if err := json.Unmarshal([]byte(response.Message.Message), &resp); err != nil {
+		return nil, fmt.Errorf("failed to serialize the JSON: %s", err)
 	}
 
-	return lm, nil
+	return &resp, nil
 }
 
-// Adds a list of messages to the conversation and updates the database.
-func (c *Conversation) addMessages(
+// Adds a message to the internal messages array and saves the messages to the database
+func (c *Conversation) saveMessage(
 	ctx context.Context,
 	db queries.DBTX,
 	model *LLM,
-	messages []*gollm.LanguageModelMessage,
+	message *gollm.Message,
 ) error {
-	for index := range len(messages) {
-		if index < c.storedMessages {
-			continue
-		}
-
-		c.Messages = append(c.Messages, &ConversationMessage{
-			ConversationMessage: &queries.ConversationMessage{
-				ConversationID: c.ID,
-				LlmID:          utils.GoogleUUIDToPGXUUID(model.ID),
-				Model:          model.Model,
-				Temperature:    model.Temperature,
-				Instructions:   model.Instructions,
-				Role:           messages[index].Role.ToString(),
-				Message:        messages[index].Message,
-				Index:          int32(len(c.Messages)),
-			},
-		})
+	input := &queries.CreateConversationMessageParams{
+		ConversationID: c.ID,
+		LlmID:          utils.GoogleUUIDToPGXUUID(model.ID),
+		Model:          model.Model,
+		Temperature:    model.Temperature,
+		Instructions:   model.Instructions,
+		Role:           message.Role.ToString(),
+		Message:        message.Message,
+		Index:          int32(len(c.messages)),
+		ToolUseID:      message.ToolUseID,
+		ToolName:       message.ToolName,
 	}
 
-	if err := c.SyncMessages(ctx, db); err != nil {
-		return fmt.Errorf("failed to sync the messages with the database: %s", err)
-	}
-
-	return nil
-}
-
-// Replaces the internal messages array with the given list, and updates in the database.
-// If this fails, then the message list does not get changed.
-func (c *Conversation) replaceMessages(
-	ctx context.Context,
-	db queries.DBTX,
-	model *LLM,
-	messages []*gollm.LanguageModelMessage,
-) error {
-	// create a copy of the messages
-	var oldMsgs []*ConversationMessage
-	if r := copy(oldMsgs, c.Messages); r == -1 {
-		// no idea if this is an actual thing this function can throw as I am on an airplane and
-		// cannot google, but may as well check
-		return fmt.Errorf("failed to copy messages")
-	}
-
-	// clear messages in the database
-	dmodel := queries.New(db)
-	if err := dmodel.ClearConversation(ctx, c.ID); err != nil {
-		c.Messages = oldMsgs
-		return fmt.Errorf("failed to clear the conversation: %s", err)
-	}
-	c.Messages = make([]*ConversationMessage, 0)
-
-	// create the new message array and add the messages
-	if err := c.addMessages(ctx, db, model, messages); err != nil {
-		c.Messages = oldMsgs
-		return fmt.Errorf("failed to add the messages: %s", err)
-	}
-
-	return nil
-}
-
-// This function syncs the internal message state to the database. Calling this function is not
-// required in most cases, as the `Completion` method handles storing the conversation state,
-// syncing the database, and reporting the token usage
-func (c *Conversation) SyncMessages(
-	ctx context.Context,
-	db queries.DBTX,
-) error {
-	dmodel := queries.New(db)
-
-	for index, item := range c.Messages {
-		msg, err := dmodel.CreateConversationMessage(ctx, &queries.CreateConversationMessageParams{
-			ConversationID: c.ID,
-			LlmID:          item.LlmID,
-			Model:          item.Model,
-			Temperature:    item.Temperature,
-			Instructions:   item.Instructions,
-			Role:           item.Role,
-			Message:        item.Message,
-			Index:          int32(index),
-		})
+	// add the arguments if valid
+	if message.Role == gollm.RoleToolCall {
+		enc, err := json.Marshal(message.ToolArguments)
 		if err != nil {
-			return fmt.Errorf("failed to refresh message: %s", err)
+			return fmt.Errorf("failed encode the tool arguments: %s", err)
 		}
-		c.Messages[index] = &ConversationMessage{ConversationMessage: msg}
+		input.ToolArguments = enc
 	}
-	c.storedMessages = len(c.Messages)
+
+	// post to the database
+	dmodel := queries.New(db)
+	_, err := dmodel.CreateConversationMessage(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to save the message: %s", err)
+	}
+
+	// add the message to the internal array
+	c.messages = append(c.messages, message)
 	return nil
+}
+
+// return copies
+func (c Conversation) GetMessages() []*gollm.Message {
+	return c.messages
 }
 
 func (c *Conversation) PrintConversation() {
-	for _, item := range c.Messages {
-		fmt.Printf("[[%s]]\n", item.Role)
-		fmt.Printf("> %s\n---\n", item.Message)
-	}
+	gollm.PrintConversation(c.messages)
 }

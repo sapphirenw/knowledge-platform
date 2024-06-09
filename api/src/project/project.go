@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -139,6 +140,7 @@ func (p *Project) GenerateIdeas(
 		logger,
 		db,
 		p.CustomerID,
+		model,
 		args.ConversationId,
 		prompts.PROJECT_IDEA_SYSTEM,
 		fmt.Sprintf("Idea Generation for project: %s", p.Title),
@@ -161,7 +163,7 @@ func (p *Project) GenerateIdeas(
 
 	// run the completion against the conversation
 	response, err := llm.JsonCompletion[projectIdeas](
-		conv, ctx, db, model, prompt,
+		conv, ctx, db, model, gollm.NewUserMessage(prompt), nil,
 		`{"ideas": [{"title", string}]}`,
 	)
 	if err != nil {

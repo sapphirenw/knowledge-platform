@@ -506,6 +506,11 @@ CREATE TABLE conversation_message(
     message TEXT NOT NULL,
     index INT NOT NULL,
 
+    -- function call information
+    tool_use_id TEXT NOT NULL DEFAULT '',
+    tool_name TEXT NOT NULL DEFAULT '',
+    tool_arguments JSONB NULL DEFAULT '{}',
+
     PRIMARY KEY (id),
     CONSTRAINT cnst_conversation_message_unique UNIQUE
     (conversation_id, index),
@@ -918,7 +923,7 @@ Available Models
 
 -- google
 INSERT INTO available_model (
-    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+    id, provider, display_name, description, input_token_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
 ) VALUES (
     'gemini-1.5-pro',
     'google',
@@ -946,7 +951,7 @@ INSERT INTO available_model (
 
 -- openai
 INSERT INTO available_model (
-    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+    id, provider, display_name, description, input_token_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
 ) VALUES (
     'gpt-4o',
     'openai',
@@ -958,7 +963,7 @@ INSERT INTO available_model (
     5.00
 );
 INSERT INTO available_model (
-    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+    id, provider, display_name, description, input_token_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
 ) VALUES (
     'gpt-3.5-turbo',
     'openai',
@@ -972,9 +977,9 @@ INSERT INTO available_model (
 
 -- anthropic
 INSERT INTO available_model (
-    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+    id, provider, display_name, description, input_token_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
 ) VALUES (
-    'claude-3-opus',
+    'claude-3-opus-20240229',
     'anthropic',
     'Claude-3 Opus',
     'The most powerful model from Anthropic. Slow but powerful and creative.',
@@ -984,9 +989,9 @@ INSERT INTO available_model (
     75.00
 );
 INSERT INTO available_model (
-    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+    id, provider, display_name, description, input_token_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
 ) VALUES (
-    'claude-3-sonnet',
+    'claude-3-sonnet-20240229',
     'anthropic',
     'Claude-3 Sonnet',
     'A balance of performance and cost from Anthropic',
@@ -996,9 +1001,9 @@ INSERT INTO available_model (
     15.00
 );
 INSERT INTO available_model (
-    id, provider, display_name, description, input_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
+    id, provider, display_name, description, input_token_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens 
 ) VALUES (
-    'claude-3-haiku',
+    'claude-3-haiku-20240307',
     'anthropic',
     'Claude-3 Haiku',
     'Small but instant model from Anthropic',

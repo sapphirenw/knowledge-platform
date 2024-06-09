@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -18,18 +19,19 @@ func TestConversation(t *testing.T) {
 	pool := testingutils.GetDatabase(t, ctx)
 	c := testingutils.GetTestCustomer(t, ctx, pool)
 
-	conv, err := CreateConversation(ctx, logger, pool, c.ID, "You are a pirate", "Test Conversation", "Testing")
-	require.NoError(t, err)
-
 	// get a default llm
 	model, err := GetLLM(ctx, pool, c.ID, pgtype.UUID{})
 	require.NoError(t, err)
 
-	// create a completion event
-	response, err := conv.Completion(ctx, pool, model, "Ahoy Matey!!")
+	conv, err := CreateConversation(ctx, logger, pool, c.ID, model, "You are a pirate", "Test Conversation", "Testing")
 	require.NoError(t, err)
 
-	fmt.Printf("MODEL RESPONSE: %s\n", response)
+	// create a completion event
+	userMsg := gollm.NewUserMessage("Ahoy Matey!!")
+	response, err := conv.Completion(ctx, pool, model, userMsg, nil)
+	require.NoError(t, err)
+
+	fmt.Printf("MODEL RESPONSE: %s\n", response.Message.Message)
 
 	// check the records against the database
 	dmodel := queries.New(pool)

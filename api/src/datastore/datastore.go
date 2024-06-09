@@ -30,7 +30,7 @@ func GetSummary(
 	ctx context.Context,
 	logger *slog.Logger,
 	customerId uuid.UUID,
-	tokenRecords chan *tokens.TokenRecord,
+	tokenRecords chan *tokens.UsageRecord,
 	model *llm.LLM,
 ) (string, error) {
 	summary := obj.getSummary()
