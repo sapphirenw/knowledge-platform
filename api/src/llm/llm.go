@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
-	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -20,9 +19,10 @@ type LLM struct {
 }
 
 type CompletionArgs struct {
-	CustomerID string
-	Messages   []*gollm.Message
-	Tools      []*gollm.Tool
+	CustomerID   string
+	Messages     []*gollm.Message
+	Tools        []*gollm.Tool
+	RequiredTool *gollm.Tool
 
 	Json       bool
 	JsonSchema string
@@ -171,6 +171,7 @@ func (model *LLM) Completion(
 		JsonSchema:   args.JsonSchema,
 		Conversation: msgs,
 		Tools:        args.Tools,
+		RequiredTool: args.RequiredTool,
 	}
 
 	lm := gollm.NewLanguageModel(args.CustomerID, logger, nil)
@@ -184,77 +185,20 @@ func (model *LLM) Completion(
 	return response, nil
 }
 
-type SingleCompletionResponse[T any] struct {
-	Result       T
-	UsageRecords []*tokens.UsageRecord
+// Convenience function wrapper around the `Completion` function for performing one-off requests
+func (model *LLM) SingleCompletion(
+	ctx context.Context,
+	logger *slog.Logger,
+	customerId uuid.UUID,
+	systemMessage string,
+	input string,
+) (*gollm.CompletionResponse, error) {
+	messages := make([]*gollm.Message, 0)
+	messages = append(messages, gollm.NewSystemMessage(systemMessage))
+	messages = append(messages, gollm.NewUserMessage(input))
+
+	return model.Completion(ctx, logger, &CompletionArgs{
+		CustomerID: customerId.String(),
+		Messages:   messages,
+	})
 }
-
-// for performing a single shot completion against an llm, and reporting the usage to the database.
-// This is not to be used for conversations, only single operations against the model.
-// func SingleCompletion(
-// 	ctx context.Context,
-// 	model *LLM,
-// 	logger *slog.Logger,
-// 	customerId uuid.UUID,
-// 	sysMessage string,
-// 	tokenRecords chan *tokens.UsageRecord,
-// 	args *CompletionArgs,
-// ) (string, error) {
-// 	if args == nil || args.Input == "" {
-// 		return "", fmt.Errorf("the input cannot be empty")
-// 	}
-// 	if args.Json && args.JsonSchema == "" {
-// 		return "", fmt.Errorf("cannot have an empty schema with json mode enabled")
-// 	}
-
-// 	l := logger.With("completionType", "single", "args", *args)
-// 	l.DebugContext(ctx, "Creating the gollm ...")
-// 	lm := gollm.NewLanguageModel(customerId.String(), l, sysMessage, nil)
-// 	l.InfoContext(ctx, "Sending the completion request ...")
-
-// 	input := &gollm.CompletionInput{
-// 		Model:       model.Model,
-// 		Temperature: model.Temperature,
-// 		Json:        args.Json,
-// 		JsonSchema:  args.JsonSchema,
-// 		Input:       args.Input,
-// 	}
-
-// 	response, err := lm.DynamicCompletion(ctx, input)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed the dynamic completion: %s", err)
-// 	}
-// 	l.DebugContext(ctx, "Gathered response")
-
-// 	// parse usage records
-// 	for _, item := range lm.GetTokenRecords() {
-// 		tokenRecords <- item
-// 	}
-
-// 	l.InfoContext(ctx, "Successfully sent the one-shot request")
-// 	return response, nil
-// }
-
-// func SingleCompletionJson[T any](
-// 	ctx context.Context,
-// 	model *LLM,
-// 	logger *slog.Logger,
-// 	customerId uuid.UUID,
-// 	sysMessage string,
-// 	usageRecords chan *tokens.UsageRecord,
-// 	args *CompletionArgs,
-// ) (*T, error) {
-// 	var result T
-
-// 	response, err := SingleCompletion(ctx, model, logger, customerId, sysMessage, usageRecords, args)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	// parse the json
-// 	if err := json.Unmarshal([]byte(response), &result); err != nil {
-// 		return nil, fmt.Errorf("failed to parse JSON: %s", err)
-// 	}
-
-// 	return &result, nil
-// }

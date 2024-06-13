@@ -28,7 +28,7 @@ func TestConversation(t *testing.T) {
 
 	// create a completion event
 	userMsg := gollm.NewUserMessage("Ahoy Matey!!")
-	response, err := conv.Completion(ctx, pool, model, userMsg, nil)
+	response, err := conv.Completion(ctx, pool, model, userMsg, nil, nil)
 	require.NoError(t, err)
 
 	fmt.Printf("MODEL RESPONSE: %s\n", response.Message.Message)

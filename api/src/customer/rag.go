@@ -1,12 +1,26 @@
 package customer
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jake-landersweb/gollm/v2/src/gollm"
+	"github.com/jake-landersweb/gollm/v2/src/ltypes"
+	"github.com/jake-landersweb/gollm/v2/src/tokens"
+	"github.com/sapphirenw/ai-content-creation-api/src/llm"
+	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
+	"github.com/sapphirenw/ai-content-creation-api/src/utils"
+	"github.com/sapphirenw/ai-content-creation-api/src/vectorstore"
+)
+
+const (
+	toolVectorQuery = "query_user_information"
 )
 
 type ragRequest struct {
@@ -32,10 +46,10 @@ func (r ragRequest) Valid(ctx context.Context) map[string]string {
 }
 
 type ragResponse struct {
-	ConverationId string                 `json:"converationId"`
-	Documents     []*queries.Document    `json:"documents"`
-	WebsitePages  []*queries.WebsitePage `json:"websitePages"`
-	Response      string                 `json:"response"`
+	ConversationId string                 `json:"conversationId"`
+	Documents      []*queries.Document    `json:"documents"`
+	WebsitePages   []*queries.WebsitePage `json:"websitePages"`
+	Message        *gollm.Message         `json:"message"`
 }
 
 func handleRAG(
@@ -75,455 +89,224 @@ func (c *Customer) RAG(
 	db queries.DBTX,
 	args *ragRequest,
 ) (*ragResponse, error) {
-	return nil, nil
-	// logger := c.logger.With("function", "RAG")
-	// logger.InfoContext(ctx, "Beginning document retrieval pathway")
+	logger := c.logger.With("function", "RAG")
+	logger.InfoContext(ctx, "Beginning document retrieval pathway")
 	// dmodel := queries.New(db)
 
-	// /// INITIAL SETUP
+	// initial setup
+	logger.DebugContext(ctx, "Getting required objects ...")
+	tools := getRAGTools()
 
-	// logger.DebugContext(ctx, "Getting required objects ...")
-	// // get embeddings
-	// embs := c.GetEmbeddings(ctx)
+	// track all token usage across this request through a buffered channel
+	// var tokenMutex sync.Mutex
+	usageRecords := make([]*tokens.UsageRecord, 0)
+	reportUsage := func() error {
+		if err := utils.ReportUsage(ctx, logger, db, c.ID, usageRecords, nil); err != nil {
+			return fmt.Errorf("failed to report the usage: %s", err)
+		}
+		return nil
+	}
 
-	// // track all token usage across this request through a buffered channel
-	// usageRecords := make(chan *tokens.UsageRecord, 100)
+	/// get the chat llm
+	logger.InfoContext(ctx, "Getting the chat llm ...")
+	var chatLLMId pgtype.UUID
+	chatLLMId.Scan(args.ChatModelId)
+	chatLLM, err := llm.GetLLM(ctx, db, c.ID, chatLLMId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the chat llm: %s", err)
+	}
 
 	// // get the conversation
-	// logger.InfoContext(ctx, "Getting conversation ...")
-	// conv, err := llm.AutoConversation(
-	// 	ctx,
-	// 	logger,
-	// 	db,
-	// 	c.ID,
-	// 	args.ConversationId,
-	// 	prompts.RAG_COMPLETE_SYSTEM_PROMPT,
-	// 	"Information Chat",
-	// 	"rag",
-	// )
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to parse the conversation: %s", err)
-	// }
+	logger.InfoContext(ctx, "Getting conversation ...")
+	conv, err := llm.AutoConversation(
+		ctx,
+		logger,
+		db,
+		c.ID,
+		chatLLM,
+		args.ConversationId,
+		prompts.RAG_COMPLETE_SYSTEM_PROMPT,
+		"Information Chat",
+		"rag",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the conversation: %s", err)
+	}
 
-	// /// get the chat llm
-	// logger.InfoContext(ctx, "Getting the chat llm ...")
-	// var chatLLMId pgtype.UUID
-	// chatLLMId.Scan(args.ChatModelId)
-	// chatLLM, err := llm.GetLLM(ctx, db, c.ID, chatLLMId)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get the chat llm: %s", err)
-	// }
+	// check the state of the conversation
+	if conv.New {
+		// send a request for a tool usage
+		message := gollm.NewUserMessage(args.Input)
+		response, err := conv.Completion(ctx, db, chatLLM, message, tools, tools[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed the completion: %s", err)
+		}
 
-	// /// GENERATE A SIMPLE QUERY BASED ON USERS INPUT
+		// report the usage
+		usageRecords = append(usageRecords, response.UsageRecord)
+		if err := reportUsage(); err != nil {
+			return nil, err
+		}
 
-	// // get the llm
-	// vectorQueryModel, err := dmodel.GetInteralLLM(ctx, "Vector Query Generator")
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get internal llm: %s", err)
-	// }
+		// return the message
+		return &ragResponse{
+			ConversationId: conv.ID.String(),
+			Message:        response.Message,
+		}, nil
+	}
 
-	// // create the completion based on the user's query
-	// logger.InfoContext(ctx, "Simplifying the user's query ...")
-	// vectorQueryLLM := &llm.LLM{Llm: vectorQueryModel}
-	// simpleQueryResponse, err := llm.SingleCompletion(
-	// 	ctx, vectorQueryLLM, logger, c.ID,
-	// 	prompts.RAG_SIMPLE_QUERY_SYSTEM_PROMPT,
-	// 	usageRecords,
-	// 	&llm.CompletionArgs{Input: args.Input},
-	// )
-	// if err != nil || simpleQueryResponse == "" {
-	// 	return nil, fmt.Errorf("error performing the simplifier completion: %s", err)
-	// }
+	// check the state of the last message
+	messages := conv.GetMessages()
+	lastMessage := conv.GetMessages()[len(messages)-1]
+	logger.InfoContext(ctx, "Parsing role...", "role", lastMessage.Role.ToString())
+	switch lastMessage.Role {
+	case gollm.RoleToolCall:
+		// parse the tool call
+		switch lastMessage.ToolName {
+		case toolVectorQuery:
+			/// RUN THE VECTOR STORE QUERY
+			vecResponse, err := runVectorQuery(ctx, c, conv, lastMessage, db, chatLLM)
+			if err != nil {
+				return nil, fmt.Errorf("failed to run the vector query: %s", err)
+			}
 
-	// // parse the query list
-	// simpleQueries := strings.Split(simpleQueryResponse, ",")
+			return &ragResponse{
+				ConversationId: conv.ID.String(),
+				Documents:      vecResponse.vectorResponse.Documents,
+				WebsitePages:   vecResponse.vectorResponse.WebsitePages,
+				Message:        vecResponse.message,
+			}, nil
 
-	// /// QUERY THE VECTOR STORE (POTENTIALLY MULTIPLE TIMES BASED ON THE RETURNED QUERY LIST)
-	// /// AND COLLECT INTO A LIST OF DOCUMENTS AND WEBSITE PAGES
+		default:
+			return nil, fmt.Errorf("invalid tool call, tool name not supported: %s", lastMessage.ToolName)
+		}
+	case gollm.RoleAI:
+		// handle a normal request from the user
+		message := gollm.NewUserMessage(args.Input)
+		response, err := conv.Completion(ctx, db, chatLLM, message, tools, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send the competion")
+		}
 
-	// // create structures for routines
-	// var wg sync.WaitGroup
-	// k := 2 // number of objects to query
-	// docs := make(chan *datastore.Document, k*len(simpleQueries))
-	// pages := make(chan *datastore.WebsitePage, k*len(simpleQueries))
+		// report the usage records
+		usageRecords = append(usageRecords, response.UsageRecord)
+		if err := reportUsage(); err != nil {
+			return nil, err
+		}
 
-	// // compose a query for the vectorstore
-	// queryInput := vectorstore.QueryInput{
-	// 	CustomerId: c.ID,
-	// 	Embeddings: embs,
-	// 	DB:         db,
-	// 	K:          2,
-	// 	Logger:     logger,
-	// }
+		// compose the response
+		return &ragResponse{
+			ConversationId: conv.ID.String(),
+			Message:        response.Message,
+		}, nil
+	case gollm.RoleToolResult:
+		// send the completion with the current state of the conversation
+		response, err := conv.Completion(ctx, db, chatLLM, nil, tools, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send the competion")
+		}
 
-	// // parse the args for the scoped ids when performing the vector query
-	// websiteIds := make([]uuid.UUID, len(args.WebsiteIds))
-	// for _, item := range args.WebsiteIds {
-	// 	parsed, err := uuid.Parse(item)
-	// 	if err == nil {
-	// 		websiteIds = append(websiteIds, parsed)
-	// 	}
-	// }
-	// websitePageIds := make([]uuid.UUID, len(args.WebsitePageIds))
-	// for _, item := range args.WebsitePageIds {
-	// 	parsed, err := uuid.Parse(item)
-	// 	if err == nil {
-	// 		websitePageIds = append(websitePageIds, parsed)
-	// 	}
-	// }
-	// folderIds := make([]uuid.UUID, len(args.FolderIds))
-	// for _, item := range args.FolderIds {
-	// 	parsed, err := uuid.Parse(item)
-	// 	if err == nil {
-	// 		folderIds = append(folderIds, parsed)
-	// 	}
-	// }
-	// documentIds := make([]uuid.UUID, len(args.DocumentIds))
-	// for _, item := range args.DocumentIds {
-	// 	parsed, err := uuid.Parse(item)
-	// 	if err == nil {
-	// 		documentIds = append(documentIds, parsed)
-	// 	}
-	// }
+		// report the usage records
+		usageRecords = append(usageRecords, response.UsageRecord)
+		if err := reportUsage(); err != nil {
+			return nil, err
+		}
 
-	// logger.InfoContext(ctx, "Querying the users information for each simple query ...")
-	// for _, item := range simpleQueries {
-	// 	queryInput.Query = item
-	// 	l := logger.With("query", queryInput.Query)
-	// 	l.InfoContext(ctx, "Running query ...")
+		// return
+		return &ragResponse{
+			ConversationId: conv.ID.String(),
+			Message:        response.Message,
+		}, nil
 
-	// 	// get the docs
-	// 	l.InfoContext(ctx, "Querying documents ...")
-	// 	docResponse, err := vectorstore.QueryDocuments(ctx, &vectorstore.QueryDocstoreInput{
-	// 		QueryInput:  &queryInput,
-	// 		FolderIds:   folderIds,
-	// 		DocumentIds: documentIds,
-	// 	})
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("failed to query the documents: %s", err)
-	// 	}
+	default:
+		// invalid conversation state
+		return nil, fmt.Errorf("invalid conversation state. Last message role: %s", lastMessage.Role.ToString())
+	}
+}
 
-	// 	for _, doc := range docResponse {
-	// 		docs <- doc
-	// 	}
+type runVectorQueryResponse struct {
+	message        *gollm.Message
+	usageRecords   []*tokens.UsageRecord
+	vectorResponse *queries.QueryVectorStoreResponse
+}
 
-	// 	// get the pages
-	// 	l.InfoContext(ctx, "Querying website pages ...")
+func runVectorQuery(
+	ctx context.Context,
+	customer *Customer,
+	conv *llm.Conversation,
+	lastMessage *gollm.Message,
+	db queries.DBTX,
+	lm *llm.LLM,
+) (*runVectorQueryResponse, error) {
+	logger := customer.logger.With("func", "runVectorQuery")
+	// parse the argument
+	vecQuery := lastMessage.ToolArguments["vector_query"].(string)
+	if vecQuery == "" {
+		return nil, fmt.Errorf("failed to use the tool")
+	}
 
-	// 	pageResponse, err := vectorstore.QueryWebsitePages(ctx, &vectorstore.QueryWebsitePagesInput{
-	// 		QueryInput:     &queryInput,
-	// 		WebsiteIds:     websiteIds,
-	// 		WebsitePageIds: websitePageIds,
-	// 	})
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("failed to query the website pages: %s", err)
-	// 	}
+	logger.InfoContext(ctx, "Running vector query ...", "query", vecQuery)
 
-	// 	for _, page := range pageResponse {
-	// 		pages <- page
-	// 	}
-	// }
+	// get the embeddings
+	embs := customer.GetEmbeddings(ctx)
 
-	// // collect the items
-	// logger.DebugContext(ctx, "Collecting channels ...")
-	// close(docs)
-	// close(pages)
+	// run all the simple queries against the vector store
+	vectorResponse, err := vectorstore.Query(ctx, &vectorstore.QueryAllInput{
+		QueryInput: &vectorstore.QueryInput{
+			CustomerId: customer.ID,
+			Embeddings: embs,
+			DB:         db,
+			Query:      vecQuery,
+			K:          4,
+			Logger:     logger,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query the vectorstore: %s", err)
+	}
 
-	// /// spawn go-routines for each document and website page
+	// create a string from the results
+	responseBuffer := new(bytes.Buffer)
+	for _, item := range vectorResponse.Vectors {
+		if _, err := responseBuffer.WriteString(item.Raw); err != nil {
+			logger.ErrorContext(ctx, "There was an issue writing to the buffer", "error", err)
+		}
+	}
 
-	// // get the summary model
-	// var summaryModelId pgtype.UUID
-	// summaryModelId.Scan(args.SummaryModelId)
-	// summaryLLM, err := llm.GetLLM(ctx, db, c.ID, summaryModelId)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get a suitable model for summarizaion: %s", err)
-	// }
+	responseString := responseBuffer.String()
+	if responseString == "" {
+		responseString = "[No information was found]"
+	}
+	toolResponse := fmt.Sprintf("Query Response:\n%s", responseString)
 
-	// // get the ranker llm
-	// rankerModel, err := dmodel.GetInteralLLM(ctx, "Content Ranker")
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get internal llm: %s", err)
-	// }
-	// rankerLLM := &llm.LLM{Llm: rankerModel}
+	// save message to the conversation
+	message := gollm.NewToolResultMessage(lastMessage.ToolUseID, lastMessage.ToolName, toolResponse)
+	if err := conv.SaveMessage(ctx, db, lm, message); err != nil {
+		return nil, fmt.Errorf("failed to save the message")
+	}
 
-	// // channel for critical errors
-	// errCh := make(chan error, k*len(simpleQueries))
+	// compose the response
+	return &runVectorQueryResponse{
+		message:        message,
+		usageRecords:   embs.GetUsageRecords(),
+		vectorResponse: vectorResponse,
+	}, nil
+}
 
-	// // objects to update
-	// updateDocs := make(chan *vectorstore.DocumentResponse, k*len(simpleQueries))
-	// updatePages := make(chan *vectorstore.WebsitePageResponse, k*len(simpleQueries))
-
-	// // objects that passed validation
-	// validatedDocs := make(chan *vectorstore.DocumentResponse, k*len(simpleQueries))
-	// validatedPages := make(chan *vectorstore.WebsitePageResponse, k*len(simpleQueries))
-
-	// // parse all documents
-	// for i := range docs {
-	// 	l := logger.With("doc", i.ID.String())
-	// 	wg.Add(1)
-	// 	go func(doc *vectorstore.DocumentResponse) {
-	// 		defer wg.Done()
-	// 		l.InfoContext(ctx, "Parsing document ...")
-
-	// 		/// generate a summary of the content if needed
-	// 		genSummary := false
-	// 		if doc.Summary == "" {
-	// 			l.InfoContext(ctx, "Document has no summary")
-	// 			genSummary = true
-	// 		} else {
-	// 			l.InfoContext(ctx, "Document already has a summary")
-	// 			if doc.SummarySha256 != doc.Sha256 {
-	// 				l.InfoContext(ctx, "Summary sha256 does not match")
-	// 				genSummary = true
-	// 			}
-	// 		}
-
-	// 		// generate the summary of the document
-	// 		if genSummary {
-	// 			// create a completion for this document
-	// 			summary, err := llm.SingleCompletion(
-	// 				ctx, summaryLLM, l, c.ID,
-	// 				prompts.RAG_SIMPLE_QUERY_SYSTEM_PROMPT,
-	// 				usageRecords,
-	// 				&llm.CompletionArgs{Input: doc.Content},
-	// 			)
-	// 			if err != nil {
-	// 				// do not fail for summaries like this
-	// 				l.WarnContext(ctx, "Failed to create the summary", "error", err)
-	// 				return
-	// 			} else {
-	// 				// add summary and update
-	// 				doc.Summary = summary
-	// 				updateDocs <- doc
-	// 			}
-	// 		}
-
-	// 		/// validate the summary for relevance
-	// 		if args.CheckQuality {
-	// 			l.InfoContext(ctx, "Ranking the summary ...")
-	// 			rankerResponse, err := llm.SingleCompletionJson[prompts.RagRankerSchema](
-	// 				ctx, rankerLLM, l, c.ID,
-	// 				prompts.RAG_RANKER_SYSTEM_PROMPT,
-	// 				usageRecords,
-	// 				&llm.CompletionArgs{
-	// 					Input:      doc.Summary,
-	// 					Json:       true,
-	// 					JsonSchema: prompts.RAG_RANKER_SCHEMA,
-	// 				},
-	// 			)
-	// 			if err != nil {
-	// 				errCh <- fmt.Errorf("error performing the ranking completion: %s", err)
-	// 			}
-
-	// 			l.DebugContext(ctx, "Successfully ranked summary", "relevance", rankerResponse.Relevance, "quality", rankerResponse.Quality)
-
-	// 			// evaluate the quality
-	// 			if rankerResponse.Relevance > 40 && rankerResponse.Quality > 70 {
-	// 				l.InfoContext(ctx, "Document passed performance evaluation")
-	// 				validatedDocs <- doc
-	// 			}
-	// 		} else {
-	// 			l.InfoContext(ctx, "Skipping quality check")
-	// 			validatedDocs <- doc
-	// 		}
-	// 	}(i)
-	// }
-
-	// // parse all pages
-	// for i := range pages {
-	// 	l := logger.With("page", i.ID.String())
-	// 	wg.Add(1)
-	// 	go func(page *vectorstore.WebsitePageResponse) {
-	// 		defer wg.Done()
-	// 		l.InfoContext(ctx, "Parsing website page ...")
-
-	// 		/// generate a summary of the content if needed
-	// 		genSummary := false
-	// 		if page.Summary == "" {
-	// 			l.InfoContext(ctx, "Page has no summary")
-	// 			genSummary = true
-	// 		} else if page.SummarySha256 != page.Sha256 {
-	// 			l.InfoContext(ctx, "Summary sha256 does not match page sha256")
-	// 			genSummary = true
-	// 		} else {
-	// 			l.InfoContext(ctx, "Using cached summary")
-	// 			genSummary = false
-	// 		}
-
-	// 		// generate the summary of the document
-	// 		if genSummary {
-	// 			// create a completion for this document
-	// 			summary, err := llm.SingleCompletion(
-	// 				ctx, summaryLLM, l, c.ID,
-	// 				prompts.RAG_SIMPLE_QUERY_SYSTEM_PROMPT,
-	// 				usageRecords,
-	// 				&llm.CompletionArgs{Input: page.Content},
-	// 			)
-	// 			if err != nil {
-	// 				// do not fail for summaries like this
-	// 				l.WarnContext(ctx, "Failed to create the summary for the page", "error", err)
-	// 				return
-	// 			} else {
-	// 				// add summary and update
-	// 				page.Summary = summary
-	// 				updatePages <- page
-	// 			}
-	// 		}
-
-	// 		if args.CheckQuality {
-	// 			/// validate the summary for relevance
-	// 			l.InfoContext(ctx, "Ranking the page summary ...")
-	// 			rankerResponse, err := llm.SingleCompletionJson[prompts.RagRankerSchema](
-	// 				ctx, rankerLLM, l, c.ID,
-	// 				prompts.RAG_RANKER_SYSTEM_PROMPT,
-	// 				usageRecords,
-	// 				&llm.CompletionArgs{
-	// 					Input:      page.Summary,
-	// 					Json:       true,
-	// 					JsonSchema: prompts.RAG_RANKER_SCHEMA,
-	// 				},
-	// 			)
-	// 			if err != nil {
-	// 				errCh <- fmt.Errorf("error performing the ranking completion on the page: %s", err)
-	// 			}
-
-	// 			l.DebugContext(ctx, "Successfully ranked summary", "relevance", rankerResponse.Relevance, "quality", rankerResponse.Quality)
-
-	// 			// evaluate the quality
-	// 			if rankerResponse.Relevance > 40 && rankerResponse.Quality > 70 {
-	// 				l.InfoContext(ctx, "Page passed performance evaluation")
-	// 				validatedPages <- page
-	// 			}
-	// 		} else {
-	// 			l.InfoContext(ctx, "Skipping quality check")
-	// 			validatedPages <- page
-	// 		}
-	// 	}(i)
-	// }
-
-	// /// TODO -- parse the web for results to aid this portion of the conversation
-
-	// /// collect all go routines and channels
-	// wg.Wait()
-	// close(updateDocs)
-	// close(updatePages)
-	// close(validatedDocs)
-	// close(validatedPages)
-	// close(usageRecords)
-	// close(errCh)
-
-	// // check for critical errors
-	// for err := range errCh {
-	// 	return nil, err
-	// }
-
-	// // create lists of the validated objects
-	// validatedDocsList := make([]*vectorstore.DocumentResponse, 0)
-	// for doc := range validatedDocs {
-	// 	validatedDocsList = append(validatedDocsList, doc)
-	// }
-	// validatedPagesList := make([]*vectorstore.WebsitePageResponse, 0)
-	// for page := range validatedPages {
-	// 	validatedPagesList = append(validatedPagesList, page)
-	// }
-
-	// /// compose the query for the correct model
-	// documentSummaries := ""
-	// for _, doc := range validatedDocsList {
-	// 	documentSummaries += fmt.Sprintf("\nDocument: %s", doc.Summary)
-	// }
-	// pageSummaries := ""
-	// for _, page := range validatedPagesList {
-	// 	pageSummaries += fmt.Sprintf("\nInternal Page: %s", page.Summary)
-	// }
-	// query := fmt.Sprintf("User Query: %s\nDocuments: %s\nInternal Pages: %s", args.Input, documentSummaries, pageSummaries)
-
-	// /// send the request and the
-
-	// /// send the conversation request and the reporting/updating functions concurrently to save time
-	// var convResponse string
-	// errCh = make(chan error)
-
-	// // send the conversation request
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	// 	r, err := conv.Completion(ctx, db, chatLLM, query)
-	// 	if err != nil {
-	// 		errCh <- fmt.Errorf("failed to complete the conversation: %s", err)
-	// 		return
-	// 	}
-	// 	convResponse = r
-
-	// 	/// analyze the response for hallucinations
-	// 	logger.InfoContext(ctx, "TODO -- analyze for halucinations")
-	// }()
-
-	// // run code to finish after the request has been sent
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	// 	// report all token usage
-	// 	logger.InfoContext(ctx, "Reporting usage ...")
-	// 	totalRecords := make([]*tokens.UsageRecord, 0)
-	// 	for item := range usageRecords {
-	// 		totalRecords = append(totalRecords, item)
-	// 	}
-	// 	if err := utils.ReportUsage(ctx, logger, db, c.ID, totalRecords, nil); err != nil {
-	// 		errCh <- fmt.Errorf("failed to report usage: %s", err)
-	// 	}
-
-	// 	// update all documents
-	// 	logger.InfoContext(ctx, "Updating documents ...")
-	// 	for doc := range updateDocs {
-	// 		_, err := dmodel.UpdateDocumentSummary(ctx, &queries.UpdateDocumentSummaryParams{
-	// 			ID:            doc.ID,
-	// 			Summary:       doc.Summary,
-	// 			SummarySha256: doc.Sha256,
-	// 		})
-	// 		if err != nil {
-	// 			logger.ErrorContext(ctx, "failed to update document", "error", err, "doc.ID", doc.ID)
-	// 		}
-	// 	}
-	// 	logger.InfoContext(ctx, "Successfully updated documents")
-
-	// 	logger.InfoContext(ctx, "Updating website pages ...")
-	// 	for page := range updatePages {
-	// 		_, err := dmodel.UpdateWebsitePageSummary(ctx, &queries.UpdateWebsitePageSummaryParams{
-	// 			ID:            page.ID,
-	// 			Summary:       page.Summary,
-	// 			SummarySha256: page.Sha256,
-	// 		})
-	// 		if err != nil {
-	// 			logger.ErrorContext(ctx, "failed to update website page", "error", err, "page.ID", page.ID)
-	// 		}
-	// 	}
-	// 	logger.InfoContext(ctx, "Successfully updated website pages")
-	// }()
-
-	// wg.Wait()
-	// close(errCh)
-
-	// // check for errors
-	// for err := range errCh {
-	// 	return nil, err
-	// }
-
-	// // create the return lists
-	// returnDocs := make([]*queries.Document, len(validatedDocsList))
-	// returnPages := make([]*queries.WebsitePage, len(validatedPagesList))
-	// for _, item := range validatedDocsList {
-	// 	returnDocs = append(returnDocs, item.Document.Document)
-	// }
-	// for _, item := range validatedPagesList {
-	// 	returnPages = append(returnPages, item.WebsitePage)
-	// }
-
-	// /// return to the user
-	// return &ragResponse{
-	// 	ConverationId: conv.ID.String(),
-	// 	Documents:     returnDocs,
-	// 	WebsitePages:  returnPages,
-	// 	Response:      convResponse,
-	// }, nil
+func getRAGTools() []*gollm.Tool {
+	funcs := make([]*gollm.Tool, 0)
+	funcs = append(funcs, &gollm.Tool{
+		Title:       toolVectorQuery,
+		Description: "Send a request against the user's private stored information. Be liberal with the use of this tool, as the tool repsonse will contain valuable information to help you create more personalized answers.",
+		Schema: &ltypes.ToolSchema{
+			Type: "object",
+			Properties: map[string]*ltypes.ToolSchema{
+				"vector_query": {
+					Type:        "string",
+					Description: "A simple query that can be used to query the user's private information stored in a vector database. Make sure your query contains all the semantic information you are seeking, as the vector store potentially contains lots of similar information.",
+				},
+			},
+		},
+	})
+	return funcs
 }

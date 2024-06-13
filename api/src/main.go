@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
+	"github.com/sapphirenw/ai-content-creation-api/src/logger"
 )
 
 func main() {
@@ -27,7 +28,7 @@ func run(
 	getenv func(string) string,
 	stdout, stderr io.Writer,
 ) error {
-	logger := newLogger()
+	logger := logger.NewLogger()
 	srv := NewServer(logger)
 
 	// set the database url

@@ -8,6 +8,12 @@ RETURNING *;
 SELECT * FROM conversation
 WHERE customer_id = $1;
 
+-- name: GetConversationsWithCount :many
+SELECT c.*, count(cm.*) FROM conversation c
+JOIN conversation_message cm
+ON c.id = cm.conversation_id
+WHERE c.customer_id = $1;
+
 -- name: GetConversation :one
 SELECT * FROM conversation
 WHERE id = $1;

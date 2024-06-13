@@ -252,7 +252,7 @@ func (p *Project) GenerateLinkedInPost(
 	logger.InfoContext(ctx, "Sending completion request ...")
 
 	// create the post
-	response, err := conv.Completion(ctx, db, genModel, gollm.NewUserMessage(prompt), nil)
+	response, err := conv.Completion(ctx, db, genModel, gollm.NewUserMessage(prompt), nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send the completion: %s", err)
 	}

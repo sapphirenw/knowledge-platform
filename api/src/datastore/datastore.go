@@ -3,12 +3,6 @@ package datastore
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"log/slog"
-
-	"github.com/google/uuid"
-	"github.com/jake-landersweb/gollm/v2/src/tokens"
-	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 )
 
 type Object interface {
@@ -25,35 +19,34 @@ type Object interface {
 // This does NOT write the summary to the database, updates
 // will have to be handled manually for the sake of making this function
 // thread-safe.
-func GetSummary(
-	obj Object,
-	ctx context.Context,
-	logger *slog.Logger,
-	customerId uuid.UUID,
-	tokenRecords chan *tokens.UsageRecord,
-	model *llm.LLM,
-) (string, error) {
-	summary := obj.getSummary()
+// func GetSummary(
+// 	obj Object,
+// 	ctx context.Context,
+// 	logger *slog.Logger,
+// 	customerId uuid.UUID,
+// 	model *llm.LLM,
+// ) (*llm.SummarizeResponse, error) {
+// 	summary := obj.getSummary()
 
-	if summary == "" {
-		logger.InfoContext(ctx, "Generating new summary for object ...")
+// 	if summary == "" {
+// 		logger.InfoContext(ctx, "Generating new summary for object ...")
 
-		// get the cleaned data
-		cleaned, err := obj.GetCleaned(ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to get the cleaned data: %s", err)
-		}
+// 		// get the cleaned data
+// 		cleaned, err := obj.GetCleaned(ctx)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("failed to get the cleaned data: %s", err)
+// 		}
 
-		// generate a new summary
-		s, err := model.Summarize(ctx, logger, customerId, tokenRecords, cleaned.String())
-		if err != nil {
-			return "", fmt.Errorf("failed to create the summary: %s", err)
-		}
-		if err := obj.setSummary(s); err != nil {
-			return "", fmt.Errorf("failed to set the summary: %s", err)
-		}
-		summary = s
-	}
+// 		// generate a new summary
+// 		s, err := model.Summarize(ctx, logger, customerId, cleaned.String())
+// 		if err != nil {
+// 			return nil, fmt.Errorf("failed to create the summary: %s", err)
+// 		}
+// 		if err := obj.setSummary(s); err != nil {
+// 			return nil, fmt.Errorf("failed to set the summary: %s", err)
+// 		}
+// 		summary = s
+// 	}
 
-	return summary, nil
-}
+// 	return summary, nil
+// }

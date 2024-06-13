@@ -1270,6 +1270,61 @@ func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([
 	return items, nil
 }
 
+const getConversationsWithCount = `-- name: GetConversationsWithCount :many
+SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.created_at, c.updated_at, count(cm.*) FROM conversation c
+JOIN conversation_message cm
+ON c.id = cm.conversation_id
+WHERE c.customer_id = $1
+`
+
+type GetConversationsWithCountRow struct {
+	ID               uuid.UUID          `db:"id" json:"id"`
+	CustomerID       uuid.UUID          `db:"customer_id" json:"customerId"`
+	Title            string             `db:"title" json:"title"`
+	ConversationType string             `db:"conversation_type" json:"conversationType"`
+	SystemMessage    string             `db:"system_message" json:"systemMessage"`
+	Metadata         []byte             `db:"metadata" json:"metadata"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	Count            int64              `db:"count" json:"count"`
+}
+
+// GetConversationsWithCount
+//
+//	SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.created_at, c.updated_at, count(cm.*) FROM conversation c
+//	JOIN conversation_message cm
+//	ON c.id = cm.conversation_id
+//	WHERE c.customer_id = $1
+func (q *Queries) GetConversationsWithCount(ctx context.Context, customerID uuid.UUID) ([]*GetConversationsWithCountRow, error) {
+	rows, err := q.db.Query(ctx, getConversationsWithCount, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*GetConversationsWithCountRow{}
+	for rows.Next() {
+		var i GetConversationsWithCountRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Title,
+			&i.ConversationType,
+			&i.SystemMessage,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Count,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCustomer = `-- name: GetCustomer :one
 SELECT id, name, datastore, created_at, updated_at FROM customer
 WHERE id = $1 LIMIT 1

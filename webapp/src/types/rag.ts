@@ -1,3 +1,5 @@
+import { ConversationMessage } from "./conversation";
+
 export interface RAGRequest {
     input: string;
     conversationId: string;
@@ -12,7 +14,7 @@ export interface RAGRequest {
 
 export interface RAGResponse {
     conversationId: string
-    documents: any[]
-    websitePages: any[]
-    response: string
+    documents?: any[]
+    websitePages?: any[]
+    message: ConversationMessage
 }

@@ -122,7 +122,7 @@ func CreateConversation(
 	}
 
 	// Add the system message
-	if err := conv.saveMessage(ctx, db, model, gollm.NewSystemMessage(systemMessage)); err != nil {
+	if err := conv.SaveMessage(ctx, db, model, gollm.NewSystemMessage(systemMessage)); err != nil {
 		return nil, fmt.Errorf("failed to sync the messages: %s", err)
 	}
 
@@ -174,6 +174,7 @@ func (c *Conversation) internalCompletion(
 	model *LLM,
 	message *gollm.Message,
 	tools []*gollm.Tool,
+	requiredTool *gollm.Tool,
 	schema string,
 ) (*gollm.CompletionResponse, error) {
 	logger := c.logger.With("model", model.ID.String())
@@ -181,17 +182,25 @@ func (c *Conversation) internalCompletion(
 	// create a copy of the messages array
 	messages := make([]*gollm.Message, len(c.messages))
 	copy(messages, c.messages)
-	// add the passed message
-	messages = append(messages, message)
+	if message != nil {
+		// add the passed message
+		messages = append(messages, message)
+	}
+
+	// check the conversation state for mismatched state
+	if messages[len(messages)-1].Role != gollm.RoleToolResult && messages[len(messages)-1].Role != gollm.RoleUser {
+		return nil, fmt.Errorf("lastest message role: %s", messages[len(messages)-1].Role.ToString())
+	}
 
 	// run the completion
 	logger.InfoContext(ctx, "Beginning conversation completion ...")
 	response, err := model.Completion(ctx, c.logger, &CompletionArgs{
-		CustomerID: c.CustomerID.String(),
-		Messages:   messages,
-		Tools:      tools,
-		Json:       schema != "",
-		JsonSchema: schema,
+		CustomerID:   c.CustomerID.String(),
+		Messages:     messages,
+		Tools:        tools,
+		RequiredTool: requiredTool,
+		Json:         schema != "",
+		JsonSchema:   schema,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed conversation completion: %s", err)
@@ -206,13 +215,15 @@ func (c *Conversation) internalCompletion(
 	}
 
 	// add messages to the conversation
-	logger.InfoContext(ctx, "Saving the input message ...")
-	if err := c.saveMessage(ctx, db, model, message); err != nil {
-		c.messages = c.messages[:len(c.messages)-1]
-		return nil, fmt.Errorf("failed to save the input message to the conversation: %s", err)
+	if message != nil {
+		logger.InfoContext(ctx, "Saving the input message ...")
+		if err := c.SaveMessage(ctx, db, model, message); err != nil {
+			c.messages = c.messages[:len(c.messages)-1]
+			return nil, fmt.Errorf("failed to save the input message to the conversation: %s", err)
+		}
 	}
 	logger.InfoContext(ctx, "Saving the output message ...")
-	if err := c.saveMessage(ctx, db, model, response.Message); err != nil {
+	if err := c.SaveMessage(ctx, db, model, response.Message); err != nil {
 		c.messages = c.messages[:len(c.messages)-1]
 		return nil, fmt.Errorf("failed to save the output message to the conversation: %s", err)
 	}
@@ -227,8 +238,9 @@ func (c *Conversation) Completion(
 	model *LLM,
 	message *gollm.Message,
 	tools []*gollm.Tool,
+	requiredTool *gollm.Tool,
 ) (*gollm.CompletionResponse, error) {
-	return c.internalCompletion(ctx, db, model, message, tools, "")
+	return c.internalCompletion(ctx, db, model, message, tools, requiredTool, "")
 }
 
 // Send a JSON completion against the model where the response is automatically serialized
@@ -250,7 +262,7 @@ func JsonCompletion[T any](
 	}
 
 	// create a completion
-	response, err := conv.internalCompletion(ctx, db, model, message, tools, schema)
+	response, err := conv.internalCompletion(ctx, db, model, message, tools, nil, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +277,7 @@ func JsonCompletion[T any](
 }
 
 // Adds a message to the internal messages array and saves the messages to the database
-func (c *Conversation) saveMessage(
+func (c *Conversation) SaveMessage(
 	ctx context.Context,
 	db queries.DBTX,
 	model *LLM,
