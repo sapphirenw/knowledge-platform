@@ -1271,10 +1271,12 @@ func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([
 }
 
 const getConversationsWithCount = `-- name: GetConversationsWithCount :many
-SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.created_at, c.updated_at, count(cm.*) FROM conversation c
+SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.created_at, c.updated_at, COUNT(cm.id) AS message_count
+FROM conversation c
 JOIN conversation_message cm
 ON c.id = cm.conversation_id
 WHERE c.customer_id = $1
+GROUP BY c.id
 `
 
 type GetConversationsWithCountRow struct {
@@ -1286,15 +1288,17 @@ type GetConversationsWithCountRow struct {
 	Metadata         []byte             `db:"metadata" json:"metadata"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-	Count            int64              `db:"count" json:"count"`
+	MessageCount     int64              `db:"message_count" json:"messageCount"`
 }
 
 // GetConversationsWithCount
 //
-//	SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.created_at, c.updated_at, count(cm.*) FROM conversation c
+//	SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.created_at, c.updated_at, COUNT(cm.id) AS message_count
+//	FROM conversation c
 //	JOIN conversation_message cm
 //	ON c.id = cm.conversation_id
 //	WHERE c.customer_id = $1
+//	GROUP BY c.id
 func (q *Queries) GetConversationsWithCount(ctx context.Context, customerID uuid.UUID) ([]*GetConversationsWithCountRow, error) {
 	rows, err := q.db.Query(ctx, getConversationsWithCount, customerID)
 	if err != nil {
@@ -1313,7 +1317,7 @@ func (q *Queries) GetConversationsWithCount(ctx context.Context, customerID uuid
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Count,
+			&i.MessageCount,
 		); err != nil {
 			return nil, err
 		}

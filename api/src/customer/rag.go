@@ -11,6 +11,7 @@ import (
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/ltypes"
 	"github.com/jake-landersweb/gollm/v2/src/tokens"
+	"github.com/sapphirenw/ai-content-creation-api/src/customer/conversation"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -118,7 +119,7 @@ func (c *Customer) RAG(
 
 	// // get the conversation
 	logger.InfoContext(ctx, "Getting conversation ...")
-	conv, err := llm.AutoConversation(
+	conv, err := conversation.AutoConversation(
 		ctx,
 		logger,
 		db,
@@ -233,7 +234,7 @@ type runVectorQueryResponse struct {
 func runVectorQuery(
 	ctx context.Context,
 	customer *Customer,
-	conv *llm.Conversation,
+	conv *conversation.Conversation,
 	lastMessage *gollm.Message,
 	db queries.DBTX,
 	lm *llm.LLM,

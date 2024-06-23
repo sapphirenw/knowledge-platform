@@ -5,8 +5,10 @@ export default function RagLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
-    return <div className="flex">
+    return <div className="flex h-screen">
         <Sidebar />
-        <div className="w-full">{children}</div>
+        <div className="flex-grow h-full overflow-hidden">
+            {children}
+        </div>
     </div>
 }

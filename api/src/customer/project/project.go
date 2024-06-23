@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
+	"github.com/sapphirenw/ai-content-creation-api/src/customer/conversation"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -135,7 +136,7 @@ func (p *Project) GenerateIdeas(
 	}
 
 	// determine where to get the conversation from
-	conv, err := llm.AutoConversation(
+	conv, err := conversation.AutoConversation(
 		ctx,
 		logger,
 		db,
@@ -162,7 +163,7 @@ func (p *Project) GenerateIdeas(
 	logger.InfoContext(ctx, "Running the completion ...")
 
 	// run the completion against the conversation
-	response, err := llm.JsonCompletion[projectIdeas](
+	response, err := conversation.JsonCompletion[projectIdeas](
 		conv, ctx, db, model, gollm.NewUserMessage(prompt), nil,
 		`{"ideas": [{"title", string}]}`,
 	)

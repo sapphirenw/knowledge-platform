@@ -17,7 +17,7 @@ export default function RagMessage({
             case 1:
                 // user
                 return <div className="w-full flex justify-end">
-                    <div className="bg-slate-700 p-4 rounded-2xl w-fit">
+                    <div className="bg-container p-4 rounded-2xl w-fit">
                         <p className={proseClass}>{message.message}</p>
                     </div>
                 </div>
@@ -43,7 +43,7 @@ export default function RagMessage({
                 return <div className="">{message.message}</div>
         }
     }
-    return <div className="bg-slate-800 p-4">
+    return <div className="p-4">
         {getBody()}
     </div >
 }

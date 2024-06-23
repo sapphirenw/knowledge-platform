@@ -1,4 +1,4 @@
-package llm
+package conversation
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/tokens"
+	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
@@ -59,7 +60,7 @@ func AutoConversation(
 	logger *slog.Logger,
 	db queries.DBTX,
 	customerId uuid.UUID,
-	model *LLM,
+	model *llm.LLM,
 	conversationId string,
 	systemMessage string,
 	title string,
@@ -93,7 +94,7 @@ func CreateConversation(
 	logger *slog.Logger,
 	db queries.DBTX,
 	customerId uuid.UUID,
-	model *LLM,
+	model *llm.LLM,
 	systemMessage string,
 	title string,
 	conversationType string,
@@ -171,7 +172,7 @@ func GetConversation(
 func (c *Conversation) internalCompletion(
 	ctx context.Context,
 	db queries.DBTX,
-	model *LLM,
+	model *llm.LLM,
 	message *gollm.Message,
 	tools []*gollm.Tool,
 	requiredTool *gollm.Tool,
@@ -194,7 +195,7 @@ func (c *Conversation) internalCompletion(
 
 	// run the completion
 	logger.InfoContext(ctx, "Beginning conversation completion ...")
-	response, err := model.Completion(ctx, c.logger, &CompletionArgs{
+	response, err := model.Completion(ctx, c.logger, &llm.CompletionArgs{
 		CustomerID:   c.CustomerID.String(),
 		Messages:     messages,
 		Tools:        tools,
@@ -235,7 +236,7 @@ func (c *Conversation) internalCompletion(
 func (c *Conversation) Completion(
 	ctx context.Context,
 	db queries.DBTX,
-	model *LLM,
+	model *llm.LLM,
 	message *gollm.Message,
 	tools []*gollm.Tool,
 	requiredTool *gollm.Tool,
@@ -251,7 +252,7 @@ func JsonCompletion[T any](
 	conv *Conversation,
 	ctx context.Context,
 	db queries.DBTX,
-	model *LLM,
+	model *llm.LLM,
 	message *gollm.Message,
 	tools []*gollm.Tool,
 	schema string,
@@ -280,7 +281,7 @@ func JsonCompletion[T any](
 func (c *Conversation) SaveMessage(
 	ctx context.Context,
 	db queries.DBTX,
-	model *LLM,
+	model *llm.LLM,
 	message *gollm.Message,
 ) error {
 	input := &queries.CreateConversationMessageParams{

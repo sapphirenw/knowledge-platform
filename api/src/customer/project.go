@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sapphirenw/ai-content-creation-api/src/project"
+	"github.com/sapphirenw/ai-content-creation-api/src/customer/project"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
 )
 

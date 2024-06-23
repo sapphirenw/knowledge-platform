@@ -1,4 +1,4 @@
-package llm
+package conversation
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
+	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -20,7 +21,7 @@ func TestConversation(t *testing.T) {
 	c := testingutils.GetTestCustomer(t, ctx, pool)
 
 	// get a default llm
-	model, err := GetLLM(ctx, pool, c.ID, pgtype.UUID{})
+	model, err := llm.GetLLM(ctx, pool, c.ID, pgtype.UUID{})
 	require.NoError(t, err)
 
 	conv, err := CreateConversation(ctx, logger, pool, c.ID, model, "You are a pirate", "Test Conversation", "Testing")

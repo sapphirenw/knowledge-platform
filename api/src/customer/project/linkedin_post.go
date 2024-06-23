@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
+	"github.com/sapphirenw/ai-content-creation-api/src/customer/conversation"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -230,7 +231,7 @@ func (p *Project) GenerateLinkedInPost(
 	logger.InfoContext(ctx, "Configuring the conversation ...")
 
 	// get the conversation
-	conv, err := llm.AutoConversation(
+	conv, err := conversation.AutoConversation(
 		ctx, logger, db, p.CustomerID, genModel, args.ConversationId, prompts.LINKEDIN_POST_SYSTEM,
 		fmt.Sprintf("LinkedIn Post: %s-conv", post.Title),
 		"linkedin-post",

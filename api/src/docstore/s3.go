@@ -50,29 +50,6 @@ func NewS3Docstore(ctx context.Context, bucket string, logger *slog.Logger) (*S3
 	}, nil
 }
 
-// func (d *S3Docstore) UploadDocument(ctx context.Context, doc *Document, data []byte) (string, error) {
-// 	// create the s3 client
-// 	if d.uploader == nil {
-// 		d.uploader = manager.NewUploader(d.client)
-// 	}
-
-// 	d.logger.InfoContext(ctx, "Uploading file", "filename", doc.Filename, "filetype", doc.Filetype)
-
-// 	// upload with a docid
-// 	result, err := d.uploader.Upload(context.TODO(), &s3.PutObjectInput{
-// 		Bucket: aws.String(d.bucket),
-// 		Key:    aws.String(doc.UniqueID),
-// 		Body:   bytes.NewBuffer(data),
-// 	})
-// 	if err != nil {
-// 		return "", fmt.Errorf("there was an issue uploading the file: %v", err)
-// 	}
-
-// 	d.logger.InfoContext(ctx, "Successfully uploaded file", "filename", doc.Filename, "filetype", doc.Filetype)
-
-// 	return result.Location, nil
-// }
-
 func (d *S3Docstore) GeneratePresignedUrl(
 	ctx context.Context,
 	doc *queries.Document,

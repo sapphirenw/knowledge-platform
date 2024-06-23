@@ -9,10 +9,12 @@ SELECT * FROM conversation
 WHERE customer_id = $1;
 
 -- name: GetConversationsWithCount :many
-SELECT c.*, count(cm.*) FROM conversation c
+SELECT c.*, COUNT(cm.id) AS message_count
+FROM conversation c
 JOIN conversation_message cm
 ON c.id = cm.conversation_id
-WHERE c.customer_id = $1;
+WHERE c.customer_id = $1
+GROUP BY c.id;
 
 -- name: GetConversation :one
 SELECT * FROM conversation

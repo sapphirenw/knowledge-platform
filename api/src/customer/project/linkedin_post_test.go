@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
+	"github.com/sapphirenw/ai-content-creation-api/src/customer/conversation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -101,7 +101,7 @@ func TestLinkedInPostGenerate(t *testing.T) {
 	require.NoError(t, err)
 
 	// print the conversation
-	conv, err := llm.GetConversation(ctx, logger, pool, response2.ConversationId)
+	conv, err := conversation.GetConversation(ctx, logger, pool, response2.ConversationId)
 	require.NoError(t, err)
 	conv.PrintConversation()
 }

@@ -8,6 +8,8 @@ import (
 	"github.com/go-chi/httplog/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sapphirenw/ai-content-creation-api/src/customer/conversation"
+	"github.com/sapphirenw/ai-content-creation-api/src/customer/project"
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
 	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -18,34 +20,50 @@ func Handler(mux chi.Router) {
 	mux.Get("/", customerHandler(getCustomer))
 
 	// datastore
-	mux.Delete("/datastore", customerHandler(deleteRemoteDatastore))
-	mux.Post("/datastore/purge", customerHandler(purgeDatastore))
+
+	mux.Route("/datastore", func(r chi.Router) {
+		r.Delete("/", customerHandler(deleteRemoteDatastore))
+		r.Post("/purge", customerHandler(purgeDatastore))
+	})
 
 	// documents
 	mux.Put("/vectorizeDocuments", customerHandler(vectorizeDatastore))
 	mux.Post("/generatePresignedUrl", customerHandler(generatePresignedUrl))
-	mux.Get("/documents/{documentId}", documentHandler(getDocument))
-	mux.Put("/documents/{documentId}/validate", documentHandler(notifyOfSuccessfulUpload))
-	// mux.Put("/documents/{documentId}/vectorize", customerHandler(notifyOfSuccessfulUpload))
+	mux.Route("/documents", func(r chi.Router) {
+		r.Get("/{documentId}", documentHandler(getDocument))
+		r.Put("/{documentId}/validate", documentHandler(notifyOfSuccessfulUpload))
+	})
 
 	// folders
-	mux.Get("/root", customerHandler(listCustomerFolder))
-	mux.Get("/folders/{folderId}", customerHandler(listCustomerFolder))
-	mux.Post("/folders", customerHandler(createFolder))
+	mux.Route("/folders", func(r chi.Router) {
+		r.Get("/", customerHandler(listCustomerFolder))
+		r.Post("/", customerHandler(createFolder))
+		r.Get("/{folderId}", customerHandler(listCustomerFolder))
+	})
 
 	// websites
-	mux.Get("/websites", customerHandler(getWebsites))
-	mux.Post("/websites", customerHandler(handleWesbite))
 	mux.Put("/vectorizeWebsites", customerHandler(vectorizeAllWebsites))
-	mux.Get("/websites/{websiteId}", websiteHandler(getWebsite))
-	mux.Get("/websites/{websiteId}/pages", websiteHandler(getWebsitePages))
-	mux.Put("/websites/{websiteId}/vectorize", websiteHandler(vectorizeWebsite))
+	mux.Route("/websites", func(r chi.Router) {
+		r.Get("/", customerHandler(getWebsites))
+		r.Post("/", customerHandler(handleWesbite))
+		r.Route("/{websiteId}", func(r chi.Router) {
+			r.Get("/", websiteHandler(getWebsite))
+			r.Get("/pages", websiteHandler(getWebsitePages))
+			r.Put("/vectorize", websiteHandler(vectorizeWebsite))
+		})
+	})
 
 	// vectorstore
 	mux.Put("/vectorstore/query", customerHandler(queryVectorStore))
 
 	// project
-	mux.Post("/createProject", customerHandler(createProject))
+	mux.Route("/projects", project.Handler)
+	// mux.Route("/projects", func(r chi.Router) {
+	// 	r.Post("/", customerHandler(createProject))
+	// })
+
+	// conversations
+	mux.Route("/conversations", conversation.Handler)
 
 	// rag
 	mux.Post("/rag", customerHandler(handleRAG))

@@ -16,6 +16,7 @@ export default function RagClient({
     const [conversationId, setConversationId] = useState(convId ?? "")
     const [error, setError] = useState("")
     const [messages, setMessages] = useState<ConversationMessage[]>(msgs)
+    const [init, setInit] = useState(0)
 
     const enterKeyHandler = (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter') {
@@ -72,32 +73,34 @@ export default function RagClient({
         return items
     }
 
-    return <div className="h-screen bg-bg">
-        <div className="grid grid-rows-9 h-full">
-            <div className="bg-container row-span-8 overflow-scroll">
-                {/* <div className="h-[2000px] w-[32px] bg-red-400">scroll</div> */}
-                <div className="grid place-items-center">
-                    <div className="flex flex-col pb-16 max-w-[800px]">
-                        {getMessages()}
-                    </div>
-                </div>
-
-            </div>
-            <div className=" row-span-1 flex justify-center items-center px-8 overflow-hidden border-t border-t-border">
-                <div className="w-full p-3 pl-8 pr-3 rounded-full max-w-[1000px]">
-                    <div className="flex space-x-4">
-                        <input
-                            type="text"
-                            onKeyDown={enterKeyHandler}
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder='Your query here ...'
-                            className="bg-bg w-full">
-                        </input>
-                        <button className="bg-slate-400 text-bg w-10 h-10 rounded-full font-bold flex-shrink-0" onClick={() => handleSubmit}>&uarr;</button>
-                    </div>
+    return <div className="flex flex-col h-full">
+        <div className="bg-bg flex-grow overflow-scroll">
+            <div className="flex h-full justify-center items-start">
+                <div className="flex flex-col pb-16 max-w-[800px]">
+                    {getMessages()}
                 </div>
             </div>
+        </div>
+        <div className="bg-bg flex flex-col justify-center items-center px-8 pt-0 pb-4">
+            <div className="w-full bg-container p-3 pl-8 pr-3 rounded-full max-w-[1000px]">
+                <div className="flex space-x-4">
+                    <input
+                        type="text"
+                        onKeyDown={enterKeyHandler}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Your query here ..."
+                        className="bg-container w-full"
+                    />
+                    <button
+                        className="bg-slate-400 text-bg w-10 h-10 rounded-full font-bold flex-shrink-0"
+                        onClick={handleSubmit}
+                    >
+                        &uarr;
+                    </button>
+                </div>
+            </div>
+            <div className="text-xs py-2 text-slate-500">AI can make mistakes, make sure you check important info.</div>
         </div>
     </div>
 }

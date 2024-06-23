@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sapphirenw/ai-content-creation-api/src/customer/conversation"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
@@ -70,7 +71,7 @@ func TestCreateProjectIdea(t *testing.T) {
 	}
 
 	// print out the conversation
-	conv, err := llm.GetConversation(ctx, logger, pool, response.ConversationId)
+	conv, err := conversation.GetConversation(ctx, logger, pool, response.ConversationId)
 	require.NoError(t, err)
 	conv.PrintConversation()
 	require.Equal(t, 5, len(conv.GetMessages()))

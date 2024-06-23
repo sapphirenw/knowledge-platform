@@ -1,3 +1,12 @@
+export interface Conversation {
+    id: string
+    title: string
+    conversationType: string
+    count: number
+    CreatedAt: string
+    UpdatedAt: string
+}
+
 export interface ConversationMessage {
     role: number
     message: string

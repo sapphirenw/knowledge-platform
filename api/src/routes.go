@@ -5,8 +5,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sapphirenw/ai-content-creation-api/src/customer"
-	"github.com/sapphirenw/ai-content-creation-api/src/llm"
-	"github.com/sapphirenw/ai-content-creation-api/src/project"
 	"github.com/sapphirenw/ai-content-creation-api/src/tests"
 )
 
@@ -19,7 +17,5 @@ func addRoutes(
 	})
 
 	mux.Route("/customers/{customerId}", customer.Handler)
-	mux.Route("/projects/{projectId}", project.Handler)
-	mux.Route("/conversations", llm.Handler)
 	mux.Route("/tests", tests.Handler)
 }
