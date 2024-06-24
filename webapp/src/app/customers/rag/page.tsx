@@ -1,4 +1,4 @@
-import { GetConversation } from '@/api/conversation';
+import { GetConversation } from '@/actions/conversation';
 import RagClient from './rag_client';
 import { ConversationMessage } from '@/types/conversation';
 

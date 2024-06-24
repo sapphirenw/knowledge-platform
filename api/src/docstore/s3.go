@@ -56,7 +56,7 @@ func (d *S3Docstore) GeneratePresignedUrl(
 	contentType string,
 	remoteId string,
 ) (string, error) {
-	l := d.logger.With("doc", doc.Filename)
+	l := d.logger.With("doc", doc.Filename, "remoteId", remoteId)
 	l.InfoContext(ctx, "Generating a presigned url ...")
 	// Set the desired parameters for the pre-signed URL
 	presignClient := s3.NewPresignClient(d.client)

@@ -1,6 +1,6 @@
 "use client"
 
-import { HandleRAG } from '@/api/rag';
+import { HandleRAG } from '@/actions/rag';
 import { ConversationMessage } from '@/types/conversation';
 import React, { KeyboardEvent, useState } from 'react';
 import RagMessage from './rag_message';

@@ -35,3 +35,16 @@ CREATE TABLE vector_store(
 CREATE INDEX ON vector_store USING hnsw (embeddings vector_ip_ops);
 CREATE INDEX idx_vector_store_object_id ON vector_store(object_id);
 CREATE TABLE vector_store_default PARTITION OF vector_store DEFAULT; -- default
+
+CREATE TYPE vectorize_status AS ENUM ('waiting', 'in-progress', 'complete', 'error', 'unknown', 'rejected');
+CREATE TABLE vectorize_job(
+    id uuid NOT NULL DEFAULT uuid7(),
+    customer_id uuid NOT NULL REFERENCES customer(id),
+    status vectorize_status NOT NULL DEFAULT 'waiting',
+    message TEXT NOT NULL DEFAULT '',
+
+    PRIMARY KEY (id),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

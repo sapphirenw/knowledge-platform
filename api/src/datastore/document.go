@@ -74,7 +74,7 @@ func NewDocumentFromData(
 			Sha256:        utils.GenerateFingerprint(raw),
 			Validated:     false,
 			DatastoreType: datastoreType,
-			DatastoreID:   fmt.Sprintf("%s/%s_%s", customerId.String(), docId.String(), filename),
+			DatastoreID:   fmt.Sprintf("%s/%s", customerId.String(), uuid.New().String()),
 		},
 		raw: buf,
 	}, nil

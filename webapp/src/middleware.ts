@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
         console.log("No customerId found")
         return NextResponse.redirect(new URL('/login', request.url))
     }
-    console.log("customerId:", customerId)
+    console.log("customerId:", customerId.value)
     return NextResponse.next()
 }
 

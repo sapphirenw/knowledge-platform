@@ -1,4 +1,4 @@
-import { GetAllConversations } from "@/api/conversation"
+import { GetAllConversations } from "@/actions/conversation"
 import { Conversation } from "@/types/conversation"
 import Link from "next/link";
 import { redirect } from 'next/navigation'

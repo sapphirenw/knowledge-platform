@@ -200,12 +200,14 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 	// insert a record into the documents table
 	model := queries.New(db)
 	d, err := model.CreateDocument(ctx, &queries.CreateDocumentParams{
-		ParentID:   parentId,
-		CustomerID: c.ID,
-		Filename:   body.Filename,
-		Type:       body.Mime,
-		SizeBytes:  body.Size,
-		Sha256:     body.Signature,
+		ParentID:      parentId,
+		CustomerID:    c.ID,
+		Filename:      body.Filename,
+		Type:          body.Mime,
+		SizeBytes:     body.Size,
+		Sha256:        body.Signature,
+		DatastoreID:   fmt.Sprintf("%s/%s", c.ID.String(), uuid.New().String()),
+		DatastoreType: c.Datastore,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("there was an issue creating the document: %v", err)
