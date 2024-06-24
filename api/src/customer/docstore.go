@@ -198,31 +198,6 @@ func purgeDatastore(
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func vectorizeDatastore(
-	w http.ResponseWriter,
-	r *http.Request,
-	pool *pgxpool.Pool,
-	c *Customer,
-) {
-	// start the transaction
-	tx, err := pool.Begin(r.Context())
-	if err != nil {
-		c.logger.Error("failed to start transaction", "error", err)
-		http.Error(w, "There was a database issue", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Commit(r.Context())
-
-	if err := c.VectorizeDatastore(r.Context(), tx); err != nil {
-		tx.Rollback(r.Context())
-		c.logger.Error("failed to vectorize the datastore", "error", err)
-		http.Error(w, "There was an internal issue", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func deleteRemoteDatastore(
 	w http.ResponseWriter,
 	r *http.Request,

@@ -97,6 +97,10 @@ func StringFromPGXUUID(pgxUUID pgtype.UUID) string {
 	return uid.String()
 }
 
+func GoogleUUIDFromString(src string) (uuid.UUID, error) {
+	return uuid.Parse(src)
+}
+
 func CleanInput(input string) string {
 	// Replace all whitespace characters with a space
 	input = strings.Join(strings.Fields(input), " ")

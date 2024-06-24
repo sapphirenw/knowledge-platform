@@ -27,7 +27,6 @@ func Handler(mux chi.Router) {
 	})
 
 	// documents
-	mux.Put("/vectorizeDocuments", customerHandler(vectorizeDatastore))
 	mux.Post("/generatePresignedUrl", customerHandler(generatePresignedUrl))
 	mux.Route("/documents", func(r chi.Router) {
 		r.Get("/{documentId}", documentHandler(getDocument))
@@ -42,7 +41,6 @@ func Handler(mux chi.Router) {
 	})
 
 	// websites
-	mux.Put("/vectorizeWebsites", customerHandler(vectorizeAllWebsites))
 	mux.Route("/websites", func(r chi.Router) {
 		r.Get("/", customerHandler(getWebsites))
 		r.Post("/", customerHandler(handleWesbite))
@@ -54,7 +52,12 @@ func Handler(mux chi.Router) {
 	})
 
 	// vectorstore
-	mux.Put("/vectorstore/query", customerHandler(queryVectorStore))
+	mux.Route("/vectorstore", func(r chi.Router) {
+		r.Put("/query", customerHandler(queryVectorStore))
+		r.Get("/vectorize", customerHandler(getAllVectorizeRequests))
+		r.Post("/vectorize", customerHandler(createVectorizeRequest))
+		r.Get("/vectorize/{id}", customerHandler(getVectorizeRequest))
+	})
 
 	// project
 	mux.Route("/projects", project.Handler)

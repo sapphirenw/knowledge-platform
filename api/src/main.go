@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
-	"github.com/sapphirenw/ai-content-creation-api/src/logger"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 )
 
 func main() {
@@ -28,7 +28,7 @@ func run(
 	getenv func(string) string,
 	stdout, stderr io.Writer,
 ) error {
-	logger := logger.NewLogger()
+	logger := slogger.NewLogger()
 	srv := NewServer(logger)
 
 	// set the database url
@@ -38,6 +38,8 @@ func run(
 		Addr:    net.JoinHostPort(getenv("SERVER_HOST"), getenv("SERVER_PORT")),
 		Handler: srv,
 	}
+
+	// run the server on a thread
 	go func() {
 		fmt.Fprintf(stdout, "listening on %s\n", httpServer.Addr)
 		log.Printf("listening on %s\n", httpServer.Addr)
@@ -45,6 +47,9 @@ func run(
 			fmt.Fprintf(stderr, "error listening and serving: %s\n", err)
 		}
 	}()
+
+	// run the jobs on a thread
+	go RunJobs(ctx, logger.Logger)
 
 	var wg sync.WaitGroup
 	wg.Add(1)

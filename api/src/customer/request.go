@@ -121,3 +121,13 @@ func (r createProjectRequest) Valid(ctx context.Context) map[string]string {
 	}
 	return p
 }
+
+type createVectorRequest struct {
+	Documents bool `json:"documents"`
+	Websites  bool `json:"websites"`
+}
+
+func (r createVectorRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string, 0)
+	return p
+}

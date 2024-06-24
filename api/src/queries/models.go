@@ -5,10 +5,59 @@
 package queries
 
 import (
+	"database/sql/driver"
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pgvector/pgvector-go"
 )
+
+type VectorizeStatus string
+
+const (
+	VectorizeStatusWaiting    VectorizeStatus = "waiting"
+	VectorizeStatusInProgress VectorizeStatus = "in-progress"
+	VectorizeStatusComplete   VectorizeStatus = "complete"
+	VectorizeStatusError      VectorizeStatus = "error"
+	VectorizeStatusUnknown    VectorizeStatus = "unknown"
+	VectorizeStatusRejected   VectorizeStatus = "rejected"
+)
+
+func (e *VectorizeStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VectorizeStatus(s)
+	case string:
+		*e = VectorizeStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VectorizeStatus: %T", src)
+	}
+	return nil
+}
+
+type NullVectorizeStatus struct {
+	VectorizeStatus VectorizeStatus `json:"vectorizeStatus"`
+	Valid           bool            `json:"valid"` // Valid is true if VectorizeStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVectorizeStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.VectorizeStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VectorizeStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVectorizeStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VectorizeStatus), nil
+}
 
 type AssetCatalog struct {
 	ID           uuid.UUID          `db:"id" json:"id"`
@@ -343,6 +392,26 @@ type VectorStoreDefault struct {
 	ObjectParentID pgtype.UUID        `db:"object_parent_id" json:"objectParentId"`
 	Metadata       []byte             `db:"metadata" json:"metadata"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+type VectorizeItem struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	JobID     uuid.UUID          `db:"job_id" json:"jobId"`
+	ObjectID  uuid.UUID          `db:"object_id" json:"objectId"`
+	Error     string             `db:"error" json:"error"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type VectorizeJob struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	Status     VectorizeStatus    `db:"status" json:"status"`
+	Message    string             `db:"message" json:"message"`
+	Documents  bool               `db:"documents" json:"documents"`
+	Websites   bool               `db:"websites" json:"websites"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type Website struct {

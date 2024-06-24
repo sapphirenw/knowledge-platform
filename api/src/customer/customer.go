@@ -666,7 +666,7 @@ func (c *Customer) PurgeDatastore(
 	return nil
 }
 
-func (c *Customer) VectorizeDatastore(
+func (c *Customer) VectorizeDatastoreOLD(
 	ctx context.Context,
 	txn queries.DBTX,
 ) error {
