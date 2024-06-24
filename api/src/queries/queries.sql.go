@@ -195,7 +195,7 @@ INSERT INTO document (
 )
 ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 `
 
 type CreateDocumentParams struct {
@@ -218,7 +218,7 @@ type CreateDocumentParams struct {
 //	)
 //	ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 //	SET updated_at = CURRENT_TIMESTAMP
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, createDocument,
 		arg.ParentID,
@@ -244,6 +244,7 @@ func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams)
 		&i.DatastoreID,
 		&i.Summary,
 		&i.SummarySha256,
+		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1029,6 +1030,20 @@ func (q *Queries) DeleteCustomer(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteDocumentVectors = `-- name: DeleteDocumentVectors :exec
+DELETE FROM document_vector
+WHERE document_id = $1
+`
+
+// DeleteDocumentVectors
+//
+//	DELETE FROM document_vector
+//	WHERE document_id = $1
+func (q *Queries) DeleteDocumentVectors(ctx context.Context, documentID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteDocumentVectors, documentID)
+	return err
+}
+
 const deleteDocumentsOlderThan = `-- name: DeleteDocumentsOlderThan :exec
 DELETE FROM document
 WHERE customer_id = $1
@@ -1068,6 +1083,20 @@ type DeleteFoldersOlderThanParams struct {
 //	AND updated_at < $2
 func (q *Queries) DeleteFoldersOlderThan(ctx context.Context, arg *DeleteFoldersOlderThanParams) error {
 	_, err := q.db.Exec(ctx, deleteFoldersOlderThan, arg.CustomerID, arg.UpdatedAt)
+	return err
+}
+
+const deleteWebsitePageVectors = `-- name: DeleteWebsitePageVectors :exec
+DELETE FROM website_page_vector
+WHERE website_page_id = $1
+`
+
+// DeleteWebsitePageVectors
+//
+//	DELETE FROM website_page_vector
+//	WHERE website_page_id = $1
+func (q *Queries) DeleteWebsitePageVectors(ctx context.Context, websitePageID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteWebsitePageVectors, websitePageID)
 	return err
 }
 
@@ -1444,12 +1473,14 @@ func (q *Queries) GetCustomerByName(ctx context.Context, name string) (*Customer
 const getCustomerVectorizeJobs = `-- name: GetCustomerVectorizeJobs :many
 SELECT id, customer_id, status, message, documents, websites, created_at, updated_at FROM vectorize_job
 WHERE customer_id = $1
+ORDER BY created_at DESC
 `
 
 // GetCustomerVectorizeJobs
 //
 //	SELECT id, customer_id, status, message, documents, websites, created_at, updated_at FROM vectorize_job
 //	WHERE customer_id = $1
+//	ORDER BY created_at DESC
 func (q *Queries) GetCustomerVectorizeJobs(ctx context.Context, customerID uuid.UUID) ([]*VectorizeJob, error) {
 	rows, err := q.db.Query(ctx, getCustomerVectorizeJobs, customerID)
 	if err != nil {
@@ -1584,13 +1615,13 @@ func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*G
 }
 
 const getDocument = `-- name: GetDocument :one
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 WHERE id = $1 LIMIT 1
 `
 
 // GetDocument
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 //	WHERE id = $1 LIMIT 1
 func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, getDocument, id)
@@ -1608,6 +1639,7 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, err
 		&i.DatastoreID,
 		&i.Summary,
 		&i.SummarySha256,
+		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1615,13 +1647,13 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, err
 }
 
 const getDocumentsByCustomer = `-- name: GetDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1 AND validated = true
 `
 
 // GetDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND validated = true
 func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsByCustomer, customerID)
@@ -1645,6 +1677,7 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UU
 			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
+			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1659,13 +1692,13 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UU
 }
 
 const getDocumentsFromParent = `-- name: GetDocumentsFromParent :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 WHERE parent_id = $1 AND validated = true
 `
 
 // GetDocumentsFromParent
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 //	WHERE parent_id = $1 AND validated = true
 func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsFromParent, parentID)
@@ -1689,6 +1722,7 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UU
 			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
+			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1703,7 +1737,7 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UU
 }
 
 const getDocumentsOlderThan = `-- name: GetDocumentsOlderThan :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1
 AND updated_at < $2
 `
@@ -1715,7 +1749,7 @@ type GetDocumentsOlderThanParams struct {
 
 // GetDocumentsOlderThan
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1
 //	AND updated_at < $2
 func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOlderThanParams) ([]*Document, error) {
@@ -1740,6 +1774,7 @@ func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOl
 			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
+			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2522,13 +2557,13 @@ func (q *Queries) GetProjects(ctx context.Context, customerID uuid.UUID) ([]*Pro
 }
 
 const getRootDocumentsByCustomer = `-- name: GetRootDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1 AND parent_id is NULL
 `
 
 // GetRootDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND parent_id is NULL
 func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getRootDocumentsByCustomer, customerID)
@@ -2552,6 +2587,7 @@ func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID uui
 			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
+			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2723,13 +2759,13 @@ func (q *Queries) GetTokenUsage(ctx context.Context, customerID uuid.UUID) ([]*T
 }
 
 const getUnvalidatedDocumentsByCustomer = `-- name: GetUnvalidatedDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 WHERE customer_id = $1 AND validated = false
 `
 
 // GetUnvalidatedDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
 //	WHERE customer_id = $1 AND validated = false
 func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getUnvalidatedDocumentsByCustomer, customerID)
@@ -2753,6 +2789,7 @@ func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, custome
 			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
+			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -3082,7 +3119,7 @@ const markDocumentAsUploaded = `-- name: MarkDocumentAsUploaded :one
 UPDATE document
 SET validated = true
 WHERE id = $1
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 `
 
 // MarkDocumentAsUploaded
@@ -3090,7 +3127,7 @@ RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, valid
 //	UPDATE document
 //	SET validated = true
 //	WHERE id = $1
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, markDocumentAsUploaded, id)
 	var i Document
@@ -3107,6 +3144,7 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Do
 		&i.DatastoreID,
 		&i.Summary,
 		&i.SummarySha256,
+		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -3115,7 +3153,9 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Do
 
 const queryVectorStore = `-- name: QueryVectorStore :many
 SELECT
-    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at, d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at, wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
+    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at,
+    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 FROM vector_store vs
 LEFT JOIN document_vector dv ON dv.vector_store_id = vs.object_id
 LEFT JOIN document d ON d.id = dv.document_id
@@ -3148,46 +3188,17 @@ type QueryVectorStoreParams struct {
 }
 
 type QueryVectorStoreRow struct {
-	ID              uuid.UUID          `db:"id" json:"id"`
-	CustomerID      uuid.UUID          `db:"customer_id" json:"customerId"`
-	Raw             string             `db:"raw" json:"raw"`
-	Embeddings      *pgvector.Vector   `db:"embeddings" json:"embeddings"`
-	ContentType     string             `db:"content_type" json:"contentType"`
-	ObjectID        uuid.UUID          `db:"object_id" json:"objectId"`
-	ObjectParentID  pgtype.UUID        `db:"object_parent_id" json:"objectParentId"`
-	Metadata        []byte             `db:"metadata" json:"metadata"`
-	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	ID_2            pgtype.UUID        `db:"id_2" json:"id2"`
-	ParentID        pgtype.UUID        `db:"parent_id" json:"parentId"`
-	CustomerID_2    pgtype.UUID        `db:"customer_id_2" json:"customerId2"`
-	Filename        *string            `db:"filename" json:"filename"`
-	Type            *string            `db:"type" json:"type"`
-	SizeBytes       *int64             `db:"size_bytes" json:"sizeBytes"`
-	Sha256          *string            `db:"sha_256" json:"sha256"`
-	Validated       *bool              `db:"validated" json:"validated"`
-	DatastoreType   *string            `db:"datastore_type" json:"datastoreType"`
-	DatastoreID     *string            `db:"datastore_id" json:"datastoreId"`
-	Summary         *string            `db:"summary" json:"summary"`
-	SummarySha256   *string            `db:"summary_sha_256" json:"summarySha256"`
-	CreatedAt_2     pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
-	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-	ID_3            pgtype.UUID        `db:"id_3" json:"id3"`
-	CustomerID_3    pgtype.UUID        `db:"customer_id_3" json:"customerId3"`
-	WebsiteID       pgtype.UUID        `db:"website_id" json:"websiteId"`
-	Url             *string            `db:"url" json:"url"`
-	Sha256_2        *string            `db:"sha_256_2" json:"sha2562"`
-	IsValid         *bool              `db:"is_valid" json:"isValid"`
-	Metadata_2      []byte             `db:"metadata_2" json:"metadata2"`
-	Summary_2       *string            `db:"summary_2" json:"summary2"`
-	SummarySha256_2 *string            `db:"summary_sha_256_2" json:"summarySha2562"`
-	CreatedAt_3     pgtype.Timestamptz `db:"created_at_3" json:"createdAt3"`
-	UpdatedAt_2     pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+	VectorStore VectorStore `db:"vector_store" json:"vectorStore"`
+	Document    Document    `db:"document" json:"document"`
+	WebsitePage WebsitePage `db:"website_page" json:"websitePage"`
 }
 
 // QueryVectorStore
 //
 //	SELECT
-//	    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at, d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at, wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+//	    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
+//	    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at,
+//	    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 //	FROM vector_store vs
 //	LEFT JOIN document_vector dv ON dv.vector_store_id = vs.object_id
 //	LEFT JOIN document d ON d.id = dv.document_id
@@ -3225,40 +3236,41 @@ func (q *Queries) QueryVectorStore(ctx context.Context, arg *QueryVectorStorePar
 	for rows.Next() {
 		var i QueryVectorStoreRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.Raw,
-			&i.Embeddings,
-			&i.ContentType,
-			&i.ObjectID,
-			&i.ObjectParentID,
-			&i.Metadata,
-			&i.CreatedAt,
-			&i.ID_2,
-			&i.ParentID,
-			&i.CustomerID_2,
-			&i.Filename,
-			&i.Type,
-			&i.SizeBytes,
-			&i.Sha256,
-			&i.Validated,
-			&i.DatastoreType,
-			&i.DatastoreID,
-			&i.Summary,
-			&i.SummarySha256,
-			&i.CreatedAt_2,
-			&i.UpdatedAt,
-			&i.ID_3,
-			&i.CustomerID_3,
-			&i.WebsiteID,
-			&i.Url,
-			&i.Sha256_2,
-			&i.IsValid,
-			&i.Metadata_2,
-			&i.Summary_2,
-			&i.SummarySha256_2,
-			&i.CreatedAt_3,
-			&i.UpdatedAt_2,
+			&i.VectorStore.ID,
+			&i.VectorStore.CustomerID,
+			&i.VectorStore.Raw,
+			&i.VectorStore.Embeddings,
+			&i.VectorStore.ContentType,
+			&i.VectorStore.ObjectID,
+			&i.VectorStore.ObjectParentID,
+			&i.VectorStore.Metadata,
+			&i.VectorStore.CreatedAt,
+			&i.Document.ID,
+			&i.Document.ParentID,
+			&i.Document.CustomerID,
+			&i.Document.Filename,
+			&i.Document.Type,
+			&i.Document.SizeBytes,
+			&i.Document.Sha256,
+			&i.Document.Validated,
+			&i.Document.DatastoreType,
+			&i.Document.DatastoreID,
+			&i.Document.Summary,
+			&i.Document.SummarySha256,
+			&i.Document.VectorSha256,
+			&i.Document.CreatedAt,
+			&i.Document.UpdatedAt,
+			&i.WebsitePage.ID,
+			&i.WebsitePage.CustomerID,
+			&i.WebsitePage.WebsiteID,
+			&i.WebsitePage.Url,
+			&i.WebsitePage.Sha256,
+			&i.WebsitePage.IsValid,
+			&i.WebsitePage.Metadata,
+			&i.WebsitePage.Summary,
+			&i.WebsitePage.SummarySha256,
+			&i.WebsitePage.CreatedAt,
+			&i.WebsitePage.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -3271,7 +3283,7 @@ func (q *Queries) QueryVectorStore(ctx context.Context, arg *QueryVectorStorePar
 }
 
 const queryVectorStoreDocuments = `-- name: QueryVectorStoreDocuments :many
-SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
 FROM vector_store vs
 JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
@@ -3288,7 +3300,7 @@ type QueryVectorStoreDocumentsParams struct {
 
 // QueryVectorStoreDocuments
 //
-//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
 //	FROM vector_store vs
 //	JOIN document_vector dv ON vs.id = dv.vector_store_id
 //	JOIN document d ON d.id = dv.document_id
@@ -3317,6 +3329,7 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
+			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -3331,7 +3344,7 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 }
 
 const queryVectorStoreDocumentsScoped = `-- name: QueryVectorStoreDocumentsScoped :many
-SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
 FROM vector_store vs
 JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
@@ -3352,7 +3365,7 @@ type QueryVectorStoreDocumentsScopedParams struct {
 
 // QueryVectorStoreDocumentsScoped
 //
-//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.created_at, d.updated_at
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
 //	FROM vector_store vs
 //	JOIN document_vector dv ON vs.id = dv.vector_store_id
 //	JOIN document d ON d.id = dv.document_id
@@ -3389,6 +3402,7 @@ func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *Quer
 			&i.DatastoreID,
 			&i.Summary,
 			&i.SummarySha256,
+			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -3626,6 +3640,29 @@ func (q *Queries) SetWebsitePagesNotValid(ctx context.Context, arg *SetWebsitePa
 	return err
 }
 
+const touchDocument = `-- name: TouchDocument :exec
+UPDATE document SET
+    updated_at = CURRENT_TIMESTAMP,
+    vector_sha_256 = $2
+WHERE id = $1
+`
+
+type TouchDocumentParams struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	VectorSha256 string    `db:"vector_sha_256" json:"vectorSha256"`
+}
+
+// TouchDocument
+//
+//	UPDATE document SET
+//	    updated_at = CURRENT_TIMESTAMP,
+//	    vector_sha_256 = $2
+//	WHERE id = $1
+func (q *Queries) TouchDocument(ctx context.Context, arg *TouchDocumentParams) error {
+	_, err := q.db.Exec(ctx, touchDocument, arg.ID, arg.VectorSha256)
+	return err
+}
+
 const updateCustomer = `-- name: UpdateCustomer :exec
 UPDATE customer
     set name = $2
@@ -3654,7 +3691,7 @@ UPDATE document SET
     summary = $2,
     summary_sha_256 = $3
 WHERE id = $1
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 `
 
 type UpdateDocumentSummaryParams struct {
@@ -3669,7 +3706,7 @@ type UpdateDocumentSummaryParams struct {
 //	    summary = $2,
 //	    summary_sha_256 = $3
 //	WHERE id = $1
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 func (q *Queries) UpdateDocumentSummary(ctx context.Context, arg *UpdateDocumentSummaryParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, updateDocumentSummary, arg.ID, arg.Summary, arg.SummarySha256)
 	var i Document
@@ -3686,6 +3723,7 @@ func (q *Queries) UpdateDocumentSummary(ctx context.Context, arg *UpdateDocument
 		&i.DatastoreID,
 		&i.Summary,
 		&i.SummarySha256,
+		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

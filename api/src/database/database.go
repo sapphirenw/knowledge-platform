@@ -73,6 +73,7 @@ func GetPool() (*pgxpool.Pool, error) {
 func ReinitializePool() error {
 	if pool != nil {
 		pool.Close()
+		pool = nil
 	}
 
 	return initializePool()

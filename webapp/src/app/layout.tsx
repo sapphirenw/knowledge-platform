@@ -28,7 +28,7 @@ export default function RootLayout({
         fontSans.variable
       )}`}>
         <Providers>
-          <main className="w-full">{children}</main>
+          <main className="w-full h-full">{children}</main>
         </Providers>
         <Toaster />
       </body>

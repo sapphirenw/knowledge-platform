@@ -53,6 +53,7 @@ func (q *Queries) CUSTOMQueryVectorStore(ctx context.Context, arg *QueryVectorSt
 			&d.DatastoreID,
 			&d.Summary,
 			&d.SummarySha256,
+			&d.VectorSha256,
 			&d.CreatedAt,
 			&d.UpdatedAt,
 			&p.ID,

@@ -29,8 +29,11 @@ CREATE TABLE document(
     validated BOOLEAN NOT NULL DEFAULT false, -- whether the object exists in datastore
     datastore_type TEXT NOT NULL DEFAULT 's3', -- s3, etc.
     datastore_id TEXT NOT NULL, -- id of the document in the remote datastore
+
     summary TEXT NOT NULL DEFAULT '',
     summary_sha_256 CHAR(64) NOT NULL DEFAULT '', -- fingerprint at the time the summary was taken
+
+    vector_sha_256 CHAR(64) NOT NULL DEFAULT '', -- fingerprint when last vectorized
 
     PRIMARY KEY (id),
     -- CONSTRAINT idx_unique_sha UNIQUE (customer_id, sha_256), -- no files can have same content anywhere

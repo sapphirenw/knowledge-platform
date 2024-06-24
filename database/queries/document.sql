@@ -28,6 +28,12 @@ ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 
+-- name: TouchDocument :exec
+UPDATE document SET
+    updated_at = CURRENT_TIMESTAMP,
+    vector_sha_256 = $2
+WHERE id = $1;
+
 -- name: UpdateDocumentSummary :one
 UPDATE document SET
     summary = $2,

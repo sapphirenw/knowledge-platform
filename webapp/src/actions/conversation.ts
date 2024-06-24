@@ -1,10 +1,15 @@
 "use server"
 
 import { Conversation, ConversationResponse } from "@/types/conversation"
+import { cookies } from "next/headers"
 
 export async function GetAllConversations(): Promise<Resp<Conversation[]>> {
     try {
-        let response = await fetch(`${process.env.DB_HOST}/customers/${process.env.TMP_USER_ID}/conversations`, {
+        const cid = cookies().get("cid")?.value
+        if (cid == undefined) {
+            throw new Error("no cid")
+        }
+        let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/conversations`, {
             method: "GET",
             cache: 'no-store',
         })
@@ -26,7 +31,11 @@ export async function GetAllConversations(): Promise<Resp<Conversation[]>> {
 
 export async function GetConversation(convId: string): Promise<Resp<ConversationResponse>> {
     try {
-        let response = await fetch(`${process.env.DB_HOST}/customers/${process.env.TMP_USER_ID}/conversations/${convId}`, {
+        const cid = cookies().get("cid")?.value
+        if (cid == undefined) {
+            throw new Error("no cid")
+        }
+        let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/conversations/${convId}`, {
             method: "GET",
             cache: 'no-store',
         })

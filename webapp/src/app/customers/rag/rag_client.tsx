@@ -73,16 +73,16 @@ export default function RagClient({
         return items
     }
 
-    return <div className="flex flex-col h-full">
+    return <div className="flex flex-col flex-grow h-full">
         <div className="bg-bg flex-grow overflow-scroll">
             <div className="flex h-full justify-center items-start">
-                <div className="flex flex-col pb-16 max-w-[800px]">
+                <div className="flex flex-col pb-16 max-w-[800px] w-full">
                     {getMessages()}
                 </div>
             </div>
         </div>
-        <div className="bg-bg flex flex-col justify-center items-center px-8 pt-0 pb-4">
-            <div className="w-full bg-container p-3 pl-8 pr-3 rounded-full max-w-[1000px]">
+        <div className="bg-background flex flex-col justify-center items-center px-8 pt-0 pb-4">
+            <div className="w-full bg-secondary p-3 pl-8 pr-3 rounded-full max-w-[1000px]">
                 <div className="flex space-x-4">
                     <input
                         type="text"
@@ -90,10 +90,10 @@ export default function RagClient({
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Your query here ..."
-                        className="bg-container w-full"
+                        className="bg-secondary w-full"
                     />
                     <button
-                        className="bg-slate-400 text-bg w-10 h-10 rounded-full font-bold flex-shrink-0"
+                        className="bg-slate-600 text-background w-10 h-10 rounded-full font-bold flex-shrink-0"
                         onClick={handleSubmit}
                     >
                         &uarr;

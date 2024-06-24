@@ -13,6 +13,7 @@ import (
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 )
 
 func Handler(mux chi.Router) {
@@ -53,14 +54,13 @@ func rootHandler(
 			}
 
 			// get the customer from the db
+			fmt.Println(customerId)
 			dmodel := queries.New(pool)
 			customer, err := dmodel.GetCustomer(r.Context(), customerId)
 			if err != nil {
-				defer pool.Close() // ensure the pool gets released
 				// check if no rows
 				if strings.Contains(err.Error(), "no rows in result set") {
-					l.Error("Not found", "error", err)
-					http.NotFound(w, r)
+					slogger.ServerError(w, r, &l, 404, "failed to get the customer", err)
 					return
 				}
 
@@ -149,6 +149,10 @@ func getConversations(
 	// fetch the conversations
 	response, err := dmodel.GetConversationsWithCount(r.Context(), customer.ID)
 	if err != nil {
+		if strings.Contains(err.Error(), "no rows in result set") {
+			request.Encode(w, r, &logger, http.StatusOK, []string{})
+			return
+		}
 		logger.Error("Error getting the conversations", "error", err)
 		http.Error(w, fmt.Sprintf("There was an internal issue: %s", err), http.StatusInternalServerError)
 		return

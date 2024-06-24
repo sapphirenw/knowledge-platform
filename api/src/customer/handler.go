@@ -110,7 +110,6 @@ func customerHandler(
 			// get the customer
 			customer, err := NewCustomer(r.Context(), &l, customerId, pool)
 			if err != nil {
-				pool.Close() // ensure the pool gets released
 				// check if no rows
 				if err.Error() == "no rows in result set" {
 					http.NotFound(w, r)

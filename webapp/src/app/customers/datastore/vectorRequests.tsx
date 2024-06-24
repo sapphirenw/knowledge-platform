@@ -36,6 +36,7 @@ export default function VectorRequests() {
             items.push(<TableRow id={`doc-${i}`}>
                 <TableCell className="font-medium">{data[i].id}</TableCell>
                 <TableCell>{data[i].status}</TableCell>
+                <TableCell>{data[i].message}</TableCell>
                 <TableCell className="text-right">{new Date(data[i].createdAt).toLocaleString()}</TableCell>
             </TableRow>)
         }
@@ -48,6 +49,7 @@ export default function VectorRequests() {
                 <TableRow>
                     <TableHead className="">Job ID</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Message</TableHead>
                     <TableHead className="text-right">Created</TableHead>
                 </TableRow>
             </TableHeader>

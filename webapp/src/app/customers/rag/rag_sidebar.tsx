@@ -24,7 +24,7 @@ export default async function Sidebar() {
     };
 
     return (
-        <nav className="bg-bg-dark border-r border-r-border p-4 overflow-y-scroll h-full">
+        <nav className="bg-bg-dark border-r border-r-border p-4 overflow-y-scroll">
             {await getSidebar()}
         </nav>
     );

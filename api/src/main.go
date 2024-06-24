@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -42,7 +41,7 @@ func run(
 	// run the server on a thread
 	go func() {
 		fmt.Fprintf(stdout, "listening on %s\n", httpServer.Addr)
-		log.Printf("listening on %s\n", httpServer.Addr)
+		logger.Info("Starting server", "address", httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintf(stderr, "error listening and serving: %s\n", err)
 		}

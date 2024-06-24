@@ -556,6 +556,7 @@ func (c *Customer) PurgeDatastore(
 			return fmt.Errorf("error parsing the time: %s", err)
 		}
 		timestamp = time
+		logger.InfoContext(ctx, "passed timestamp", "timestamp", time)
 	}
 	// encode into sql type
 	var pgtime pgtype.Timestamptz
@@ -563,6 +564,8 @@ func (c *Customer) PurgeDatastore(
 	if err != nil {
 		return fmt.Errorf("error encoding the timestamp into an sql type: %s", err)
 	}
+
+	logger = logger.With("timestamp", timestamp)
 
 	model := queries.New(txn)
 

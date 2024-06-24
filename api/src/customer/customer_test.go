@@ -54,7 +54,7 @@ func TestCustomerDocumentStore(t *testing.T) {
 	require.NoError(t, err)
 
 	// vectorize the docstore
-	err = c.VectorizeDatastore(ctx, pool)
+	err = c.VectorizeDatastore(ctx, pool, nil)
 	require.NoError(t, err)
 
 	// TODO -- query docstore

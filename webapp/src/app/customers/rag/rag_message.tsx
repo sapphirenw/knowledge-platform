@@ -17,7 +17,7 @@ export default function RagMessage({
             case 1:
                 // user
                 return <div className="w-full flex justify-end">
-                    <div className="bg-container p-4 rounded-2xl w-fit">
+                    <div className="bg-secondary p-4 rounded-2xl w-fit">
                         <p className={proseClass}>{message.message}</p>
                     </div>
                 </div>

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
@@ -22,6 +23,9 @@ func (c *Customer) VectorizeDatastore(
 	job *queries.VectorizeJob,
 ) error {
 	logger := c.logger.With("vectorizeJobId", job.ID.String())
+	// keep track of the duration
+	startTime := time.Now().UTC()
+
 	// get the embeddings
 	emb := c.GetEmbeddings(ctx)
 
@@ -61,7 +65,9 @@ func (c *Customer) VectorizeDatastore(
 			if err := tx.Commit(ctx); err != nil {
 				return slogger.Error(ctx, logger, "failed to commit the transaction", err)
 			}
-			usageRecords = append(usageRecords, usageRecord)
+			if usageRecord != nil {
+				usageRecords = append(usageRecords, usageRecord)
+			}
 		} else {
 			errMsg = err.Error()
 		}
@@ -106,6 +112,16 @@ func (c *Customer) VectorizeDatastore(
 		usageRecords = append(usageRecords, response...)
 	}
 
+	// purge the datastore for all records 10 seconds older than the time this program took to run
+	endTime := time.Now().UTC()
+	diff := endTime.Sub(startTime) + 10*time.Second
+	result := time.Now().UTC().Add(-diff).Format("2006-01-02 15:04:05")
+	if err = c.PurgeDatastore(ctx, pool, &purgeDatastoreRequest{
+		Timestamp: &result,
+	}); err != nil {
+		return slogger.Error(ctx, logger, "failed to purge the datastore", err)
+	}
+
 	logger.InfoContext(ctx, "Reporting usage ...")
 	if _, err := dmodel.UpdateVectorizeJobStatus(ctx, &queries.UpdateVectorizeJobStatusParams{
 		ID:      job.ID,
@@ -143,13 +159,27 @@ func (c *Customer) handleDocumentVectorization(
 
 	// TODO -- there is potential to get this to work
 	// see if the document changed
-	// sig := utils.GenerateFingerprint(d.Data)
-	// if doc.Sha256 == sig {
-	// 	l.InfoContext(ctx, "This document has not changed")
-	// 	return
-	// } else {
-	// 	l.InfoContext(ctx, "The signatures do not match", "old", doc.Sha256, "new", sig)
-	// }
+	newSha256, err := doc.GetSha256()
+	if err != nil {
+		return nil, slogger.Error(ctx, logger, "failed to get the sha256 of the document", err)
+	}
+	if doc.VectorSha256 == newSha256 {
+		l.InfoContext(ctx, "This document has not changed")
+		if err := dmodel.TouchDocument(ctx, &queries.TouchDocumentParams{
+			ID:           doc.ID,
+			VectorSha256: newSha256,
+		}); err != nil {
+			return nil, slogger.Error(ctx, logger, "failed to touch document", err)
+		}
+		return nil, nil
+	} else {
+		l.InfoContext(ctx, "The signatures do not match", "old", doc.Sha256, "newSha256", newSha256)
+	}
+
+	// delete the old vectors
+	if err := dmodel.DeleteDocumentVectors(ctx, doc.ID); err != nil {
+		return nil, slogger.Error(ctx, logger, "failed to delete old vectors", err)
+	}
 
 	// embed the content
 	logger.InfoContext(ctx, "Embedding the document ...")
@@ -183,6 +213,14 @@ func (c *Customer) handleDocumentVectorization(
 			return nil, slogger.Error(ctx, logger, "failed creating document vector relationship", err)
 		}
 		logger.InfoContext(ctx, "Finished.")
+	}
+
+	// set updated and sha field for intelligent parsing in the future
+	if err := dmodel.TouchDocument(ctx, &queries.TouchDocumentParams{
+		ID:           doc.ID,
+		VectorSha256: newSha256,
+	}); err != nil {
+		return nil, slogger.Error(ctx, logger, "failed to touch document", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully processed document")

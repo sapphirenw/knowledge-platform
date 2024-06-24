@@ -66,7 +66,6 @@ func projectHandler(
 			// get the folder from the db
 			project, err := GetProject(r.Context(), &l, pool, projectId)
 			if err != nil {
-				defer pool.Close() // ensure the pool gets released
 				// check if no rows
 				if strings.Contains(err.Error(), "no rows in result set") {
 					http.NotFound(w, r)

@@ -49,9 +49,11 @@ export default function Login() {
                 description: <p>id: {customer.id}</p>
             })
         } catch (e) {
+
             toast({
-                title: "There was an unknown error",
-                description: <p>{e as string}</p>
+                variant: "destructive",
+                title: "There was an error",
+                description: <p>{e instanceof Error ? e.message : "Unknown error"}</p>
             })
         }
         setIsLoading(false)

@@ -7,9 +7,10 @@ import (
 
 	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 )
 
-func Query(ctx context.Context, input *QueryAllInput) (*queries.QueryVectorStoreResponse, error) {
+func Query(ctx context.Context, input *QueryAllInput) ([]*queries.QueryVectorStoreRow, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
@@ -19,11 +20,11 @@ func Query(ctx context.Context, input *QueryAllInput) (*queries.QueryVectorStore
 	// get the embeddings of the input
 	vector, err := input.GetVectors(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vectors: %s", err)
+		return nil, slogger.Error(ctx, input.Logger, "failed to get vectors", err)
 	}
 
 	dmodel := queries.New(input.DB)
-	response, err := dmodel.CUSTOMQueryVectorStore(ctx, &queries.QueryVectorStoreParams{
+	response, err := dmodel.QueryVectorStore(ctx, &queries.QueryVectorStoreParams{
 		CustomerID: input.CustomerId,
 		Limit:      int32(input.K),
 		Embeddings: &vector.Embedding,
@@ -33,7 +34,7 @@ func Query(ctx context.Context, input *QueryAllInput) (*queries.QueryVectorStore
 		Column7:    input.WebsiteIds,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to query the vectorstore: %s", err)
+		return nil, slogger.Error(ctx, input.Logger, "failed to query the vectorstore", err)
 	}
 
 	return response, nil

@@ -10,7 +10,8 @@ WHERE status = $1;
 
 -- name: GetCustomerVectorizeJobs :many
 SELECT * FROM vectorize_job
-WHERE customer_id = $1;
+WHERE customer_id = $1
+ORDER BY created_at DESC;
 
 -- name: GetVectorizeJob :one
 SELECT * FROM vectorize_job

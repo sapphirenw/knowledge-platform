@@ -30,5 +30,5 @@ func ServerError(
 	args ...any,
 ) {
 	logger.Error(message, args...)
-	http.Error(w, fmt.Sprintf("There was an error: %s", message), statusCode)
+	http.Error(w, message, statusCode)
 }

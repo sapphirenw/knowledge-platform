@@ -171,10 +171,23 @@ func (c *Customer) RAG(
 				return nil, fmt.Errorf("failed to run the vector query: %s", err)
 			}
 
+			// create the pages and docs from the response
+			docs := make([]*queries.Document, 0)
+			pages := make([]*queries.WebsitePage, 0)
+			for _, item := range vecResponse.vectorResponse {
+				// check for presence of the value
+				if item.Document.Validated {
+					docs = append(docs, &item.Document)
+				}
+				if item.WebsitePage.IsValid {
+					pages = append(pages, &item.WebsitePage)
+				}
+			}
+
 			return &ragResponse{
 				ConversationId: conv.ID.String(),
-				Documents:      vecResponse.vectorResponse.Documents,
-				WebsitePages:   vecResponse.vectorResponse.WebsitePages,
+				Documents:      docs,
+				WebsitePages:   pages,
 				Message:        vecResponse.message,
 			}, nil
 
@@ -228,7 +241,7 @@ func (c *Customer) RAG(
 type runVectorQueryResponse struct {
 	message        *gollm.Message
 	usageRecords   []*tokens.UsageRecord
-	vectorResponse *queries.QueryVectorStoreResponse
+	vectorResponse []*queries.QueryVectorStoreRow
 }
 
 func runVectorQuery(
@@ -268,8 +281,8 @@ func runVectorQuery(
 
 	// create a string from the results
 	responseBuffer := new(bytes.Buffer)
-	for _, item := range vectorResponse.Vectors {
-		if _, err := responseBuffer.WriteString(item.Raw); err != nil {
+	for _, item := range vectorResponse {
+		if _, err := responseBuffer.WriteString(item.VectorStore.Raw); err != nil {
 			logger.ErrorContext(ctx, "There was an issue writing to the buffer", "error", err)
 		}
 	}

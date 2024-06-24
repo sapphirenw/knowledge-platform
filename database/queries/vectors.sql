@@ -18,6 +18,10 @@ RETURNING *;
 SELECT * FROM document_vector
 WHERE customer_id = $1;
 
+-- name: DeleteDocumentVectors :exec
+DELETE FROM document_vector
+WHERE document_id = $1;
+
 -- name: CreateWebsitePageVector :one
 INSERT INTO website_page_vector (
     website_page_id, vector_store_id, customer_id, index, metadata
@@ -29,6 +33,10 @@ RETURNING *;
 -- name: ListWebsitePageVectors :many
 SELECT * FROM website_page_vector
 WHERE customer_id = $1;
+
+-- name: DeleteWebsitePageVectors :exec
+DELETE FROM website_page_vector
+WHERE website_page_id = $1;
 
 -- name: QueryVectorStoreRaw :many
 SELECT * FROM vector_store
@@ -78,7 +86,9 @@ LIMIT $2;
 
 -- name: QueryVectorStore :many
 SELECT
-    vs.*, d.*, wp.*
+    sqlc.embed(vs),
+    sqlc.embed(d),
+    sqlc.embed(wp)
 FROM vector_store vs
 LEFT JOIN document_vector dv ON dv.vector_store_id = vs.object_id
 LEFT JOIN document d ON d.id = dv.document_id
