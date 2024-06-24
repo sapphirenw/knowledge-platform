@@ -3157,12 +3157,12 @@ SELECT
     d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at,
     wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 FROM vector_store vs
-LEFT JOIN document_vector dv ON dv.vector_store_id = vs.object_id
-LEFT JOIN document d ON d.id = dv.document_id
-LEFT JOIN folder f ON f.id = d.parent_id 
-LEFT JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
-LEFT JOIN website_page wp ON wp.id = wpv.website_page_id
-LEFT JOIN website w ON wp.website_id = w.id
+JOIN document_vector dv ON dv.vector_store_id = vs.object_id
+JOIN document d ON d.id = dv.document_id
+JOIN folder f ON f.id = d.parent_id 
+JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
+JOIN website_page wp ON wp.id = wpv.website_page_id
+JOIN website w ON wp.website_id = w.id
 WHERE vs.customer_id = $1
 AND (
     (d.id = ANY($4::uuid[]) OR $4 IS NULL)
@@ -3200,12 +3200,12 @@ type QueryVectorStoreRow struct {
 //	    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at,
 //	    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 //	FROM vector_store vs
-//	LEFT JOIN document_vector dv ON dv.vector_store_id = vs.object_id
-//	LEFT JOIN document d ON d.id = dv.document_id
-//	LEFT JOIN folder f ON f.id = d.parent_id
-//	LEFT JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
-//	LEFT JOIN website_page wp ON wp.id = wpv.website_page_id
-//	LEFT JOIN website w ON wp.website_id = w.id
+//	JOIN document_vector dv ON dv.vector_store_id = vs.object_id
+//	JOIN document d ON d.id = dv.document_id
+//	JOIN folder f ON f.id = d.parent_id
+//	JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
+//	JOIN website_page wp ON wp.id = wpv.website_page_id
+//	JOIN website w ON wp.website_id = w.id
 //	WHERE vs.customer_id = $1
 //	AND (
 //	    (d.id = ANY($4::uuid[]) OR $4 IS NULL)

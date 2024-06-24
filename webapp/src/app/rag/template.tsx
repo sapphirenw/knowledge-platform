@@ -1,3 +1,4 @@
+import Header from "@/components/header";
 import Sidebar from "./rag_sidebar";
 
 export default function RagLayout({
@@ -5,8 +6,9 @@ export default function RagLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
-    return <div className="flex flex-col flex-grow h-full">
-        <div className="flex flex-row flex-grow h-full">
+    return <div className="flex flex-col flex-grow h-screen">
+        <Header />
+        <div className="flex flex-row flex-grow h-full overflow-hidden">
             <Sidebar />
             <div className="flex-grow flex flex-col overflow-hidden">
                 {children}

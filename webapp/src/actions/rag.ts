@@ -1,6 +1,5 @@
 "use server"
 
-import { ConversationResponse } from "@/types/conversation"
 import { RAGRequest, RAGResponse } from "@/types/rag"
 import { cookies } from "next/headers"
 

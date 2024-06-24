@@ -73,7 +73,7 @@ export default function RagClient({
         return items
     }
 
-    return <div className="flex flex-col flex-grow h-full">
+    return <div className="flex flex-col flex-grow h-full overflow-hidden">
         <div className="bg-bg flex-grow overflow-scroll">
             <div className="flex h-full justify-center items-start">
                 <div className="flex flex-col pb-16 max-w-[800px] w-full">

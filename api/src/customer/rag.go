@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	toolVectorQuery = "query_user_information"
+	toolVectorQuery = "vector_query"
 )
 
 type ragRequest struct {
