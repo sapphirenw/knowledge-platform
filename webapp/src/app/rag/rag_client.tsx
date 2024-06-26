@@ -28,16 +28,20 @@ export default function RagClient() {
     // react based on the conversation loading state
     useEffect(() => {
         if (conv.status === "success") {
-            console.log("fetched")
             setMessages(conv.data!.messages)
             setIsFirstMessage(conv.data!.messages.length === 0)
             setTimeout(() => scrollToBottom(), 200)
         }
 
+        if (conv.status === "error") {
+            console.error("there was an error with the query")
+
+        }
+
         if (conv.status === "error" || conv.status === "success") {
             setIsLoading(false)
         }
-    }, [conv.status])
+    }, [conv.data, conv.status])
 
     const scrollToBottom = () => {
         if (scrollableDivRef.current) {

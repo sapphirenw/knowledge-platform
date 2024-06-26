@@ -27,6 +27,8 @@ export async function getConversation(): Promise<ConversationResponse> {
         }
     }
 
+    console.log("FETCHING CONVERSATION")
+
     // fetch with the conversationId
     const cid = await getCID()
     let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/conversations/${convId}`, {

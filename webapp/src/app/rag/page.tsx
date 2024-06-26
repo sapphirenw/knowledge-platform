@@ -1,4 +1,4 @@
-import { getConversation } from '@/actions/conversation';
+import { getAllConversations, getConversation } from '@/actions/conversation';
 import RagClient from './rag_client';
 import { ConversationMessage } from '@/types/conversation';
 import ErrorPage from '@/components/error_page';
@@ -10,6 +10,11 @@ export default async function RAG() {
     await queryClient.prefetchQuery({
         queryKey: ['conversation'],
         queryFn: getConversation,
+    })
+
+    await queryClient.prefetchQuery({
+        queryKey: ['allConversations'],
+        queryFn: getAllConversations,
     })
 
     return <HydrationBoundary state={dehydrate(queryClient)}>
