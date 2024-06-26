@@ -13,11 +13,10 @@ export interface ConversationMessage {
     index: number
     id?: string
     name?: string
-    toolArguments?: any
+    arguments?: any
 }
 
 export interface ConversationResponse {
     conversationId: string
-    title: string
     messages: ConversationMessage[]
 }

@@ -26,7 +26,7 @@ func TestLLMConsistency(t *testing.T) {
 	require.NoError(t, err)
 	count := 0
 	for _, item := range defaults {
-		if item.IsDefault {
+		if item.Llm.IsDefault {
 			count++
 		}
 	}
@@ -50,5 +50,5 @@ func TestLLMConsistency(t *testing.T) {
 	// get the customer default llm by passing invalid uuid
 	obj, err = GetLLM(ctx, pool, c.ID, pgtype.UUID{})
 	require.NoError(t, err)
-	require.Equal(t, true, obj.IsDefault)
+	require.Equal(t, true, obj.Llm.IsDefault)
 }

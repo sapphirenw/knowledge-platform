@@ -6,7 +6,8 @@ RETURNING *;
 
 -- name: GetConversations :many
 SELECT * FROM conversation
-WHERE customer_id = $1;
+WHERE customer_id = $1
+ORDER BY updated_at DESC;
 
 -- name: GetConversationsWithCount :many
 SELECT c.*, COUNT(cm.id) AS message_count
@@ -14,7 +15,8 @@ FROM conversation c
 JOIN conversation_message cm
 ON c.id = cm.conversation_id
 WHERE c.customer_id = $1
-GROUP BY c.id;
+GROUP BY c.id
+ORDER BY c.updated_at DESC;
 
 -- name: GetConversation :one
 SELECT * FROM conversation
@@ -32,8 +34,9 @@ INSERT INTO conversation_message (
     index,
     tool_use_id,
     tool_name,
-    tool_arguments
-) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 )
+    tool_arguments,
+    tool_results
+) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12 )
 ON CONFLICT (conversation_id, index)
 DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP

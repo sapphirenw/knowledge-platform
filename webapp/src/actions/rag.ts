@@ -2,15 +2,16 @@
 
 import { RAGRequest, RAGResponse } from "@/types/rag"
 import { cookies } from "next/headers"
+import { getCID } from "./customer"
 
-export async function HandleRAG(req: RAGRequest): Promise<Resp<RAGResponse>> {
+export async function handleRAG(req: RAGRequest): Promise<Resp<RAGResponse>> {
     try {
-        const cid = cookies().get("cid")?.value
-        if (cid == undefined) {
-            throw new Error("no cid")
-        }
+        const cid = await getCID()
 
-        let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/rag`, {
+        // get the conversationId
+        const convId = cookies().get("conversationId")?.value ?? ""
+
+        let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/rag?conversationId=convId`, {
             method: "POST",
             cache: 'no-store',
             body: JSON.stringify(req),

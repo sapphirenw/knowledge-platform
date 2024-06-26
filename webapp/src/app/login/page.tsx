@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/use-toast"
 import { useState } from "react"
 import Cookies from "js-cookie"
+import DefaultLoader from "@/components/default_loader"
 
 const FormSchema = z.object({
     name: z.string().min(2, {
@@ -80,7 +81,7 @@ export default function Login() {
                 />
                 <div className="space-x-2">
                     <Button type="submit">
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <></>}
+                        {isLoading ? <DefaultLoader /> : <></>}
                         Submit
                     </Button>
                     <Button variant="outline" onClick={() => Cookies.remove('cid')}>Remove ID</Button>

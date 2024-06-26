@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -15,7 +14,8 @@ import (
 )
 
 type LLM struct {
-	*queries.GetLLMRow // object with the model and the token usage information baked in
+	*queries.Llm
+	*queries.AvailableModel
 }
 
 type CompletionArgs struct {
@@ -85,38 +85,39 @@ func CreateLLM(
 		return nil, fmt.Errorf("failed to get the newly created object: %s", err)
 	}
 
-	return &LLM{GetLLMRow: obj}, nil
+	return &LLM{Llm: &obj.Llm, AvailableModel: &obj.AvailableModel}, nil
 }
 
 // Fetches an llm with the passed id. If the id is not valid, then the customer's default is used
 func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtype.UUID) (*LLM, error) {
 	model := queries.New(db)
 
-	var llm *queries.GetLLMRow
-	var err error
-
 	// check if valid pgxid
 	gid := utils.PGXUUIDToGoogleUUID(id)
 	if gid != nil {
 		// get the llm with the passed value
-		llm, err = model.GetLLM(ctx, *gid)
+		llm, err := model.GetLLM(ctx, *gid)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch the llm with id: %s", err)
 		}
+		return &LLM{Llm: &llm.Llm, AvailableModel: &llm.AvailableModel}, nil
+
 	} else {
 		// get the customer's default
-		tmp, err := model.GetDefaultLLM(ctx, utils.GoogleUUIDToPGXUUID(customerId))
+		llm, err := model.GetDefaultLLM(ctx, utils.GoogleUUIDToPGXUUID(customerId))
 		if err != nil {
 			return nil, fmt.Errorf("error fetching the default llm: %s", err)
 		}
-		llm = (*queries.GetLLMRow)(unsafe.Pointer(tmp))
+		return &LLM{Llm: &llm.Llm, AvailableModel: &llm.AvailableModel}, nil
 	}
+}
 
-	return &LLM{GetLLMRow: llm}, nil
+func FromObjects(llm *queries.Llm, availableModel *queries.AvailableModel) *LLM {
+	return &LLM{Llm: llm, AvailableModel: availableModel}
 }
 
 func (model *LLM) GetEstimatedTokens(input string) (int32, error) {
-	tokens, err := gollm.TokenEstimate(model.Model, input)
+	tokens, err := gollm.TokenEstimate(model.Llm.Model, input)
 	if err != nil {
 		return 0, fmt.Errorf("failed to estimate token usage: %s", err)
 	}
@@ -124,16 +125,16 @@ func (model *LLM) GetEstimatedTokens(input string) (int32, error) {
 }
 
 func (model *LLM) GenerateSystemPrompt(prompt string) string {
-	if model.Instructions == "" && prompt == "" {
+	if model.Llm.Instructions == "" && prompt == "" {
 		return "Follow the internal instructions you have been given."
 	}
-	if model.Instructions == "" {
+	if model.Llm.Instructions == "" {
 		return prompt
 	}
 	if prompt == "" {
-		return model.Instructions
+		return model.Llm.Instructions
 	}
-	return fmt.Sprintf(prompts.LLM_SYSTEM, model.Instructions, prompt)
+	return fmt.Sprintf(prompts.LLM_SYSTEM, model.Llm.Instructions, prompt)
 }
 
 func (model *LLM) Completion(
@@ -162,11 +163,11 @@ func (model *LLM) Completion(
 	copy(msgs, args.Messages)
 
 	// add model specific instructions to the system message
-	msgs[0].Message = fmt.Sprintf("General Instructions: %s\n\nSpecific Instructions: %s", model.Instructions, msgs[0].Message)
+	msgs[0].Message = fmt.Sprintf("General Instructions: %s\n\nSpecific Instructions: %s", model.Llm.Instructions, msgs[0].Message)
 
 	input := &gollm.CompletionInput{
-		Model:        model.Model,
-		Temperature:  model.Temperature,
+		Model:        model.Llm.Model,
+		Temperature:  model.Llm.Temperature,
 		Json:         args.Json,
 		JsonSchema:   args.JsonSchema,
 		Conversation: msgs,

@@ -7,6 +7,7 @@ import { createVectorizeRequest } from "@/actions/vector"
 import { toast } from "./ui/use-toast"
 import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import DefaultLoader from "./default_loader"
 
 export default function VectorizationRequest() {
     const [isLoading, setIsLoading] = useState(false)
@@ -34,7 +35,7 @@ export default function VectorizationRequest() {
     }
 
     return <Button onClick={() => vectorize()}>
-        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <></>}
+        {isLoading ? <DefaultLoader /> : <></>}
         Vectorize Datastore
     </Button>
 }

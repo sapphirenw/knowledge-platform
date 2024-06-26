@@ -2,7 +2,6 @@ package customer
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -135,8 +134,8 @@ func queryVectorStore(
 	}
 
 	request.Encode(w, r, c.logger, http.StatusOK, response)
-
 }
+
 func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, request *queryVectorStoreRequest) (*queryVectorStoreResponse, error) {
 	logger := c.logger.With("request", request)
 	logger.InfoContext(ctx, "Querying vectorstore ...")
@@ -144,38 +143,55 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	// create a vector input
 	embs := c.GetEmbeddings(ctx)
 	input := &vectorstore.QueryInput{
-		CustomerId: c.ID,
+		CustomerID: c.ID,
 		Embeddings: embs,
-		DB:         db,
 		Query:      request.Query,
 		K:          request.K,
-		Logger:     logger,
 	}
 
-	// get the documents
-	docs, err := vectorstore.QueryDocuments(ctx, &vectorstore.QueryDocstoreInput{QueryInput: input})
+	// run the general response
+	response, err := vectorstore.Query(ctx, logger, db, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query for documents: %s", err)
-	}
-
-	// report the usage
-	if err := utils.ReportUsage(ctx, logger, db, c.ID, embs.GetUsageRecords(), nil); err != nil {
-		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
-	}
-
-	// get the website pages
-	pages, err := vectorstore.QueryWebsitePages(ctx, &vectorstore.QueryWebsitePagesInput{QueryInput: input})
-	if err != nil {
-		return nil, fmt.Errorf("failed to query for website pages: %s", err)
-	}
-
-	// report the usage
-	if err := utils.ReportUsage(ctx, logger, db, c.ID, embs.GetUsageRecords(), nil); err != nil {
-		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
+		return nil, slogger.Error(ctx, logger, "failed to query the vectorstore", err)
 	}
 
 	return &queryVectorStoreResponse{
-		Documents:    docs,
-		WebsitePages: pages,
+		Documents:    response.Documents,
+		WebsitePages: response.WebsitePages,
 	}, nil
+}
+
+func queryVectorStoreDocuments(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	// parse the request
+	body, valid := request.Decode[queryVectorStoreRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	// start the transaction
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		slogger.ServerError(w, r, c.logger, 500, "failed to start transaction", "error", err)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	embs := c.GetEmbeddings(r.Context())
+	response, err := vectorstore.QueryDocuments(r.Context(), c.logger, pool, &vectorstore.QueryInput{
+		CustomerID: c.ID,
+		Embeddings: embs,
+		Query:      body.Query,
+		K:          body.K,
+	})
+	if err != nil {
+		slogger.ServerError(w, r, c.logger, 500, "failed to query the vectorstore", "error", err)
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, response)
 }

@@ -2,12 +2,10 @@
 
 import { VectorizeJob } from "@/types/vector"
 import { cookies } from "next/headers"
+import { getCID } from "./customer"
 
 export async function createVectorizeRequest(): Promise<VectorizeJob> {
-    const cid = cookies().get("cid")?.value
-    if (cid == undefined) {
-        throw new Error("no cid")
-    }
+    const cid = await getCID()
     let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/vectorstore/vectorize`, {
         method: "POST",
         cache: 'no-store',
@@ -28,13 +26,10 @@ export async function createVectorizeRequest(): Promise<VectorizeJob> {
 }
 
 export async function getAllVectorizeRequests(): Promise<VectorizeJob[]> {
-    const cid = cookies().get("cid")?.value
-    if (cid == undefined) {
-        throw new Error("no cid")
-    }
+    const cid = await getCID()
     let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/vectorstore/vectorize`, {
         method: "GET",
-        cache: 'no-store',
+        next: { revalidate: 3 },
     })
     if (!response.ok) {
         const data = await response.text()

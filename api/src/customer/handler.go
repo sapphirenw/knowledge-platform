@@ -54,6 +54,7 @@ func Handler(mux chi.Router) {
 	// vectorstore
 	mux.Route("/vectorstore", func(r chi.Router) {
 		r.Put("/query", customerHandler(queryVectorStore))
+		r.Put("/queryDocs", customerHandler(queryVectorStoreDocuments))
 		r.Get("/vectorize", customerHandler(getAllVectorizeRequests))
 		r.Post("/vectorize", customerHandler(createVectorizeRequest))
 		r.Get("/vectorize/{id}", customerHandler(getVectorizeRequest))

@@ -4,12 +4,10 @@ import { FileValidationResponse, ListFolderResponse, PresignedUrlResponse } from
 import { humanFileSize } from "@/utils/humanFileSize"
 import { generateSHA256 } from "@/utils/sha"
 import { cookies } from "next/headers"
+import { getCID } from "./customer"
 
 export async function listFolder() {
-    const cid = cookies().get("cid")?.value
-    if (cid == undefined) {
-        throw new Error("no cid")
-    }
+    const cid = await getCID()
     let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/folders`, {
         method: "GET",
         cache: 'no-store',
@@ -54,10 +52,7 @@ export async function validateDocuments(form: FormData): Promise<FileValidationR
  */
 export async function uploadDocuments(form: FormData): Promise<boolean> {
     try {
-        const cid = cookies().get("cid")?.value
-        if (cid == undefined) {
-            throw new Error("failed to get the customerId")
-        }
+        const cid = await getCID()
 
         // parse through all files
         const entries = Array.from(form.values())

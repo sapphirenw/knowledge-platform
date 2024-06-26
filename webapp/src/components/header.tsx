@@ -12,13 +12,13 @@ export default function Header() {
                 <div className=""><p>customerId: {customerId?.value ?? "undefied"}</p></div>
                 <div className="flex items-center space-x-2">
                     <Button variant="outline" asChild>
-                        <Link href="/rag">Chat</Link>
+                        <a href="/rag">Chat</a>
                     </Button>
                     <Button variant="outline" asChild>
-                        <Link href="/datastore">Datastore</Link>
+                        <a href="/datastore">Datastore</a>
                     </Button>
                     <Button variant="outline" asChild>
-                        <Link href="/login">Login</Link>
+                        <a href="/login">Login</a>
                     </Button>
                 </div>
             </div>

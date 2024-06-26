@@ -114,7 +114,8 @@ func suppressDefaults(
 		if a.Key == slog.TimeKey ||
 			a.Key == slog.LevelKey ||
 			a.Key == slog.MessageKey ||
-			a.Key == slog.SourceKey {
+			a.Key == slog.SourceKey ||
+			a.Key == "httpRequest" {
 			return slog.Attr{}
 		}
 		if next == nil {

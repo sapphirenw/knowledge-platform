@@ -46,7 +46,7 @@ func CreateProject(
 
 	modelId := pgtype.UUID{}
 	if ideaGenerationModel != nil {
-		modelId = utils.GoogleUUIDToPGXUUID(ideaGenerationModel.ID)
+		modelId = utils.GoogleUUIDToPGXUUID(ideaGenerationModel.Llm.ID)
 	}
 
 	dmodel := queries.New(db)
@@ -101,7 +101,7 @@ func (p *Project) GetGenerationModel(ctx context.Context, db queries.DBTX) (*llm
 		return nil, fmt.Errorf("error getting llm: %s", err)
 	}
 	p.ideaGererationModel = model
-	p.logger = p.logger.With("model.ID", p.ideaGererationModel.ID.String(), "model.Title", p.ideaGererationModel.Title)
+	p.logger = p.logger.With("model.ID", p.ideaGererationModel.Llm.ID.String(), "model.Title", p.ideaGererationModel.Llm.Title)
 	return p.ideaGererationModel, nil
 }
 

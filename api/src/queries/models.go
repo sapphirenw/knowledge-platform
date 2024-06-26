@@ -212,6 +212,7 @@ type ConversationMessage struct {
 	ToolUseID      string             `db:"tool_use_id" json:"toolUseId"`
 	ToolName       string             `db:"tool_name" json:"toolName"`
 	ToolArguments  []byte             `db:"tool_arguments" json:"toolArguments"`
+	ToolResults    []byte             `db:"tool_results" json:"toolResults"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }

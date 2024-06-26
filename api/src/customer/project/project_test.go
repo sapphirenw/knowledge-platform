@@ -25,7 +25,7 @@ func TestCreateProjectIdea(t *testing.T) {
 
 	m, err := project.GetGenerationModel(ctx, pool)
 	require.NoError(t, err)
-	require.Equal(t, "Idea Generator", m.Title)
+	require.Equal(t, "Idea Generator", m.Llm.Title)
 
 	// test the ability to generate ideas
 	response, err := project.GenerateIdeas(ctx, pool, &generateIdeasRequest{K: 2})

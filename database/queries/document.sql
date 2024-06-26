@@ -56,3 +56,9 @@ AND updated_at < $2;
 SELECT * FROM document
 WHERE customer_id = $1
 AND updated_at < $2;
+
+-- name: GetDocumentsFromListIDs :many
+SELECT * from document
+WHERE customer_id = $1
+AND id = ANY($2::uuid[])
+AND ($3::uuid[] IS NULL OR parent_id = ANY($3::uuid[]));

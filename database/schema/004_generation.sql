@@ -99,6 +99,7 @@ CREATE TABLE conversation_message(
     tool_use_id TEXT NOT NULL DEFAULT '',
     tool_name TEXT NOT NULL DEFAULT '',
     tool_arguments JSONB NULL DEFAULT '{}',
+    tool_results JSONB NULL DEFAULT '{}',
 
     PRIMARY KEY (id),
     CONSTRAINT cnst_conversation_message_unique UNIQUE

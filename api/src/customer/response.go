@@ -2,7 +2,6 @@ package customer
 
 import (
 	"github.com/google/uuid"
-	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 )
 
@@ -24,6 +23,6 @@ type handleWebsiteResponse struct {
 }
 
 type queryVectorStoreResponse struct {
-	Documents    []*datastore.Document    `json:"documents"`
-	WebsitePages []*datastore.WebsitePage `json:"websitePages"`
+	Documents    []*queries.Document    `json:"documents"`
+	WebsitePages []*queries.WebsitePage `json:"websitePages"`
 }

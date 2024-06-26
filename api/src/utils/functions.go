@@ -164,3 +164,20 @@ func ReflectStructs[A any, B any](a A) B {
 	}
 	return bPtr.Interface().(B)
 }
+
+// Removes duplicates from a list. Pass the value you want compared as the response in the callback.
+// For example, if comparing a struct, you can return an ID field of the struct.
+func RemoveDuplicates[T any](arr []T, callback func(val T) any) []T {
+	seen := make(map[interface{}]bool)
+	result := []T{}
+
+	for _, item := range arr {
+		key := callback(item)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, item)
+		}
+	}
+
+	return result
+}

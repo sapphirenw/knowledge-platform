@@ -17,6 +17,9 @@ func Error(
 	err error,
 	args ...any,
 ) error {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	logger.ErrorContext(ctx, fmt.Sprintf("%s: %s", message, err), args...)
 	return fmt.Errorf(message)
 }

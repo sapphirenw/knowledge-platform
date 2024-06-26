@@ -19,6 +19,7 @@ import { toast } from "@/components/ui/use-toast"
 import { useState } from "react"
 import { uploadDocuments, validateDocuments } from "@/actions/document"
 import { useQueryClient } from "@tanstack/react-query"
+import DefaultLoader from "@/components/default_loader"
 
 const FormSchema = z.object({
     files: z.any()
@@ -124,7 +125,7 @@ export default function FileUpload() {
             />
             <div className="space-x-2">
                 <Button type="submit">
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <></>}
+                    {isLoading ? <DefaultLoader /> : <></>}
                     Submit
                 </Button>
             </div>

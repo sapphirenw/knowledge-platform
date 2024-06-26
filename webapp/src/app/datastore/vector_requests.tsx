@@ -12,17 +12,17 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import DefaultLoader from "@/components/default_loader"
 
 export default function VectorRequests() {
     // get the users files with react query
     const { status, data, error } = useQuery({
         queryKey: ['vectorRequests'],
-        queryFn: ({ signal }) => getAllVectorizeRequests(),
-        staleTime: 0,
+        queryFn: () => getAllVectorizeRequests(),
     })
 
     if (status === "pending") {
-        return <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        return <DefaultLoader />
     }
 
     if (status === "error") {
@@ -33,7 +33,7 @@ export default function VectorRequests() {
     const getTableRows = () => {
         const items = []
         for (let i = 0; i < data.length; i++) {
-            items.push(<TableRow id={`doc-${i}`}>
+            items.push(<TableRow key={`doc-${i}`}>
                 <TableCell className="font-medium">{data[i].id}</TableCell>
                 <TableCell>{data[i].status}</TableCell>
                 <TableCell>{data[i].message}</TableCell>

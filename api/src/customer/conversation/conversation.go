@@ -11,6 +11,7 @@ import (
 	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
@@ -27,8 +28,7 @@ func GoLLMMessageFromDB(cm *queries.ConversationMessage) *gollm.Message {
 		Message: cm.Message,
 	}
 
-	var args map[string]any
-	json.Unmarshal(cm.ToolArguments, &args) // okay for this to fail
+	// okay for this to fail
 
 	switch cm.Role {
 	case gollm.RoleSystem.ToString():
@@ -42,11 +42,20 @@ func GoLLMMessageFromDB(cm *queries.ConversationMessage) *gollm.Message {
 		msg.Role = gollm.RoleToolCall
 		msg.ToolUseID = cm.ToolUseID
 		msg.ToolName = cm.ToolName
+
+		// parse the arguments
+		var args map[string]any
+		json.Unmarshal(cm.ToolArguments, &args)
 		msg.ToolArguments = args
 	case gollm.RoleToolResult.ToString():
 		msg.Role = gollm.RoleToolResult
 		msg.ToolUseID = cm.ToolUseID
 		msg.ToolName = cm.ToolName
+
+		// parse the results
+		var args map[string]any
+		json.Unmarshal(cm.ToolResults, &args)
+		msg.ToolArguments = args
 	}
 
 	return msg
@@ -178,7 +187,7 @@ func (c *Conversation) internalCompletion(
 	requiredTool *gollm.Tool,
 	schema string,
 ) (*gollm.CompletionResponse, error) {
-	logger := c.logger.With("model", model.ID.String())
+	logger := c.logger.With("model", model.Llm.ID.String())
 
 	// create a copy of the messages array
 	messages := make([]*gollm.Message, len(c.messages))
@@ -286,10 +295,10 @@ func (c *Conversation) SaveMessage(
 ) error {
 	input := &queries.CreateConversationMessageParams{
 		ConversationID: c.ID,
-		LlmID:          utils.GoogleUUIDToPGXUUID(model.ID),
-		Model:          model.Model,
-		Temperature:    model.Temperature,
-		Instructions:   model.Instructions,
+		LlmID:          utils.GoogleUUIDToPGXUUID(model.Llm.ID),
+		Model:          model.Llm.Model,
+		Temperature:    model.Llm.Temperature,
+		Instructions:   model.Llm.Instructions,
 		Role:           message.Role.ToString(),
 		Message:        message.Message,
 		Index:          int32(len(c.messages)),
@@ -304,6 +313,13 @@ func (c *Conversation) SaveMessage(
 			return fmt.Errorf("failed encode the tool arguments: %s", err)
 		}
 		input.ToolArguments = enc
+	}
+	if message.Role == gollm.RoleToolResult {
+		enc, err := json.Marshal(message.ToolArguments)
+		if err != nil {
+			return slogger.Error(ctx, nil, "failed to envode the tool results", err)
+		}
+		input.ToolResults = enc
 	}
 
 	// post to the database

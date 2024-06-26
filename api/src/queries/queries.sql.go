@@ -82,12 +82,13 @@ INSERT INTO conversation_message (
     index,
     tool_use_id,
     tool_name,
-    tool_arguments
-) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 )
+    tool_arguments,
+    tool_results
+) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12 )
 ON CONFLICT (conversation_id, index)
 DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, created_at, updated_at
+RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, tool_results, created_at, updated_at
 `
 
 type CreateConversationMessageParams struct {
@@ -102,6 +103,7 @@ type CreateConversationMessageParams struct {
 	ToolUseID      string      `db:"tool_use_id" json:"toolUseId"`
 	ToolName       string      `db:"tool_name" json:"toolName"`
 	ToolArguments  []byte      `db:"tool_arguments" json:"toolArguments"`
+	ToolResults    []byte      `db:"tool_results" json:"toolResults"`
 }
 
 // CreateConversationMessage
@@ -117,12 +119,13 @@ type CreateConversationMessageParams struct {
 //	    index,
 //	    tool_use_id,
 //	    tool_name,
-//	    tool_arguments
-//	) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 )
+//	    tool_arguments,
+//	    tool_results
+//	) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12 )
 //	ON CONFLICT (conversation_id, index)
 //	DO UPDATE SET
 //	    updated_at = CURRENT_TIMESTAMP
-//	RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, created_at, updated_at
+//	RETURNING id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, tool_results, created_at, updated_at
 func (q *Queries) CreateConversationMessage(ctx context.Context, arg *CreateConversationMessageParams) (*ConversationMessage, error) {
 	row := q.db.QueryRow(ctx, createConversationMessage,
 		arg.ConversationID,
@@ -136,6 +139,7 @@ func (q *Queries) CreateConversationMessage(ctx context.Context, arg *CreateConv
 		arg.ToolUseID,
 		arg.ToolName,
 		arg.ToolArguments,
+		arg.ToolResults,
 	)
 	var i ConversationMessage
 	err := row.Scan(
@@ -151,6 +155,7 @@ func (q *Queries) CreateConversationMessage(ctx context.Context, arg *CreateConv
 		&i.ToolUseID,
 		&i.ToolName,
 		&i.ToolArguments,
+		&i.ToolResults,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1284,14 +1289,14 @@ func (q *Queries) GetConversation(ctx context.Context, id uuid.UUID) (*Conversat
 }
 
 const getConversationMessages = `-- name: GetConversationMessages :many
-SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, created_at, updated_at FROM conversation_message
+SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, tool_results, created_at, updated_at FROM conversation_message
 WHERE conversation_id = $1
 ORDER BY index ASC
 `
 
 // GetConversationMessages
 //
-//	SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, created_at, updated_at FROM conversation_message
+//	SELECT id, conversation_id, llm_id, model, temperature, instructions, role, message, index, tool_use_id, tool_name, tool_arguments, tool_results, created_at, updated_at FROM conversation_message
 //	WHERE conversation_id = $1
 //	ORDER BY index ASC
 func (q *Queries) GetConversationMessages(ctx context.Context, conversationID uuid.UUID) ([]*ConversationMessage, error) {
@@ -1316,6 +1321,7 @@ func (q *Queries) GetConversationMessages(ctx context.Context, conversationID uu
 			&i.ToolUseID,
 			&i.ToolName,
 			&i.ToolArguments,
+			&i.ToolResults,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1332,12 +1338,14 @@ func (q *Queries) GetConversationMessages(ctx context.Context, conversationID uu
 const getConversations = `-- name: GetConversations :many
 SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
 WHERE customer_id = $1
+ORDER BY updated_at DESC
 `
 
 // GetConversations
 //
 //	SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
 //	WHERE customer_id = $1
+//	ORDER BY updated_at DESC
 func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([]*Conversation, error) {
 	rows, err := q.db.Query(ctx, getConversations, customerID)
 	if err != nil {
@@ -1374,6 +1382,7 @@ JOIN conversation_message cm
 ON c.id = cm.conversation_id
 WHERE c.customer_id = $1
 GROUP BY c.id
+ORDER BY c.updated_at DESC
 `
 
 type GetConversationsWithCountRow struct {
@@ -1396,6 +1405,7 @@ type GetConversationsWithCountRow struct {
 //	ON c.id = cm.conversation_id
 //	WHERE c.customer_id = $1
 //	GROUP BY c.id
+//	ORDER BY c.updated_at DESC
 func (q *Queries) GetConversationsWithCount(ctx context.Context, customerID uuid.UUID) ([]*GetConversationsWithCountRow, error) {
 	rows, err := q.db.Query(ctx, getConversationsWithCount, customerID)
 	if err != nil {
@@ -1534,30 +1544,8 @@ LIMIT 1
 `
 
 type GetDefaultLLMRow struct {
-	ID                         uuid.UUID          `db:"id" json:"id"`
-	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
-	Title                      string             `db:"title" json:"title"`
-	Color                      *string            `db:"color" json:"color"`
-	Model                      string             `db:"model" json:"model"`
-	Temperature                float64            `db:"temperature" json:"temperature"`
-	Instructions               string             `db:"instructions" json:"instructions"`
-	IsDefault                  bool               `db:"is_default" json:"isDefault"`
-	Public                     bool               `db:"public" json:"public"`
-	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-	ID_2                       string             `db:"id_2" json:"id2"`
-	Provider                   string             `db:"provider" json:"provider"`
-	DisplayName                string             `db:"display_name" json:"displayName"`
-	Description                string             `db:"description" json:"description"`
-	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
-	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
-	Currency                   string             `db:"currency" json:"currency"`
-	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
-	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
-	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
-	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
-	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
-	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+	Llm            Llm            `db:"llm" json:"llm"`
+	AvailableModel AvailableModel `db:"available_model" json:"availableModel"`
 }
 
 // GetDefaultLLM
@@ -1586,30 +1574,30 @@ func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*G
 	row := q.db.QueryRow(ctx, getDefaultLLM, customerID)
 	var i GetDefaultLLMRow
 	err := row.Scan(
-		&i.ID,
-		&i.CustomerID,
-		&i.Title,
-		&i.Color,
-		&i.Model,
-		&i.Temperature,
-		&i.Instructions,
-		&i.IsDefault,
-		&i.Public,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ID_2,
-		&i.Provider,
-		&i.DisplayName,
-		&i.Description,
-		&i.InputTokenLimit,
-		&i.OutputTokenLimit,
-		&i.Currency,
-		&i.InputCostPerMillionTokens,
-		&i.OutputCostPerMillionTokens,
-		&i.DepreciatedWarning,
-		&i.IsDepreciated,
-		&i.CreatedAt_2,
-		&i.UpdatedAt_2,
+		&i.Llm.ID,
+		&i.Llm.CustomerID,
+		&i.Llm.Title,
+		&i.Llm.Color,
+		&i.Llm.Model,
+		&i.Llm.Temperature,
+		&i.Llm.Instructions,
+		&i.Llm.IsDefault,
+		&i.Llm.Public,
+		&i.Llm.CreatedAt,
+		&i.Llm.UpdatedAt,
+		&i.AvailableModel.ID,
+		&i.AvailableModel.Provider,
+		&i.AvailableModel.DisplayName,
+		&i.AvailableModel.Description,
+		&i.AvailableModel.InputTokenLimit,
+		&i.AvailableModel.OutputTokenLimit,
+		&i.AvailableModel.Currency,
+		&i.AvailableModel.InputCostPerMillionTokens,
+		&i.AvailableModel.OutputCostPerMillionTokens,
+		&i.AvailableModel.DepreciatedWarning,
+		&i.AvailableModel.IsDepreciated,
+		&i.AvailableModel.CreatedAt,
+		&i.AvailableModel.UpdatedAt,
 	)
 	return &i, err
 }
@@ -1657,6 +1645,61 @@ WHERE customer_id = $1 AND validated = true
 //	WHERE customer_id = $1 AND validated = true
 func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsByCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Document{}
+	for rows.Next() {
+		var i Document
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.CustomerID,
+			&i.Filename,
+			&i.Type,
+			&i.SizeBytes,
+			&i.Sha256,
+			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
+			&i.Summary,
+			&i.SummarySha256,
+			&i.VectorSha256,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDocumentsFromListIDs = `-- name: GetDocumentsFromListIDs :many
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at from document
+WHERE customer_id = $1
+AND id = ANY($2::uuid[])
+AND ($3::uuid[] IS NULL OR parent_id = ANY($3::uuid[]))
+`
+
+type GetDocumentsFromListIDsParams struct {
+	CustomerID uuid.UUID   `db:"customer_id" json:"customerId"`
+	Column2    []uuid.UUID `db:"column_2" json:"column2"`
+	Column3    []uuid.UUID `db:"column_3" json:"column3"`
+}
+
+// GetDocumentsFromListIDs
+//
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at from document
+//	WHERE customer_id = $1
+//	AND id = ANY($2::uuid[])
+//	AND ($3::uuid[] IS NULL OR parent_id = ANY($3::uuid[]))
+func (q *Queries) GetDocumentsFromListIDs(ctx context.Context, arg *GetDocumentsFromListIDsParams) ([]*Document, error) {
+	rows, err := q.db.Query(ctx, getDocumentsFromListIDs, arg.CustomerID, arg.Column2, arg.Column3)
 	if err != nil {
 		return nil, err
 	}
@@ -1964,30 +2007,8 @@ LIMIT 1
 `
 
 type GetInteralLLMRow struct {
-	ID                         uuid.UUID          `db:"id" json:"id"`
-	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
-	Title                      string             `db:"title" json:"title"`
-	Color                      *string            `db:"color" json:"color"`
-	Model                      string             `db:"model" json:"model"`
-	Temperature                float64            `db:"temperature" json:"temperature"`
-	Instructions               string             `db:"instructions" json:"instructions"`
-	IsDefault                  bool               `db:"is_default" json:"isDefault"`
-	Public                     bool               `db:"public" json:"public"`
-	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-	ID_2                       string             `db:"id_2" json:"id2"`
-	Provider                   string             `db:"provider" json:"provider"`
-	DisplayName                string             `db:"display_name" json:"displayName"`
-	Description                string             `db:"description" json:"description"`
-	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
-	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
-	Currency                   string             `db:"currency" json:"currency"`
-	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
-	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
-	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
-	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
-	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
-	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+	Llm            Llm            `db:"llm" json:"llm"`
+	AvailableModel AvailableModel `db:"available_model" json:"availableModel"`
 }
 
 // GetInteralLLM
@@ -2000,30 +2021,30 @@ func (q *Queries) GetInteralLLM(ctx context.Context, title string) (*GetInteralL
 	row := q.db.QueryRow(ctx, getInteralLLM, title)
 	var i GetInteralLLMRow
 	err := row.Scan(
-		&i.ID,
-		&i.CustomerID,
-		&i.Title,
-		&i.Color,
-		&i.Model,
-		&i.Temperature,
-		&i.Instructions,
-		&i.IsDefault,
-		&i.Public,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ID_2,
-		&i.Provider,
-		&i.DisplayName,
-		&i.Description,
-		&i.InputTokenLimit,
-		&i.OutputTokenLimit,
-		&i.Currency,
-		&i.InputCostPerMillionTokens,
-		&i.OutputCostPerMillionTokens,
-		&i.DepreciatedWarning,
-		&i.IsDepreciated,
-		&i.CreatedAt_2,
-		&i.UpdatedAt_2,
+		&i.Llm.ID,
+		&i.Llm.CustomerID,
+		&i.Llm.Title,
+		&i.Llm.Color,
+		&i.Llm.Model,
+		&i.Llm.Temperature,
+		&i.Llm.Instructions,
+		&i.Llm.IsDefault,
+		&i.Llm.Public,
+		&i.Llm.CreatedAt,
+		&i.Llm.UpdatedAt,
+		&i.AvailableModel.ID,
+		&i.AvailableModel.Provider,
+		&i.AvailableModel.DisplayName,
+		&i.AvailableModel.Description,
+		&i.AvailableModel.InputTokenLimit,
+		&i.AvailableModel.OutputTokenLimit,
+		&i.AvailableModel.Currency,
+		&i.AvailableModel.InputCostPerMillionTokens,
+		&i.AvailableModel.OutputCostPerMillionTokens,
+		&i.AvailableModel.DepreciatedWarning,
+		&i.AvailableModel.IsDepreciated,
+		&i.AvailableModel.CreatedAt,
+		&i.AvailableModel.UpdatedAt,
 	)
 	return &i, err
 }
@@ -2035,30 +2056,8 @@ WHERE llm.id = $1
 `
 
 type GetLLMRow struct {
-	ID                         uuid.UUID          `db:"id" json:"id"`
-	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
-	Title                      string             `db:"title" json:"title"`
-	Color                      *string            `db:"color" json:"color"`
-	Model                      string             `db:"model" json:"model"`
-	Temperature                float64            `db:"temperature" json:"temperature"`
-	Instructions               string             `db:"instructions" json:"instructions"`
-	IsDefault                  bool               `db:"is_default" json:"isDefault"`
-	Public                     bool               `db:"public" json:"public"`
-	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-	ID_2                       string             `db:"id_2" json:"id2"`
-	Provider                   string             `db:"provider" json:"provider"`
-	DisplayName                string             `db:"display_name" json:"displayName"`
-	Description                string             `db:"description" json:"description"`
-	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
-	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
-	Currency                   string             `db:"currency" json:"currency"`
-	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
-	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
-	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
-	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
-	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
-	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+	Llm            Llm            `db:"llm" json:"llm"`
+	AvailableModel AvailableModel `db:"available_model" json:"availableModel"`
 }
 
 // GetLLM
@@ -2070,30 +2069,30 @@ func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*GetLLMRow, error) 
 	row := q.db.QueryRow(ctx, getLLM, id)
 	var i GetLLMRow
 	err := row.Scan(
-		&i.ID,
-		&i.CustomerID,
-		&i.Title,
-		&i.Color,
-		&i.Model,
-		&i.Temperature,
-		&i.Instructions,
-		&i.IsDefault,
-		&i.Public,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ID_2,
-		&i.Provider,
-		&i.DisplayName,
-		&i.Description,
-		&i.InputTokenLimit,
-		&i.OutputTokenLimit,
-		&i.Currency,
-		&i.InputCostPerMillionTokens,
-		&i.OutputCostPerMillionTokens,
-		&i.DepreciatedWarning,
-		&i.IsDepreciated,
-		&i.CreatedAt_2,
-		&i.UpdatedAt_2,
+		&i.Llm.ID,
+		&i.Llm.CustomerID,
+		&i.Llm.Title,
+		&i.Llm.Color,
+		&i.Llm.Model,
+		&i.Llm.Temperature,
+		&i.Llm.Instructions,
+		&i.Llm.IsDefault,
+		&i.Llm.Public,
+		&i.Llm.CreatedAt,
+		&i.Llm.UpdatedAt,
+		&i.AvailableModel.ID,
+		&i.AvailableModel.Provider,
+		&i.AvailableModel.DisplayName,
+		&i.AvailableModel.Description,
+		&i.AvailableModel.InputTokenLimit,
+		&i.AvailableModel.OutputTokenLimit,
+		&i.AvailableModel.Currency,
+		&i.AvailableModel.InputCostPerMillionTokens,
+		&i.AvailableModel.OutputCostPerMillionTokens,
+		&i.AvailableModel.DepreciatedWarning,
+		&i.AvailableModel.IsDepreciated,
+		&i.AvailableModel.CreatedAt,
+		&i.AvailableModel.UpdatedAt,
 	)
 	return &i, err
 }
@@ -2105,30 +2104,8 @@ WHERE customer_id = $1
 `
 
 type GetLLMsByCustomerRow struct {
-	ID                         uuid.UUID          `db:"id" json:"id"`
-	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
-	Title                      string             `db:"title" json:"title"`
-	Color                      *string            `db:"color" json:"color"`
-	Model                      string             `db:"model" json:"model"`
-	Temperature                float64            `db:"temperature" json:"temperature"`
-	Instructions               string             `db:"instructions" json:"instructions"`
-	IsDefault                  bool               `db:"is_default" json:"isDefault"`
-	Public                     bool               `db:"public" json:"public"`
-	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-	ID_2                       string             `db:"id_2" json:"id2"`
-	Provider                   string             `db:"provider" json:"provider"`
-	DisplayName                string             `db:"display_name" json:"displayName"`
-	Description                string             `db:"description" json:"description"`
-	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
-	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
-	Currency                   string             `db:"currency" json:"currency"`
-	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
-	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
-	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
-	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
-	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
-	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+	Llm            Llm            `db:"llm" json:"llm"`
+	AvailableModel AvailableModel `db:"available_model" json:"availableModel"`
 }
 
 // GetLLMsByCustomer
@@ -2146,30 +2123,30 @@ func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID)
 	for rows.Next() {
 		var i GetLLMsByCustomerRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.Title,
-			&i.Color,
-			&i.Model,
-			&i.Temperature,
-			&i.Instructions,
-			&i.IsDefault,
-			&i.Public,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ID_2,
-			&i.Provider,
-			&i.DisplayName,
-			&i.Description,
-			&i.InputTokenLimit,
-			&i.OutputTokenLimit,
-			&i.Currency,
-			&i.InputCostPerMillionTokens,
-			&i.OutputCostPerMillionTokens,
-			&i.DepreciatedWarning,
-			&i.IsDepreciated,
-			&i.CreatedAt_2,
-			&i.UpdatedAt_2,
+			&i.Llm.ID,
+			&i.Llm.CustomerID,
+			&i.Llm.Title,
+			&i.Llm.Color,
+			&i.Llm.Model,
+			&i.Llm.Temperature,
+			&i.Llm.Instructions,
+			&i.Llm.IsDefault,
+			&i.Llm.Public,
+			&i.Llm.CreatedAt,
+			&i.Llm.UpdatedAt,
+			&i.AvailableModel.ID,
+			&i.AvailableModel.Provider,
+			&i.AvailableModel.DisplayName,
+			&i.AvailableModel.Description,
+			&i.AvailableModel.InputTokenLimit,
+			&i.AvailableModel.OutputTokenLimit,
+			&i.AvailableModel.Currency,
+			&i.AvailableModel.InputCostPerMillionTokens,
+			&i.AvailableModel.OutputCostPerMillionTokens,
+			&i.AvailableModel.DepreciatedWarning,
+			&i.AvailableModel.IsDepreciated,
+			&i.AvailableModel.CreatedAt,
+			&i.AvailableModel.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -2644,30 +2621,8 @@ where customer_id IS NULL
 `
 
 type GetStandardLLMsRow struct {
-	ID                         uuid.UUID          `db:"id" json:"id"`
-	CustomerID                 pgtype.UUID        `db:"customer_id" json:"customerId"`
-	Title                      string             `db:"title" json:"title"`
-	Color                      *string            `db:"color" json:"color"`
-	Model                      string             `db:"model" json:"model"`
-	Temperature                float64            `db:"temperature" json:"temperature"`
-	Instructions               string             `db:"instructions" json:"instructions"`
-	IsDefault                  bool               `db:"is_default" json:"isDefault"`
-	Public                     bool               `db:"public" json:"public"`
-	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-	ID_2                       string             `db:"id_2" json:"id2"`
-	Provider                   string             `db:"provider" json:"provider"`
-	DisplayName                string             `db:"display_name" json:"displayName"`
-	Description                string             `db:"description" json:"description"`
-	InputTokenLimit            int32              `db:"input_token_limit" json:"inputTokenLimit"`
-	OutputTokenLimit           int32              `db:"output_token_limit" json:"outputTokenLimit"`
-	Currency                   string             `db:"currency" json:"currency"`
-	InputCostPerMillionTokens  pgtype.Numeric     `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
-	OutputCostPerMillionTokens pgtype.Numeric     `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
-	DepreciatedWarning         bool               `db:"depreciated_warning" json:"depreciatedWarning"`
-	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
-	CreatedAt_2                pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
-	UpdatedAt_2                pgtype.Timestamptz `db:"updated_at_2" json:"updatedAt2"`
+	Llm            Llm            `db:"llm" json:"llm"`
+	AvailableModel AvailableModel `db:"available_model" json:"availableModel"`
 }
 
 // GetStandardLLMs
@@ -2685,30 +2640,30 @@ func (q *Queries) GetStandardLLMs(ctx context.Context) ([]*GetStandardLLMsRow, e
 	for rows.Next() {
 		var i GetStandardLLMsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.Title,
-			&i.Color,
-			&i.Model,
-			&i.Temperature,
-			&i.Instructions,
-			&i.IsDefault,
-			&i.Public,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ID_2,
-			&i.Provider,
-			&i.DisplayName,
-			&i.Description,
-			&i.InputTokenLimit,
-			&i.OutputTokenLimit,
-			&i.Currency,
-			&i.InputCostPerMillionTokens,
-			&i.OutputCostPerMillionTokens,
-			&i.DepreciatedWarning,
-			&i.IsDepreciated,
-			&i.CreatedAt_2,
-			&i.UpdatedAt_2,
+			&i.Llm.ID,
+			&i.Llm.CustomerID,
+			&i.Llm.Title,
+			&i.Llm.Color,
+			&i.Llm.Model,
+			&i.Llm.Temperature,
+			&i.Llm.Instructions,
+			&i.Llm.IsDefault,
+			&i.Llm.Public,
+			&i.Llm.CreatedAt,
+			&i.Llm.UpdatedAt,
+			&i.AvailableModel.ID,
+			&i.AvailableModel.Provider,
+			&i.AvailableModel.DisplayName,
+			&i.AvailableModel.Description,
+			&i.AvailableModel.InputTokenLimit,
+			&i.AvailableModel.OutputTokenLimit,
+			&i.AvailableModel.Currency,
+			&i.AvailableModel.InputCostPerMillionTokens,
+			&i.AvailableModel.OutputCostPerMillionTokens,
+			&i.AvailableModel.DepreciatedWarning,
+			&i.AvailableModel.IsDepreciated,
+			&i.AvailableModel.CreatedAt,
+			&i.AvailableModel.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -2903,11 +2858,57 @@ func (q *Queries) GetVectorizeJobsStatus(ctx context.Context, status VectorizeSt
 }
 
 const getWebsite = `-- name: GetWebsite :one
+
+
 SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
 WHERE id = $1
 `
 
-// GetWebsite
+// -- name: QueryVectorStore :many
+// SELECT
+//
+//	sqlc.embed(vs),
+//	sqlc.embed(d),
+//	sqlc.embed(wp)
+//
+// FROM vector_store vs
+// LEFT JOIN document_vector dv ON dv.vector_store_id = vs.object_id
+// LEFT JOIN document d ON d.id = dv.document_id
+// LEFT JOIN folder f ON f.id = d.parent_id
+// LEFT JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
+// LEFT JOIN website_page wp ON wp.id = wpv.website_page_id
+// LEFT JOIN website w ON wp.website_id = w.id
+// WHERE vs.customer_id = $1
+// ORDER BY vs.embeddings <#> $3
+// LIMIT $2;
+// -- name: QueryVectorStoreScoped :many
+// SELECT
+//
+//	sqlc.embed(vs),
+//	sqlc.embed(d),
+//	sqlc.embed(wp)
+//
+// FROM vector_store vs
+// JOIN document_vector dv ON dv.vector_store_id = vs.object_id
+// JOIN document d ON d.id = dv.document_id
+// JOIN folder f ON f.id = d.parent_id
+// JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
+// JOIN website_page wp ON wp.id = wpv.website_page_id
+// JOIN website w ON wp.website_id = w.id
+// WHERE vs.customer_id = $1
+// AND (
+//
+//	($4::uuid[] IS NULL OR d.id = ANY($4::uuid[]))
+//	OR
+//	($5::uuid[] IS NULL OR f.id = ANY($5::uuid[]))
+//	OR
+//	($6::uuid[] IS NULL OR wp.id = ANY($6::uuid[]))
+//	OR
+//	($7::uuid[] IS NULL OR w.id = ANY($7::uuid[]))
+//
+// )
+// ORDER BY vs.embeddings <#> $3
+// LIMIT $2;
 //
 //	SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
 //	WHERE id = $1
@@ -3151,137 +3152,6 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Do
 	return &i, err
 }
 
-const queryVectorStore = `-- name: QueryVectorStore :many
-SELECT
-    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
-    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at,
-    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
-FROM vector_store vs
-JOIN document_vector dv ON dv.vector_store_id = vs.object_id
-JOIN document d ON d.id = dv.document_id
-JOIN folder f ON f.id = d.parent_id 
-JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
-JOIN website_page wp ON wp.id = wpv.website_page_id
-JOIN website w ON wp.website_id = w.id
-WHERE vs.customer_id = $1
-AND (
-    (d.id = ANY($4::uuid[]) OR $4 IS NULL)
-    OR
-    (f.id = ANY($5::uuid[]) OR $5 IS NULL)
-    OR
-    (wp.id = ANY($6::uuid[]) OR $6 IS NULL)
-    OR
-    (w.id = ANY($7::uuid[]) OR $7 IS NULL)
-)
-ORDER BY vs.embeddings <#> $3
-LIMIT $2
-`
-
-type QueryVectorStoreParams struct {
-	CustomerID uuid.UUID        `db:"customer_id" json:"customerId"`
-	Limit      int32            `db:"limit" json:"limit"`
-	Embeddings *pgvector.Vector `db:"embeddings" json:"embeddings"`
-	Column4    []uuid.UUID      `db:"column_4" json:"column4"`
-	Column5    []uuid.UUID      `db:"column_5" json:"column5"`
-	Column6    []uuid.UUID      `db:"column_6" json:"column6"`
-	Column7    []uuid.UUID      `db:"column_7" json:"column7"`
-}
-
-type QueryVectorStoreRow struct {
-	VectorStore VectorStore `db:"vector_store" json:"vectorStore"`
-	Document    Document    `db:"document" json:"document"`
-	WebsitePage WebsitePage `db:"website_page" json:"websitePage"`
-}
-
-// QueryVectorStore
-//
-//	SELECT
-//	    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
-//	    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at,
-//	    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
-//	FROM vector_store vs
-//	JOIN document_vector dv ON dv.vector_store_id = vs.object_id
-//	JOIN document d ON d.id = dv.document_id
-//	JOIN folder f ON f.id = d.parent_id
-//	JOIN website_page_vector wpv ON wpv.vector_store_id = vs.object_id
-//	JOIN website_page wp ON wp.id = wpv.website_page_id
-//	JOIN website w ON wp.website_id = w.id
-//	WHERE vs.customer_id = $1
-//	AND (
-//	    (d.id = ANY($4::uuid[]) OR $4 IS NULL)
-//	    OR
-//	    (f.id = ANY($5::uuid[]) OR $5 IS NULL)
-//	    OR
-//	    (wp.id = ANY($6::uuid[]) OR $6 IS NULL)
-//	    OR
-//	    (w.id = ANY($7::uuid[]) OR $7 IS NULL)
-//	)
-//	ORDER BY vs.embeddings <#> $3
-//	LIMIT $2
-func (q *Queries) QueryVectorStore(ctx context.Context, arg *QueryVectorStoreParams) ([]*QueryVectorStoreRow, error) {
-	rows, err := q.db.Query(ctx, queryVectorStore,
-		arg.CustomerID,
-		arg.Limit,
-		arg.Embeddings,
-		arg.Column4,
-		arg.Column5,
-		arg.Column6,
-		arg.Column7,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*QueryVectorStoreRow{}
-	for rows.Next() {
-		var i QueryVectorStoreRow
-		if err := rows.Scan(
-			&i.VectorStore.ID,
-			&i.VectorStore.CustomerID,
-			&i.VectorStore.Raw,
-			&i.VectorStore.Embeddings,
-			&i.VectorStore.ContentType,
-			&i.VectorStore.ObjectID,
-			&i.VectorStore.ObjectParentID,
-			&i.VectorStore.Metadata,
-			&i.VectorStore.CreatedAt,
-			&i.Document.ID,
-			&i.Document.ParentID,
-			&i.Document.CustomerID,
-			&i.Document.Filename,
-			&i.Document.Type,
-			&i.Document.SizeBytes,
-			&i.Document.Sha256,
-			&i.Document.Validated,
-			&i.Document.DatastoreType,
-			&i.Document.DatastoreID,
-			&i.Document.Summary,
-			&i.Document.SummarySha256,
-			&i.Document.VectorSha256,
-			&i.Document.CreatedAt,
-			&i.Document.UpdatedAt,
-			&i.WebsitePage.ID,
-			&i.WebsitePage.CustomerID,
-			&i.WebsitePage.WebsiteID,
-			&i.WebsitePage.Url,
-			&i.WebsitePage.Sha256,
-			&i.WebsitePage.IsValid,
-			&i.WebsitePage.Metadata,
-			&i.WebsitePage.Summary,
-			&i.WebsitePage.SummarySha256,
-			&i.WebsitePage.CreatedAt,
-			&i.WebsitePage.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const queryVectorStoreDocuments = `-- name: QueryVectorStoreDocuments :many
 SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
 FROM vector_store vs
@@ -3344,13 +3214,21 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 }
 
 const queryVectorStoreDocumentsScoped = `-- name: QueryVectorStoreDocumentsScoped :many
-SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
+SELECT
+    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
+    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
 FROM vector_store vs
 JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
-JOIN folder f ON f.id = d.parent_id
+LEFT JOIN folder f
+ON CASE
+        WHEN $5::uuid[] IS NOT NULL
+        AND $5::uuid[] != '{}'
+        AND f.id = ANY($5::uuid[])
+        THEN f.id = d.parent_id
+    END
+AND ($4::uuid[] IS NULL OR d.id = ANY($4::uuid[]))
 WHERE vs.customer_id = $1
-AND (f.id = ANY($4::uuid[]) OR d.id = ANY($5::uuid[]))
 ORDER BY vs.embeddings <#> $3
 LIMIT $2
 `
@@ -3363,18 +3241,31 @@ type QueryVectorStoreDocumentsScopedParams struct {
 	Column5    []uuid.UUID      `db:"column_5" json:"column5"`
 }
 
+type QueryVectorStoreDocumentsScopedRow struct {
+	VectorStore VectorStore `db:"vector_store" json:"vectorStore"`
+	Document    Document    `db:"document" json:"document"`
+}
+
 // QueryVectorStoreDocumentsScoped
 //
-//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
+//	SELECT
+//	    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
+//	    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
 //	FROM vector_store vs
 //	JOIN document_vector dv ON vs.id = dv.vector_store_id
 //	JOIN document d ON d.id = dv.document_id
-//	JOIN folder f ON f.id = d.parent_id
+//	LEFT JOIN folder f
+//	ON CASE
+//	        WHEN $5::uuid[] IS NOT NULL
+//	        AND $5::uuid[] != '{}'
+//	        AND f.id = ANY($5::uuid[])
+//	        THEN f.id = d.parent_id
+//	    END
+//	AND ($4::uuid[] IS NULL OR d.id = ANY($4::uuid[]))
 //	WHERE vs.customer_id = $1
-//	AND (f.id = ANY($4::uuid[]) OR d.id = ANY($5::uuid[]))
 //	ORDER BY vs.embeddings <#> $3
 //	LIMIT $2
-func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *QueryVectorStoreDocumentsScopedParams) ([]*Document, error) {
+func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *QueryVectorStoreDocumentsScopedParams) ([]*QueryVectorStoreDocumentsScopedRow, error) {
 	rows, err := q.db.Query(ctx, queryVectorStoreDocumentsScoped,
 		arg.CustomerID,
 		arg.Limit,
@@ -3386,25 +3277,34 @@ func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *Quer
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*Document{}
+	items := []*QueryVectorStoreDocumentsScopedRow{}
 	for rows.Next() {
-		var i Document
+		var i QueryVectorStoreDocumentsScopedRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.ParentID,
-			&i.CustomerID,
-			&i.Filename,
-			&i.Type,
-			&i.SizeBytes,
-			&i.Sha256,
-			&i.Validated,
-			&i.DatastoreType,
-			&i.DatastoreID,
-			&i.Summary,
-			&i.SummarySha256,
-			&i.VectorSha256,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.VectorStore.ID,
+			&i.VectorStore.CustomerID,
+			&i.VectorStore.Raw,
+			&i.VectorStore.Embeddings,
+			&i.VectorStore.ContentType,
+			&i.VectorStore.ObjectID,
+			&i.VectorStore.ObjectParentID,
+			&i.VectorStore.Metadata,
+			&i.VectorStore.CreatedAt,
+			&i.Document.ID,
+			&i.Document.ParentID,
+			&i.Document.CustomerID,
+			&i.Document.Filename,
+			&i.Document.Type,
+			&i.Document.SizeBytes,
+			&i.Document.Sha256,
+			&i.Document.Validated,
+			&i.Document.DatastoreType,
+			&i.Document.DatastoreID,
+			&i.Document.Summary,
+			&i.Document.SummarySha256,
+			&i.Document.VectorSha256,
+			&i.Document.CreatedAt,
+			&i.Document.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -3523,13 +3423,19 @@ func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVe
 }
 
 const queryVectorStoreWebsitePagesScoped = `-- name: QueryVectorStoreWebsitePagesScoped :many
-SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+SELECT
+    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
+    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 FROM vector_store vs
 JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 JOIN website_page wp ON wp.id = wpv.website_page_id
 JOIN website w ON w.id = wp.website_id
 WHERE vs.customer_id = $1
-AND (w.id = ANY($4::uuid[]) OR wp.id = ANY($5::uuid[]))
+AND (
+    ($4::uuid[] IS NULL OR wp.id = ANY($4::uuid[]))
+    OR
+    ($5::uuid[] IS NULL OR w.id = ANY($5::uuid[]))
+)
 ORDER BY vs.embeddings <#> $3
 LIMIT $2
 `
@@ -3542,18 +3448,29 @@ type QueryVectorStoreWebsitePagesScopedParams struct {
 	Column5    []uuid.UUID      `db:"column_5" json:"column5"`
 }
 
+type QueryVectorStoreWebsitePagesScopedRow struct {
+	VectorStore VectorStore `db:"vector_store" json:"vectorStore"`
+	WebsitePage WebsitePage `db:"website_page" json:"websitePage"`
+}
+
 // QueryVectorStoreWebsitePagesScoped
 //
-//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+//	SELECT
+//	    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
+//	    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
 //	FROM vector_store vs
 //	JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 //	JOIN website_page wp ON wp.id = wpv.website_page_id
 //	JOIN website w ON w.id = wp.website_id
 //	WHERE vs.customer_id = $1
-//	AND (w.id = ANY($4::uuid[]) OR wp.id = ANY($5::uuid[]))
+//	AND (
+//	    ($4::uuid[] IS NULL OR wp.id = ANY($4::uuid[]))
+//	    OR
+//	    ($5::uuid[] IS NULL OR w.id = ANY($5::uuid[]))
+//	)
 //	ORDER BY vs.embeddings <#> $3
 //	LIMIT $2
-func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *QueryVectorStoreWebsitePagesScopedParams) ([]*WebsitePage, error) {
+func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *QueryVectorStoreWebsitePagesScopedParams) ([]*QueryVectorStoreWebsitePagesScopedRow, error) {
 	rows, err := q.db.Query(ctx, queryVectorStoreWebsitePagesScoped,
 		arg.CustomerID,
 		arg.Limit,
@@ -3565,21 +3482,30 @@ func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *Q
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*WebsitePage{}
+	items := []*QueryVectorStoreWebsitePagesScopedRow{}
 	for rows.Next() {
-		var i WebsitePage
+		var i QueryVectorStoreWebsitePagesScopedRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.WebsiteID,
-			&i.Url,
-			&i.Sha256,
-			&i.IsValid,
-			&i.Metadata,
-			&i.Summary,
-			&i.SummarySha256,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.VectorStore.ID,
+			&i.VectorStore.CustomerID,
+			&i.VectorStore.Raw,
+			&i.VectorStore.Embeddings,
+			&i.VectorStore.ContentType,
+			&i.VectorStore.ObjectID,
+			&i.VectorStore.ObjectParentID,
+			&i.VectorStore.Metadata,
+			&i.VectorStore.CreatedAt,
+			&i.WebsitePage.ID,
+			&i.WebsitePage.CustomerID,
+			&i.WebsitePage.WebsiteID,
+			&i.WebsitePage.Url,
+			&i.WebsitePage.Sha256,
+			&i.WebsitePage.IsValid,
+			&i.WebsitePage.Metadata,
+			&i.WebsitePage.Summary,
+			&i.WebsitePage.SummarySha256,
+			&i.WebsitePage.CreatedAt,
+			&i.WebsitePage.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

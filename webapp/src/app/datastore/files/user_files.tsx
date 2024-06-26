@@ -23,18 +23,18 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { humanFileSize } from "@/utils/humanFileSize"
+import DefaultLoader from "@/components/default_loader"
 
 
 export default function UserFiles() {
     // get the users files with react query
     const { status, data, error } = useQuery({
         queryKey: ['files'],
-        queryFn: ({ signal }) => listFolder(),
-        staleTime: 60 * 1000,
+        queryFn: () => listFolder(),
     })
 
     if (status === "pending") {
-        return <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        return <DefaultLoader />
     }
 
     if (status === "error") {

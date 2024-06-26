@@ -2,7 +2,6 @@ import { ConversationMessage } from "./conversation";
 
 export interface RAGRequest {
     input: string;
-    conversationId: string;
     checkQuality?: boolean;
     summaryModelId?: string;
     chatModelId?: string;

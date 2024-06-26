@@ -1,9 +1,18 @@
+"use client"
+
 import { Conversation } from "@/types/conversation"
-import Link from "next/link"
+import Cookies from "js-cookie"
 
-export default function SidebarRow({ c }: { c: Conversation }) {
+export default function SidebarRow({ c, activeConvId }: { c: Conversation, activeConvId: string }) {
+    const handleClick = () => {
+        // set the cookie
+        Cookies.set("conversationId", c.id)
 
-    return <Link href={`/rag?conversationId=${c.id}`}>
-        <div className="py-2 px-4 rounded-xl hover:bg-container">{c.title}</div>
-    </Link>
+        // reload the page
+        location.reload();
+    }
+
+    return <button onClick={handleClick} className="w-full">
+        <p className={`py-2 pl-4 text-left w-full rounded-xl hover:bg-secondary ${activeConvId === c.id ? "bg-secondary" : ""}`}>{c.title}</p>
+    </button>
 }

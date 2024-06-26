@@ -25,3 +25,11 @@ export async function getCustomer({
 
     return c
 }
+
+export async function getCID(): Promise<string> {
+    const cid = cookies().get("cid")?.value
+    if (cid == undefined) {
+        throw new Error("failed to get the customer id")
+    }
+    return cid
+}

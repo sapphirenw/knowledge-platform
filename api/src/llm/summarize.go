@@ -33,9 +33,9 @@ func (llm *LLM) Summarize(
 	}
 
 	chunks := make([]string, 0)
-	if estimatedTokens > llm.InputTokenLimit {
+	if estimatedTokens > llm.AvailableModel.InputTokenLimit {
 		logger.InfoContext(ctx, "Chunking input ...", "tokens", estimatedTokens)
-		chunks = gollm.ChunkStringEqualUntilN(input, int(llm.InputTokenLimit))
+		chunks = gollm.ChunkStringEqualUntilN(input, int(llm.AvailableModel.InputTokenLimit))
 	} else {
 		chunks = append(chunks, input)
 	}
@@ -70,6 +70,7 @@ func (llm *LLM) Summarize(
 	wg.Wait()
 	close(errCh)
 	close(responses)
+	close(usageRecordsChan)
 
 	// parse for errors
 	for err := range errCh {

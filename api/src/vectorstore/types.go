@@ -9,17 +9,21 @@ import (
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/ltypes"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
-	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
 type QueryInput struct {
-	CustomerId uuid.UUID
-	// Docstore   docstore.RemoteDocstore
+	CustomerID uuid.UUID
 	Embeddings gollm.Embeddings
-	DB         queries.DBTX
 	Query      string
 	K          int
-	Logger     *slog.Logger
+
+	// filters
+
+	FolderIDsFilter   []uuid.UUID
+	DocumentIDsFilter []uuid.UUID
+
+	WebsiteIDsFilter     []uuid.UUID
+	WebsitePageIDsFilter []uuid.UUID
 
 	// can inbed the vector incase the input is re-used, or user already embedded content
 	Vector *ltypes.EmbeddingsData
@@ -32,17 +36,11 @@ func (input *QueryInput) Validate() error {
 	if input.Embeddings == nil {
 		return fmt.Errorf("embeddings cannot be empty")
 	}
-	if input.DB == nil {
-		return fmt.Errorf("db cannot be empty")
-	}
 	if input.Query == "" {
 		return fmt.Errorf("no query provided")
 	}
 	if input.K == 0 || input.K > 5 {
 		return fmt.Errorf("k must be between 1 and 5")
-	}
-	if input.Logger == nil {
-		input.Logger = utils.DefaultLogger()
 	}
 
 	// ensure the length is not too large for the embeddings
@@ -54,10 +52,9 @@ func (input *QueryInput) Validate() error {
 	return nil
 }
 
-func (input *QueryInput) GetVectors(ctx context.Context) (*ltypes.EmbeddingsData, error) {
-	var vector *ltypes.EmbeddingsData
+func (input *QueryInput) GetVectors(ctx context.Context, logger *slog.Logger) (*ltypes.EmbeddingsData, error) {
 	if input.Vector == nil {
-		input.Logger.InfoContext(ctx, "Vectors not present, creating new vectors from the input")
+		logger.InfoContext(ctx, "Vectors not present, creating new vectors from the input")
 		response, err := input.Embeddings.Embed(ctx, input.Query)
 		if err != nil {
 			return nil, fmt.Errorf("error sending the embedding request: %s", err)
@@ -67,34 +64,23 @@ func (input *QueryInput) GetVectors(ctx context.Context) (*ltypes.EmbeddingsData
 		}
 
 		input.Vector = response.Embeddings[0]
-		vector = response.Embeddings[0]
-	} else {
-		vector = input.Vector
 	}
 
-	return vector, nil
+	return input.Vector, nil
 }
 
-type QueryDocstoreInput struct {
-	*QueryInput
-
-	FolderIds   []uuid.UUID
-	DocumentIds []uuid.UUID
+type QueryResponse struct {
+	Vectors      []*queries.VectorStore
+	Documents    []*queries.Document
+	WebsitePages []*queries.WebsitePage
 }
 
-type QueryWebsitePagesInput struct {
-	*QueryInput
-
-	WebsiteIds     []uuid.UUID
-	WebsitePageIds []uuid.UUID
+type QueryDocumentsResponse struct {
+	Vectors   []*queries.VectorStore
+	Documents []*queries.Document
 }
 
-type QueryAllInput struct {
-	*QueryInput
-
-	FolderIds   []uuid.UUID
-	DocumentIds []uuid.UUID
-
-	WebsiteIds     []uuid.UUID
-	WebsitePageIds []uuid.UUID
+type QueryWebsitePagesResponse struct {
+	Vectors      []*queries.VectorStore
+	WebsitePages []*queries.WebsitePage
 }

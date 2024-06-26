@@ -7,7 +7,7 @@ INSERT INTO llm (
 RETURNING *;
 
 -- name: GetLLM :one
-SELECT llm.*, am.* FROM llm
+SELECT sqlc.embed(llm), sqlc.embed(am) FROM llm
 INNER JOIN available_model am ON am.id = llm.model
 WHERE llm.id = $1;
 
@@ -28,23 +28,23 @@ WITH RequiredLLM AS (
         WHERE llm.customer_id = $1 AND llm.is_default = true
     )
 )
-SELECT llm.*, am.*
+SELECT sqlc.embed(llm), sqlc.embed(am)
 FROM RequiredLLM llm
 INNER JOIN available_model am ON am.id = llm.model
 LIMIT 1;
 
 -- name: GetLLMsByCustomer :many
-SELECT llm.*, am.* FROM llm
+SELECT sqlc.embed(llm), sqlc.embed(am) FROM llm
 INNER JOIN available_model am ON am.id = llm.model
 WHERE customer_id = $1;
 
 -- name: GetStandardLLMs :many
-SELECT llm.*, am.* FROM llm
+SELECT sqlc.embed(llm), sqlc.embed(am) FROM llm
 INNER JOIN available_model am ON am.id = llm.model
 where customer_id IS NULL;
 
 -- name: GetInteralLLM :one
-SELECT llm.*, am.* FROM llm
+SELECT sqlc.embed(llm), sqlc.embed(am) FROM llm
 INNER JOIN available_model am ON am.id = llm.model
 WHERE title = $1 AND public = false
 LIMIT 1;

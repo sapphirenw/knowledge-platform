@@ -1,7 +1,9 @@
 package vectorstore
 
-import "testing"
+import (
+	"testing"
+)
 
-func TestQueryRaw(t *testing.T) {
+func TestVectorQuery(t *testing.T) {
 
 }
