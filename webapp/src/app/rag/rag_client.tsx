@@ -8,6 +8,7 @@ import DefaultLoader from '@/components/default_loader';
 import RagMessage from './rag_message';
 import Cookies from "js-cookie"
 import { getConversation } from '@/actions/conversation';
+import RagEmpty from './rag_empty';
 
 export default function RagClient() {
     const queryClient = useQueryClient()
@@ -105,6 +106,11 @@ export default function RagClient() {
             // TODO -- add a default loader here
             return <DefaultLoader />
         }
+
+        if (messages.length === 0) {
+            return <RagEmpty />
+        }
+
         const items = []
         for (let i = 0; i < messages.length; i++) {
             // ignore system messages
@@ -120,7 +126,7 @@ export default function RagClient() {
     return <div className="flex flex-col flex-grow h-full overflow-hidden">
         <div ref={scrollableDivRef} className="bg-bg flex-grow overflow-scroll p-4">
             <div className="flex h-full justify-center items-start w-full">
-                <div className="flex flex-col pb-16 max-w-[800px] w-full">
+                <div className="flex flex-col pb-16 max-w-[800px] w-full h-full">
                     {getMessages()}
                 </div>
             </div>

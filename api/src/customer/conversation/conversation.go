@@ -85,7 +85,7 @@ func AutoConversation(
 		}
 	} else {
 		if _, err := uuid.Parse(conversationId); err != nil {
-			return nil, fmt.Errorf("failed to parse the conversationId")
+			return nil, fmt.Errorf("failed to parse the conversationId: '%s'", conversationId)
 		}
 
 		// get the existing conversation

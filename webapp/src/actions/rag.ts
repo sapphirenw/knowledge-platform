@@ -11,7 +11,7 @@ export async function handleRAG(req: RAGRequest): Promise<Resp<RAGResponse>> {
         // get the conversationId
         const convId = cookies().get("conversationId")?.value ?? ""
 
-        let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/rag?conversationId=convId`, {
+        let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/rag?conversationId=${convId}`, {
             method: "POST",
             cache: 'no-store',
             body: JSON.stringify(req),

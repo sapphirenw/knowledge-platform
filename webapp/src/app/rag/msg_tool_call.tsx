@@ -20,7 +20,7 @@ export default function MessageToolCall({
 
     const getBody = () => {
         if (offset > 1) {
-            return <p className="opacity-60 text-sm pl-4 pt-10">Message compose from the following information:</p>
+            return <p className="opacity-60 text-sm pl-4 pt-10">Message composed from the following information:</p>
         }
 
         return <div className="flex items-center space-x-4">
