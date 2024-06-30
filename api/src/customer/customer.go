@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/sapphirenw/ai-content-creation-api/src/webparse"
 )
@@ -254,10 +256,32 @@ Adds a website for the user, but does not scrape it.
 */
 func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *handleWebsiteRequest) (*handleWebsiteResponse, error) {
 	logger := c.logger.With("domain", request.Domain)
-	logger.InfoContext(ctx, "Ingesting the domain...")
+	logger.InfoContext(ctx, "Ingesting the domain...", "whitelist", request.Whitelist, "blacklist", request.Blacklist, "insert", request.Insert)
+
+	// ensure the domain has a scheme
+	parsed, err := url.Parse(request.Domain)
+	if err != nil {
+		return nil, slogger.Error(ctx, logger, "failed to parse the domain", err)
+	}
+	if parsed.Scheme == "" {
+		parsed.Scheme = "https"
+	}
+
+	// compose the new domain
+	var parsedDomain string
+	if parsed.Host != "" {
+		parsedDomain = fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
+	} else if parsed.Path != "" {
+		parsedDomain = fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Path)
+	} else {
+		return nil, slogger.Error(ctx, logger, "failed to parse the domain", err, "parsed", parsed)
+	}
+
+	logger = logger.With("domain", parsedDomain)
+	logger.Info("Cleaned the domain name")
 
 	// parse the domain
-	protocol, domain, err := utils.ParseWebsiteInformation(request.Domain)
+	protocol, domain, err := utils.ParseWebsiteInformation(parsedDomain)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing the website: %v", err)
 	}

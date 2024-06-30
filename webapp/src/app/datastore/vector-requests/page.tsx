@@ -2,17 +2,16 @@
 
 import { getAllVectorizeRequests } from "@/actions/vector"
 import { useQuery } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import {
     Table,
     TableBody,
-    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
 import DefaultLoader from "@/components/default_loader"
+import VectorizationRequest from "@/components/vectorization_request"
 
 export default function VectorRequests() {
     // get the users files with react query
@@ -43,7 +42,8 @@ export default function VectorRequests() {
         return items
     }
 
-    return <div className="border border-border rounded-md w-full overflow-hidden">
+    return <div className="w-full space-y-4">
+        <VectorizationRequest />
         <Table>
             <TableHeader>
                 <TableRow>

@@ -45,7 +45,7 @@ export default function UserFiles() {
     const getTableRows = () => {
         const items = []
         for (let i = 0; i < data.documents.length; i++) {
-            items.push(<TableRow id={`doc-${i}`}>
+            items.push(<TableRow key={`doc-${i}`}>
                 <TableCell className="font-medium">{data.documents[i].filename}</TableCell>
                 <TableCell>{humanFileSize(data.documents[i].sizeBytes)}</TableCell>
                 <TableCell className="text-right">{new Date(data.documents[i].createdAt).toLocaleString()}</TableCell>
@@ -55,7 +55,7 @@ export default function UserFiles() {
     }
 
     return <div className="w-full">
-        <div className="p-4">
+        {/* <div className="p-4">
             <Breadcrumb>
                 <BreadcrumbList>
                     <BreadcrumbSeparator>
@@ -66,8 +66,8 @@ export default function UserFiles() {
                     </BreadcrumbItem>
                 </BreadcrumbList>
             </Breadcrumb>
-        </div>
-        <div className="border border-border rounded-md w-full overflow-hidden">
+        </div> */}
+        <div className="overflow-hidden">
             <Table>
                 <TableHeader>
                     <TableRow>

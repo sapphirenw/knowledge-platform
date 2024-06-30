@@ -73,6 +73,7 @@ export default function FileUpload() {
 
         if (errMessages.length != 0) {
             toast({
+                variant: "destructive",
                 title: "File Validation Error",
                 description: <div className="">
                     {errMessages.map((element, index) => (
@@ -90,6 +91,7 @@ export default function FileUpload() {
         const successfullyUploaded = await uploadDocuments(formData)
         if (!successfullyUploaded) {
             toast({
+                variant: "destructive",
                 title: "Oh no!",
                 description: <p>There was an internal issue uploading the files.</p>
             })
@@ -105,30 +107,32 @@ export default function FileUpload() {
         setIsLoading(false)
     }
 
-    return <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
-            <FormField
-                control={form.control}
-                name="files"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Select Files</FormLabel>
-                        <FormControl>
-                            <Input id="files" type="file" multiple placeholder="Select files" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                            Select files you want to upload
-                        </FormDescription>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-            <div className="space-x-2">
-                <Button type="submit">
-                    {isLoading ? <DefaultLoader /> : <></>}
-                    Submit
-                </Button>
-            </div>
-        </form>
-    </Form>
+    return <div className="w-full">
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
+                <FormField
+                    control={form.control}
+                    name="files"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Select Files</FormLabel>
+                            <FormControl>
+                                <Input id="files" type="file" multiple placeholder="Select files" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                                Select files you want to upload
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <div className="space-x-2">
+                    <Button type="submit">
+                        {isLoading ? <DefaultLoader /> : <></>}
+                        Submit
+                    </Button>
+                </div>
+            </form>
+        </Form>
+    </div>
 }
