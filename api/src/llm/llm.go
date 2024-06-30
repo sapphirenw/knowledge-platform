@@ -112,6 +112,12 @@ func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtyp
 	}
 }
 
+func GetLLMString(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id string) (*LLM, error) {
+	var pgid pgtype.UUID
+	pgid.Scan(id)
+	return GetLLM(ctx, db, customerId, pgid)
+}
+
 func FromObjects(llm *queries.Llm, availableModel *queries.AvailableModel) *LLM {
 	return &LLM{Llm: llm, AvailableModel: availableModel}
 }

@@ -14,7 +14,7 @@ export default async function Files() {
         queryFn: listFolder,
     })
 
-    return <div className="grid place-items-center p-12 gap-4">
+    return <div className="grid place-items-center p-12 gap-4 safe-area">
         <VectorizationRequest />
         <FileUpload />
         <HydrationBoundary state={dehydrate(queryClient)}>

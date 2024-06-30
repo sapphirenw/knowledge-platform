@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
 	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
@@ -141,7 +142,7 @@ func (c *Customer) QueryVectorStore(ctx context.Context, db queries.DBTX, reques
 	logger.InfoContext(ctx, "Querying vectorstore ...")
 
 	// create a vector input
-	embs := c.GetEmbeddings(ctx)
+	embs := llm.GetEmbeddings(logger, c.Customer)
 	input := &vectorstore.QueryInput{
 		CustomerID: c.ID,
 		Embeddings: embs,
@@ -181,7 +182,7 @@ func queryVectorStoreDocuments(
 	}
 	defer tx.Commit(r.Context())
 
-	embs := c.GetEmbeddings(r.Context())
+	embs := llm.GetEmbeddings(c.logger, c.Customer)
 	response, err := vectorstore.QueryDocuments(r.Context(), c.logger, pool, &vectorstore.QueryInput{
 		CustomerID: c.ID,
 		Embeddings: embs,

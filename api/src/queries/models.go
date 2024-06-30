@@ -195,6 +195,8 @@ type Conversation struct {
 	ConversationType string             `db:"conversation_type" json:"conversationType"`
 	SystemMessage    string             `db:"system_message" json:"systemMessage"`
 	Metadata         []byte             `db:"metadata" json:"metadata"`
+	HasError         bool               `db:"has_error" json:"hasError"`
+	ErrorMessage     *string            `db:"error_message" json:"errorMessage"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }

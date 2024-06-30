@@ -11,6 +11,7 @@ import (
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
+	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -27,7 +28,7 @@ func (c *Customer) VectorizeDatastore(
 	startTime := time.Now().UTC()
 
 	// get the embeddings
-	emb := c.GetEmbeddings(ctx)
+	emb := llm.GetEmbeddings(logger, c.Customer)
 
 	// track token usage throughout the program
 	usageRecords := make([]*tokens.UsageRecord, 0)
@@ -249,7 +250,7 @@ func (c *Customer) handleWesbiteVectorization(
 	logger.InfoContext(ctx, "Creating embeddings for each page ...")
 
 	// create an embeddings object
-	emb := c.GetEmbeddings(ctx)
+	emb := llm.GetEmbeddings(logger, c.Customer)
 
 	for _, page := range pages {
 		// create a transaction

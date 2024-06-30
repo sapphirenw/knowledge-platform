@@ -12,11 +12,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/ltypes"
 	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
+	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/sapphirenw/ai-content-creation-api/src/webparse"
@@ -77,11 +77,6 @@ func (c *Customer) GetDocstore(ctx context.Context) (docstore.RemoteDocstore, er
 	default:
 		return docstore.NewTODODocstore(c.logger)
 	}
-}
-
-func (c *Customer) GetEmbeddings(ctx context.Context) gollm.Embeddings {
-	emb := gollm.NewOpenAIEmbeddings(c.ID.String(), c.logger, nil)
-	return emb
 }
 
 // Creates a new folder tied to the customer with an optional parent.
@@ -364,7 +359,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 	logger.InfoContext(ctx, "Creating embeddings for each page ...")
 
 	// create an embeddings object
-	emb := c.GetEmbeddings(ctx)
+	emb := llm.GetEmbeddings(logger, c.Customer)
 
 	// loop and perform the vectorization
 	var wg sync.WaitGroup
@@ -677,7 +672,7 @@ func (c *Customer) VectorizeDatastoreOLD(
 	logger.InfoContext(ctx, "Vectorizing datastore ...")
 
 	// get the embeddings
-	emb := c.GetEmbeddings(ctx)
+	emb := llm.GetEmbeddings(logger, c.Customer)
 
 	// create the model object
 	model := queries.New(txn)

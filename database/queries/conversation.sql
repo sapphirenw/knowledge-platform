@@ -22,6 +22,13 @@ ORDER BY c.updated_at DESC;
 SELECT * FROM conversation
 WHERE id = $1;
 
+-- name: SetConversationError :one
+UPDATE conversation SET
+    has_error = true,
+    error_message = $2
+WHERE id = $1
+RETURNING *;
+
 -- name: CreateConversationMessage :one
 INSERT INTO conversation_message (
     conversation_id,

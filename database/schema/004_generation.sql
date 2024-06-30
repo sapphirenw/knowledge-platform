@@ -72,6 +72,9 @@ CREATE TABLE conversation(
     system_message TEXT NOT NULL,
     metadata JSONB DEFAULT '{}',
 
+    has_error BOOLEAN NOT NULL DEFAULT false,
+    error_message TEXT,
+
     PRIMARY KEY (id),
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

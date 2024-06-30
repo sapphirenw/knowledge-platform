@@ -60,9 +60,14 @@ export default function Login() {
         setIsLoading(false)
     }
 
-    return <div className="p-16 grid place-items-center">
+    const removeData = () => {
+        Cookies.remove('cid')
+        location.reload()
+    }
+
+    return <div className="safe-area p-16 grid place-items-center gap-4">
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                     control={form.control}
                     name="name"
@@ -84,9 +89,11 @@ export default function Login() {
                         {isLoading ? <DefaultLoader /> : <></>}
                         Submit
                     </Button>
-                    <Button variant="outline" onClick={() => Cookies.remove('cid')}>Remove ID</Button>
                 </div>
             </form>
         </Form>
+        <div className="text-left w-full">
+            <Button variant="outline" onClick={() => removeData()}>Remove ID</Button>
+        </div>
     </div>
 }

@@ -31,7 +31,7 @@ const createConversation = `-- name: CreateConversation :one
 INSERT INTO conversation (
     customer_id, title, conversation_type, system_message, metadata
 ) VALUES ( $1, $2, $3, $4, $5 )
-RETURNING id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at
+RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
 `
 
 type CreateConversationParams struct {
@@ -47,7 +47,7 @@ type CreateConversationParams struct {
 //	INSERT INTO conversation (
 //	    customer_id, title, conversation_type, system_message, metadata
 //	) VALUES ( $1, $2, $3, $4, $5 )
-//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at
+//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
 func (q *Queries) CreateConversation(ctx context.Context, arg *CreateConversationParams) (*Conversation, error) {
 	row := q.db.QueryRow(ctx, createConversation,
 		arg.CustomerID,
@@ -64,6 +64,8 @@ func (q *Queries) CreateConversation(ctx context.Context, arg *CreateConversatio
 		&i.ConversationType,
 		&i.SystemMessage,
 		&i.Metadata,
+		&i.HasError,
+		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1264,13 +1266,13 @@ func (q *Queries) GetAvailableModelsScoped(ctx context.Context, provider string)
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
+SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at FROM conversation
 WHERE id = $1
 `
 
 // GetConversation
 //
-//	SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
+//	SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at FROM conversation
 //	WHERE id = $1
 func (q *Queries) GetConversation(ctx context.Context, id uuid.UUID) (*Conversation, error) {
 	row := q.db.QueryRow(ctx, getConversation, id)
@@ -1282,6 +1284,8 @@ func (q *Queries) GetConversation(ctx context.Context, id uuid.UUID) (*Conversat
 		&i.ConversationType,
 		&i.SystemMessage,
 		&i.Metadata,
+		&i.HasError,
+		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1336,14 +1340,14 @@ func (q *Queries) GetConversationMessages(ctx context.Context, conversationID uu
 }
 
 const getConversations = `-- name: GetConversations :many
-SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
+SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at FROM conversation
 WHERE customer_id = $1
 ORDER BY updated_at DESC
 `
 
 // GetConversations
 //
-//	SELECT id, customer_id, title, conversation_type, system_message, metadata, created_at, updated_at FROM conversation
+//	SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at FROM conversation
 //	WHERE customer_id = $1
 //	ORDER BY updated_at DESC
 func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([]*Conversation, error) {
@@ -1362,6 +1366,8 @@ func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([
 			&i.ConversationType,
 			&i.SystemMessage,
 			&i.Metadata,
+			&i.HasError,
+			&i.ErrorMessage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1376,7 +1382,7 @@ func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([
 }
 
 const getConversationsWithCount = `-- name: GetConversationsWithCount :many
-SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.created_at, c.updated_at, COUNT(cm.id) AS message_count
+SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.has_error, c.error_message, c.created_at, c.updated_at, COUNT(cm.id) AS message_count
 FROM conversation c
 JOIN conversation_message cm
 ON c.id = cm.conversation_id
@@ -1392,6 +1398,8 @@ type GetConversationsWithCountRow struct {
 	ConversationType string             `db:"conversation_type" json:"conversationType"`
 	SystemMessage    string             `db:"system_message" json:"systemMessage"`
 	Metadata         []byte             `db:"metadata" json:"metadata"`
+	HasError         bool               `db:"has_error" json:"hasError"`
+	ErrorMessage     *string            `db:"error_message" json:"errorMessage"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 	MessageCount     int64              `db:"message_count" json:"messageCount"`
@@ -1399,7 +1407,7 @@ type GetConversationsWithCountRow struct {
 
 // GetConversationsWithCount
 //
-//	SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.created_at, c.updated_at, COUNT(cm.id) AS message_count
+//	SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.has_error, c.error_message, c.created_at, c.updated_at, COUNT(cm.id) AS message_count
 //	FROM conversation c
 //	JOIN conversation_message cm
 //	ON c.id = cm.conversation_id
@@ -1422,6 +1430,8 @@ func (q *Queries) GetConversationsWithCount(ctx context.Context, customerID uuid
 			&i.ConversationType,
 			&i.SystemMessage,
 			&i.Metadata,
+			&i.HasError,
+			&i.ErrorMessage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.MessageCount,
@@ -3515,6 +3525,44 @@ func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *Q
 		return nil, err
 	}
 	return items, nil
+}
+
+const setConversationError = `-- name: SetConversationError :one
+UPDATE conversation SET
+    has_error = true,
+    error_message = $2
+WHERE id = $1
+RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+`
+
+type SetConversationErrorParams struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	ErrorMessage *string   `db:"error_message" json:"errorMessage"`
+}
+
+// SetConversationError
+//
+//	UPDATE conversation SET
+//	    has_error = true,
+//	    error_message = $2
+//	WHERE id = $1
+//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+func (q *Queries) SetConversationError(ctx context.Context, arg *SetConversationErrorParams) (*Conversation, error) {
+	row := q.db.QueryRow(ctx, setConversationError, arg.ID, arg.ErrorMessage)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.ConversationType,
+		&i.SystemMessage,
+		&i.Metadata,
+		&i.HasError,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
 }
 
 const setProjectIdeaUsed = `-- name: SetProjectIdeaUsed :one
