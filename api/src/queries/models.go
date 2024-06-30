@@ -87,6 +87,13 @@ type AvailableModel struct {
 	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
+type BetaApiKey struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	Expired   bool               `db:"expired" json:"expired"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
 type BlogCategory struct {
 	ID           uuid.UUID          `db:"id" json:"id"`
 	CustomerID   uuid.UUID          `db:"customer_id" json:"customerId"`

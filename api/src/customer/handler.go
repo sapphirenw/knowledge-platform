@@ -12,11 +12,16 @@ import (
 	"github.com/sapphirenw/ai-content-creation-api/src/customer/project"
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
 	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
+	"github.com/sapphirenw/ai-content-creation-api/src/middleware"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 )
 
 func Handler(mux chi.Router) {
+	// add the beta auth handler scoped to customer routes
+	mux.Use(middleware.BetaAuthToken)
+
 	mux.Get("/", customerHandler(getCustomer))
 
 	// datastore
@@ -113,7 +118,7 @@ func customerHandler(
 			if err != nil {
 				// check if no rows
 				if err.Error() == "no rows in result set" {
-					http.NotFound(w, r)
+					slogger.ServerError(w, r, &l, 404, "There was no customers found")
 					return
 				}
 

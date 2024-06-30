@@ -1,4 +1,4 @@
-package tests
+package beta
 
 import (
 	"net/http"

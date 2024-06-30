@@ -32,6 +32,9 @@ func ServerError(
 	message string,
 	args ...any,
 ) {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	logger.Error(message, args...)
 	http.Error(w, message, statusCode)
 }

@@ -16,7 +16,7 @@ clean:
 	fi
 
 run: db-schema
-	docker compose up -d
+	docker compose up -d --remove-orphans
 
 rebuild: db-schema
 	$(MAKE) clean

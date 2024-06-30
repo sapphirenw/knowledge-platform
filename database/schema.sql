@@ -240,6 +240,7 @@ end $$ language plpgsql;
 
 
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 /*
 ############################################################
@@ -881,6 +882,25 @@ CREATE TABLE blog_post_tag(
     blog_post_id uuid NOT NULL REFERENCES blog_post(id) ON DELETE CASCADE,
 
     title VARCHAR(15) NOT NULL,
+
+    PRIMARY KEY (id),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+/*
+############################################################
+Beta Auth
+############################################################
+*/
+
+-- Beta auth table to handle basic authentication for beta testers.
+-- this does NOT maintain a relationship between customers and api keys,
+-- and should be replaced semi-quickly
+CREATE TABLE beta_api_key(
+    id uuid NOT NULL DEFAULT uuid7(),
+    expired BOOLEAN NOT NULL DEFAULT false,
 
     PRIMARY KEY (id),
 

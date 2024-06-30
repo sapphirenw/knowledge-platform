@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sapphirenw/ai-content-creation-api/src/beta"
 	"github.com/sapphirenw/ai-content-creation-api/src/customer"
-	"github.com/sapphirenw/ai-content-creation-api/src/tests"
 )
 
 // Function to define all routes in the api
@@ -17,5 +17,5 @@ func addRoutes(
 	})
 
 	mux.Route("/customers/{customerId}", customer.Handler)
-	mux.Route("/tests", tests.Handler)
+	mux.Route("/tests", beta.Handler)
 }
