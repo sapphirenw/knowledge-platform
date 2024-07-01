@@ -12,12 +12,16 @@ import (
 func addRoutes(
 	mux *chi.Mux,
 ) {
+	mux.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Successfully hit index"))
+	})
+
 	mux.Route("/v1", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Successfully hit index"))
 		})
 
+		r.Route("/beta", beta.Handler)
 		r.Route("/customers/{customerId}", customer.Handler)
-		r.Route("/tests", beta.Handler)
 	})
 }

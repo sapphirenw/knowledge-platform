@@ -89,6 +89,7 @@ type AvailableModel struct {
 
 type BetaApiKey struct {
 	ID        uuid.UUID          `db:"id" json:"id"`
+	Name      string             `db:"name" json:"name"`
 	Expired   bool               `db:"expired" json:"expired"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`

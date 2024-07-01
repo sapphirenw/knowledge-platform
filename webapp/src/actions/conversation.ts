@@ -3,18 +3,14 @@
 import { Conversation, ConversationResponse } from "@/types/conversation"
 import { getCID } from "./customer"
 import { cookies } from "next/headers"
+import { sendRequestV1 } from "./api"
 
 export async function getAllConversations(): Promise<Conversation[]> {
     const cid = await getCID()
-    let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/conversations`, {
-        method: "GET",
-        cache: 'no-store',
+    let response = await sendRequestV1<Conversation[]>({
+        route: `customers/${cid}/conversations`
     })
-    if (!response.ok) {
-        console.log(await response.text())
-        throw new Error("failed to fetch the data")
-    }
-    return await response.json() as Conversation[]
+    return response
 }
 
 export async function getConversation(): Promise<ConversationResponse> {
@@ -30,15 +26,16 @@ export async function getConversation(): Promise<ConversationResponse> {
     console.log("FETCHING CONVERSATION")
 
     // fetch with the conversationId
-    const cid = await getCID()
-    let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/conversations/${convId}`, {
-        method: "GET",
-        cache: 'no-store',
-    })
-    if (!response.ok) {
-        console.log(await response.text())
-        throw new Error("failed to fetch the data")
+    try {
+        const cid = await getCID()
+        let response = await sendRequestV1<ConversationResponse>({
+            route: `customers/${cid}/conversations/${convId}`
+        })
+        return response
+    } catch (e) {
+        if (e instanceof Error) console.error(e)
+        // remove the convid
+        cookies().delete("conversationId")
+        throw e
     }
-
-    return await response.json() as ConversationResponse
 }

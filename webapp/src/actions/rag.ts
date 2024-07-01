@@ -3,31 +3,15 @@
 import { RAGRequest, RAGResponse } from "@/types/rag"
 import { cookies } from "next/headers"
 import { getCID } from "./customer"
+import { sendRequestV1 } from "./api"
 
-export async function handleRAG(req: RAGRequest): Promise<Resp<RAGResponse>> {
-    try {
-        const cid = await getCID()
-
-        // get the conversationId
-        const convId = cookies().get("conversationId")?.value ?? ""
-
-        let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/rag?conversationId=${convId}`, {
-            method: "POST",
-            cache: 'no-store',
-            body: JSON.stringify(req),
-        })
-        if (response.status != 200) {
-            return {
-                error: await response.text()
-            }
-        }
-        return {
-            data: await response.json() as RAGResponse
-        }
-    } catch (e) {
-        console.log(e)
-        return {
-            error: "Unknown error"
-        }
-    }
+export async function handleRAG(req: RAGRequest): Promise<RAGResponse> {
+    const cid = await getCID()
+    // get the conversationId
+    const convId = cookies().get("conversationId")?.value ?? ""
+    return await sendRequestV1<RAGResponse>({
+        route: `customers/${cid}/rag?conversationId=${convId}`,
+        method: "POST",
+        body: JSON.stringify(req),
+    })
 }

@@ -5,22 +5,15 @@ import { humanFileSize } from "@/utils/humanFileSize"
 import { generateSHA256 } from "@/utils/sha"
 import { cookies } from "next/headers"
 import { getCID } from "./customer"
+import { sendRequestV1 } from "./api"
 
 export async function listFolder() {
     const cid = await getCID()
-    let response = await fetch(`${process.env.DB_HOST}/customers/${cid}/folders`, {
-        method: "GET",
-        cache: 'no-store',
+    const response = await sendRequestV1<ListFolderResponse>({
+        route: `customers/${cid}/folders`
     })
-    if (response.status != 200) {
-        console.log("there was an error")
-        throw new Error(await response.text())
-    }
 
-    const data = await response.json() as ListFolderResponse
-    console.log(data)
-
-    return data
+    return response
 }
 
 /**
@@ -70,19 +63,14 @@ export async function uploadDocuments(form: FormData): Promise<boolean> {
                 size: file.size
             }
             console.log(payload)
-            const presignedResp = await fetch(`${process.env.DB_HOST}/customers/${cid}/generatePresignedUrl`, {
+            const presignedData = await sendRequestV1<PresignedUrlResponse>({
+                route: `customers/${cid}/generatePresignedUrl`,
                 method: "POST",
-                cache: 'no-store',
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             })
-            if (!presignedResp.ok) {
-                console.log(await presignedResp.text())
-                throw new Error("failed to generate the presigned url")
-            }
             console.log("created pre-signed url")
 
             // parse the response
-            const presignedData = await presignedResp.json() as PresignedUrlResponse
             const url = Buffer.from(presignedData.uploadUrl, 'base64').toString('utf-8');
 
             // upload the file
@@ -101,14 +89,10 @@ export async function uploadDocuments(form: FormData): Promise<boolean> {
             console.log("successfully uploaded file")
 
             // notify of a successful upload
-            const notifyResp = await fetch(`${process.env.DB_HOST}/customers/${cid}/documents/${presignedData.documentId}/validate`, {
+            await sendRequestV1<undefined>({
+                route: `customers/${cid}/documents/${presignedData.documentId}/validate`,
                 method: "PUT",
-                cache: 'no-store',
             })
-            if (!notifyResp.ok) {
-                console.log(await uploadResp.text())
-                throw new Error("failed to notify of successful upload")
-            }
             console.log("Successfully notified of successful upload")
         }
 

@@ -9,6 +9,7 @@ import RagMessage from './rag_message';
 import Cookies from "js-cookie"
 import { getConversation } from '@/actions/conversation';
 import RagEmpty from './rag_empty';
+import { toast } from '@/components/ui/use-toast';
 
 export default function RagClient() {
     const queryClient = useQueryClient()
@@ -74,17 +75,12 @@ export default function RagClient() {
         let req = {
             input: input,
         }
-        let response = await handleRAG(req)
-
-        // parse the response
-        if (response.error) {
-            console.log("There was an error: ", response.error)
-            // setError(response.error)
-        } else {
+        try {
+            const response = await handleRAG(req)
             console.log("Success!")
-            console.log(response.data!)
-            setMessages((prev) => [...prev, response.data!.message])
-            Cookies.set("conversationId", response.data!.conversationId)
+            console.log(response)
+            setMessages((prev) => [...prev, response.message])
+            Cookies.set("conversationId", response.conversationId)
             scrollToBottom()
 
             // invalidate the conversation list query for re-rendering the sidebar
@@ -94,10 +90,18 @@ export default function RagClient() {
             }
 
             // check whether to auto send the response
-            if (response.data!.message.role == 3 || response.data!.message.role == 4) {
+            if (response.message.role == 3 || response.message.role == 4) {
                 await sendRequest("")
             }
+        } catch (e) {
+            if (e instanceof Error) console.error(e)
+            toast({
+                variant: "destructive",
+                title: "Oh no!",
+                description: <p>{e instanceof Error ? e.message : "Unknown error"}</p>
+            })
         }
+
         setIsLoading(false)
     }
 

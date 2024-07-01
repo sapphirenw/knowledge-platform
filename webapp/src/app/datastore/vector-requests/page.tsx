@@ -33,10 +33,9 @@ export default function VectorRequests() {
         const items = []
         for (let i = 0; i < data.length; i++) {
             items.push(<TableRow key={`doc-${i}`}>
-                <TableCell className="font-medium">{data[i].id}</TableCell>
-                <TableCell>{data[i].status}</TableCell>
+                <TableCell>{new Date(data[i].createdAt).toLocaleString()}</TableCell>
                 <TableCell>{data[i].message}</TableCell>
-                <TableCell className="text-right">{new Date(data[i].createdAt).toLocaleString()}</TableCell>
+                <TableCell className="text-right">{data[i].status}</TableCell>
             </TableRow>)
         }
         return items
@@ -47,10 +46,9 @@ export default function VectorRequests() {
         <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead className="">Job ID</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Job Date</TableHead>
                     <TableHead>Message</TableHead>
-                    <TableHead className="text-right">Created</TableHead>
+                    <TableHead className="text-right">Status</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>

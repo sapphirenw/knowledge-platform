@@ -132,6 +132,10 @@ func (c *Customer) VectorizeDatastore(
 		return slogger.Error(ctx, logger, "failed to update the job status", err)
 	}
 
+	if err := utils.ReportUsage(ctx, logger, pool, c.ID, usageRecords, nil); err != nil {
+		return slogger.Error(ctx, logger, "failed to report the usage", err)
+	}
+
 	logger.InfoContext(ctx, "Successfully vectorized customer store")
 	return nil
 }
@@ -314,6 +318,13 @@ func (c *Customer) handleWebsitePageVectorization(
 	newSha256 := utils.GenerateFingerprint([]byte(scrapeResponse.Content))
 	if page.Sha256 == newSha256 {
 		logger.InfoContext(ctx, "this page did not change")
+		// update the page header
+		if _, err := dmodel.UpdateWebsitePageSignature(ctx, &queries.UpdateWebsitePageSignatureParams{
+			ID:     page.ID,
+			Sha256: newSha256,
+		}); err != nil {
+			return nil, slogger.Error(ctx, logger, "failed to update the page signature", err)
+		}
 		return nil, nil
 	} else {
 		logger.InfoContext(ctx, "The signatures do not match", "oldSHA256", page.Sha256, "newSHA256", newSha256)

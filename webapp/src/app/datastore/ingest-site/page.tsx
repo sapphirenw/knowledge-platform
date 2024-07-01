@@ -117,7 +117,7 @@ export default function WebsiteIngest() {
             return null
         }
 
-        return <div className="">
+        return <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <h4 className="text-lg font-bold">Search Results</h4>
                 <Button onClick={() => scrapePages()}>
@@ -140,7 +140,7 @@ export default function WebsiteIngest() {
         </div>
     }
 
-    return <div className="w-full">
+    return <div className="w-full space-y-8">
         <div className="w-full">
             <Form {...form}>
                 <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>

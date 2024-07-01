@@ -30,9 +30,7 @@ export default async function Datastore() {
 
     return <div className="space-y-4 w-full">
         <div className="grid place-items-center">
-            <Button asChild>
-                <Link href="/datastore/vector-requests">My Vector Requests</Link>
-            </Button>
+            <p className="text-center text-sm text-muted-foreground max-w-lg">When you add documents or websites, you must manually ensure your vectorized data is in-sync. You can manage and queue requests <Button className="p-0 h-fit" variant="link" asChild><Link href="/datastore/vector-requests">here</Link></Button>.</p>
         </div>
         <Separator className="my-4" />
         <div className="w-full space-y-2">

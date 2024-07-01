@@ -19,9 +19,7 @@ import (
 )
 
 func Handler(mux chi.Router) {
-	// add the beta auth handler scoped to customer routes
 	mux.Use(middleware.BetaAuthToken)
-
 	mux.Get("/", customerHandler(getCustomer))
 
 	// datastore

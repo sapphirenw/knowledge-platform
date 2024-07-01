@@ -28,19 +28,22 @@ func (q *Queries) ClearConversation(ctx context.Context, conversationID uuid.UUI
 }
 
 const createBetaApiKey = `-- name: CreateBetaApiKey :one
-INSERT INTO beta_api_key DEFAULT VALUES
-RETURNING id, expired, created_at, updated_at
+INSERT INTO beta_api_key ( name )
+VALUES ( $1 )
+RETURNING id, name, expired, created_at, updated_at
 `
 
 // CreateBetaApiKey
 //
-//	INSERT INTO beta_api_key DEFAULT VALUES
-//	RETURNING id, expired, created_at, updated_at
-func (q *Queries) CreateBetaApiKey(ctx context.Context) (*BetaApiKey, error) {
-	row := q.db.QueryRow(ctx, createBetaApiKey)
+//	INSERT INTO beta_api_key ( name )
+//	VALUES ( $1 )
+//	RETURNING id, name, expired, created_at, updated_at
+func (q *Queries) CreateBetaApiKey(ctx context.Context, name string) (*BetaApiKey, error) {
+	row := q.db.QueryRow(ctx, createBetaApiKey, name)
 	var i BetaApiKey
 	err := row.Scan(
 		&i.ID,
+		&i.Name,
 		&i.Expired,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -1287,19 +1290,20 @@ func (q *Queries) GetAvailableModelsScoped(ctx context.Context, provider string)
 }
 
 const getBetaApiKey = `-- name: GetBetaApiKey :one
-SELECT id, expired, created_at, updated_at FROM beta_api_key
+SELECT id, name, expired, created_at, updated_at FROM beta_api_key
 WHERE id = $1
 `
 
 // GetBetaApiKey
 //
-//	SELECT id, expired, created_at, updated_at FROM beta_api_key
+//	SELECT id, name, expired, created_at, updated_at FROM beta_api_key
 //	WHERE id = $1
 func (q *Queries) GetBetaApiKey(ctx context.Context, id uuid.UUID) (*BetaApiKey, error) {
 	row := q.db.QueryRow(ctx, getBetaApiKey, id)
 	var i BetaApiKey
 	err := row.Scan(
 		&i.ID,
+		&i.Name,
 		&i.Expired,
 		&i.CreatedAt,
 		&i.UpdatedAt,

@@ -5,8 +5,8 @@ import (
 )
 
 func Handler(mux chi.Router) {
+	mux.Post("/createBetaApiKey", createBetaApiKey)
 	mux.Route("/customers", func(r chi.Router) {
 		r.Get("/get", getCustomer)
 	})
-	mux.Post("/createBetaApiKey", createBetaApiKey)
 }

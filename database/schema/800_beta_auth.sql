@@ -9,6 +9,7 @@ Beta Auth
 -- and should be replaced semi-quickly
 CREATE TABLE beta_api_key(
     id uuid NOT NULL DEFAULT uuid7(),
+    name TEXT NOT NULL, -- the name associated with this api key
     expired BOOLEAN NOT NULL DEFAULT false,
 
     PRIMARY KEY (id),

@@ -8,6 +8,8 @@ import (
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
+	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
 func getCustomer(
@@ -21,7 +23,14 @@ func getCustomer(
 	name := r.URL.Query().Get("name")
 	if name == "" {
 		logger.ErrorContext(r.Context(), "There was no name passed in the url")
-		http.Error(w, "`name` is a required url parameter", http.StatusInternalServerError)
+		http.Error(w, "'name' is a required url parameter", http.StatusInternalServerError)
+		return
+	}
+
+	// parse the authToken for this user
+	authToken, err := utils.GoogleUUIDFromString(r.URL.Query().Get("authToken"))
+	if err != nil {
+		slogger.ServerError(w, r, &logger, 400, "'authToken', is a required url parameter", "error", err)
 		return
 	}
 
@@ -42,10 +51,24 @@ func getCustomer(
 	}
 	defer tx.Commit(r.Context())
 
+	dmodel := queries.New(tx)
+
+	// get the api key
+	key, err := dmodel.GetBetaApiKey(r.Context(), authToken)
+	if err != nil {
+		slogger.ServerError(w, r, &logger, 500, "failed to get the api key", "error", err)
+		return
+	}
+
+	// ensure that the name matches the key
+	if name != key.Name {
+		slogger.ServerError(w, r, &logger, 403, "Not Allowed.")
+		return
+	}
+
 	// create the customer
 	var customer *queries.Customer
-	model := queries.New(tx)
-	customer, err = model.GetCustomerByName(r.Context(), name)
+	customer, err = dmodel.GetCustomerByName(r.Context(), name)
 	if err == nil {
 		request.Encode(w, r, &logger, http.StatusOK, customer)
 		return
@@ -54,7 +77,7 @@ func getCustomer(
 	// check if a new customer needs to be created
 	if strings.Contains(err.Error(), "no rows in result set") {
 		// create a new customer
-		customer, err = model.CreateCustomer(r.Context(), name)
+		customer, err = dmodel.CreateCustomer(r.Context(), name)
 		if err == nil {
 			request.Encode(w, r, &logger, http.StatusOK, customer)
 			return

@@ -28,7 +28,7 @@ ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 
--- name: TouchDocument :exec
+-- name: UpdateDocumentVectorSig :exec
 UPDATE document SET
     updated_at = CURRENT_TIMESTAMP,
     vector_sha_256 = $2

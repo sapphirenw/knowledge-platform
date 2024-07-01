@@ -2,29 +2,7 @@
 
 import { Customer } from "@/types/customer"
 import { cookies } from 'next/headers'
-
-export async function getCustomer({
-    signal,
-    name,
-}: {
-    signal: AbortSignal | undefined,
-    name: string,
-}): Promise<Customer> {
-    let response = await fetch(`${process.env.DB_HOST}/tests/customers/get?name=${name}`, {
-        signal: signal,
-        method: "GET",
-        cache: 'no-store',
-    })
-    if (response.status != 200) {
-        throw new Error(await response.text())
-    }
-
-    // set the cookie
-    const c = await response.json() as Customer
-    cookies().set('cid', c.id, { secure: true })
-
-    return c
-}
+import { sendRequestV1 } from "./api"
 
 export async function getCID(): Promise<string> {
     const cid = cookies().get("cid")?.value
@@ -32,4 +10,15 @@ export async function getCID(): Promise<string> {
         throw new Error("failed to get the customer id")
     }
     return cid
+}
+
+export async function getCustomer(name: string, authToken: string): Promise<Customer> {
+    const customer = await sendRequestV1<Customer>({
+        route: `beta/customers/get?name=${name}&authToken=${authToken}`,
+        ignoreApiKey: true,
+    })
+
+    cookies().set('cid', customer.id, { secure: true, sameSite: "strict" })
+    cookies().set('apiKey', authToken, { secure: true, sameSite: "strict" })
+    return customer
 }
