@@ -100,11 +100,12 @@ export async function sendRequestV1<T>({
             return undefined;
         }
 
-        const data = await response.json() as T;
+        const rawData = await response.json()
         if (debugPrint === true) {
-            console.log(data);
+            console.log(rawData);
         }
-        return data;
+
+        return rawData as T;
     } catch (e) {
         if (e instanceof AuthError) {
             console.log("Authentication error", e);

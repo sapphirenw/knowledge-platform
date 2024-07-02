@@ -23,7 +23,7 @@ func VectorizeDatastoreRunner(
 	dmodel := queries.New(pool)
 
 	// get the waiting jobs
-	jobs, err := dmodel.GetVectorizeJobsStatus(ctx, queries.VectorizeStatusWaiting)
+	jobs, err := dmodel.GetVectorizeJobsWaiting(ctx)
 	if err != nil {
 		return slogger.Error(ctx, logger, "failed to get the vectorize jobs", err)
 	}
@@ -36,12 +36,14 @@ func VectorizeDatastoreRunner(
 		c, err := customer.NewCustomer(ctx, logger, job.CustomerID, pool)
 		if err != nil {
 			// set the job status as rejected
-			if _, err := dmodel.UpdateVectorizeJobStatus(ctx, &queries.UpdateVectorizeJobStatusParams{
-				ID:      job.ID,
-				Status:  queries.VectorizeStatusRejected,
+			if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
+				JobID:   job.ID,
+				Status:  queries.VectorizeJobStatusRejected,
 				Message: "There is no customer with this id",
+				Error:   err.Error(),
 			}); err != nil {
-				slogger.Error(ctx, logger, "failed to update the job", err)
+				slogger.Error(ctx, logger, "failed to create the vector job item", err)
+				continue
 			}
 			slogger.Error(ctx, logger, "failed to get the customer", err)
 			continue
@@ -50,24 +52,26 @@ func VectorizeDatastoreRunner(
 		// process the request
 		if err := c.VectorizeDatastore(ctx, pool, job); err != nil {
 			// update the status
-			if _, err := dmodel.UpdateVectorizeJobStatus(ctx, &queries.UpdateVectorizeJobStatusParams{
-				ID:      job.ID,
-				Status:  queries.VectorizeStatusError,
-				Message: fmt.Sprintf("There was an issue running the vectorization request: %s", err),
+			if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
+				JobID:   job.ID,
+				Status:  queries.VectorizeJobStatusError,
+				Message: "Failed to run the job",
+				Error:   fmt.Sprintf("There was an issue running the vectorization request: %s", err),
 			}); err != nil {
-				slogger.Error(ctx, logger, "failed to update the job", err)
+				slogger.Error(ctx, logger, "failed to create the vector job item", err)
+				continue
 			}
 			slogger.Error(ctx, logger, "failed to process the vectorization request", err)
 			continue
 		}
 
 		// update the status to complete
-		if _, err := dmodel.UpdateVectorizeJobStatus(ctx, &queries.UpdateVectorizeJobStatusParams{
-			ID:      job.ID,
-			Status:  queries.VectorizeStatusComplete,
+		if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
+			JobID:   job.ID,
+			Status:  queries.VectorizeJobStatusComplete,
 			Message: "Successfully vectorized the datastore",
 		}); err != nil {
-			slogger.Error(ctx, logger, "failed to update the job", err)
+			slogger.Error(ctx, logger, "failed to create the vector job item", err)
 			continue
 		}
 	}

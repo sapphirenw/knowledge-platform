@@ -13,50 +13,50 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
-type VectorizeStatus string
+type VectorizeJobStatus string
 
 const (
-	VectorizeStatusWaiting    VectorizeStatus = "waiting"
-	VectorizeStatusInProgress VectorizeStatus = "in-progress"
-	VectorizeStatusComplete   VectorizeStatus = "complete"
-	VectorizeStatusError      VectorizeStatus = "error"
-	VectorizeStatusUnknown    VectorizeStatus = "unknown"
-	VectorizeStatusRejected   VectorizeStatus = "rejected"
+	VectorizeJobStatusWaiting    VectorizeJobStatus = "waiting"
+	VectorizeJobStatusInProgress VectorizeJobStatus = "in-progress"
+	VectorizeJobStatusComplete   VectorizeJobStatus = "complete"
+	VectorizeJobStatusError      VectorizeJobStatus = "error"
+	VectorizeJobStatusUnknown    VectorizeJobStatus = "unknown"
+	VectorizeJobStatusRejected   VectorizeJobStatus = "rejected"
 )
 
-func (e *VectorizeStatus) Scan(src interface{}) error {
+func (e *VectorizeJobStatus) Scan(src interface{}) error {
 	switch s := src.(type) {
 	case []byte:
-		*e = VectorizeStatus(s)
+		*e = VectorizeJobStatus(s)
 	case string:
-		*e = VectorizeStatus(s)
+		*e = VectorizeJobStatus(s)
 	default:
-		return fmt.Errorf("unsupported scan type for VectorizeStatus: %T", src)
+		return fmt.Errorf("unsupported scan type for VectorizeJobStatus: %T", src)
 	}
 	return nil
 }
 
-type NullVectorizeStatus struct {
-	VectorizeStatus VectorizeStatus `json:"vectorizeStatus"`
-	Valid           bool            `json:"valid"` // Valid is true if VectorizeStatus is not NULL
+type NullVectorizeJobStatus struct {
+	VectorizeJobStatus VectorizeJobStatus `json:"vectorizeJobStatus"`
+	Valid              bool               `json:"valid"` // Valid is true if VectorizeJobStatus is not NULL
 }
 
 // Scan implements the Scanner interface.
-func (ns *NullVectorizeStatus) Scan(value interface{}) error {
+func (ns *NullVectorizeJobStatus) Scan(value interface{}) error {
 	if value == nil {
-		ns.VectorizeStatus, ns.Valid = "", false
+		ns.VectorizeJobStatus, ns.Valid = "", false
 		return nil
 	}
 	ns.Valid = true
-	return ns.VectorizeStatus.Scan(value)
+	return ns.VectorizeJobStatus.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
-func (ns NullVectorizeStatus) Value() (driver.Value, error) {
+func (ns NullVectorizeJobStatus) Value() (driver.Value, error) {
 	if !ns.Valid {
 		return nil, nil
 	}
-	return string(ns.VectorizeStatus), nil
+	return string(ns.VectorizeJobStatus), nil
 }
 
 type AssetCatalog struct {
@@ -406,24 +406,23 @@ type VectorStoreDefault struct {
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
-type VectorizeItem struct {
-	ID        uuid.UUID          `db:"id" json:"id"`
-	JobID     uuid.UUID          `db:"job_id" json:"jobId"`
-	ObjectID  uuid.UUID          `db:"object_id" json:"objectId"`
-	Error     string             `db:"error" json:"error"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
-}
-
 type VectorizeJob struct {
 	ID         uuid.UUID          `db:"id" json:"id"`
 	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
-	Status     VectorizeStatus    `db:"status" json:"status"`
-	Message    string             `db:"message" json:"message"`
 	Documents  bool               `db:"documents" json:"documents"`
 	Websites   bool               `db:"websites" json:"websites"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type VectorizeJobItem struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	JobID     uuid.UUID          `db:"job_id" json:"jobId"`
+	Status    VectorizeJobStatus `db:"status" json:"status"`
+	Message   string             `db:"message" json:"message"`
+	Error     string             `db:"error" json:"error"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type Website struct {

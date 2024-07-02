@@ -818,44 +818,11 @@ func (q *Queries) CreateVector(ctx context.Context, arg *CreateVectorParams) (uu
 	return id, err
 }
 
-const createVectorizeItem = `-- name: CreateVectorizeItem :one
-INSERT INTO vectorize_item (
-    job_id, object_id, error
-) VALUES ( $1, $2, $3 )
-RETURNING id, job_id, object_id, error, created_at, updated_at
-`
-
-type CreateVectorizeItemParams struct {
-	JobID    uuid.UUID `db:"job_id" json:"jobId"`
-	ObjectID uuid.UUID `db:"object_id" json:"objectId"`
-	Error    string    `db:"error" json:"error"`
-}
-
-// CreateVectorizeItem
-//
-//	INSERT INTO vectorize_item (
-//	    job_id, object_id, error
-//	) VALUES ( $1, $2, $3 )
-//	RETURNING id, job_id, object_id, error, created_at, updated_at
-func (q *Queries) CreateVectorizeItem(ctx context.Context, arg *CreateVectorizeItemParams) (*VectorizeItem, error) {
-	row := q.db.QueryRow(ctx, createVectorizeItem, arg.JobID, arg.ObjectID, arg.Error)
-	var i VectorizeItem
-	err := row.Scan(
-		&i.ID,
-		&i.JobID,
-		&i.ObjectID,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
 const createVectorizeJob = `-- name: CreateVectorizeJob :one
 INSERT INTO vectorize_job (
     customer_id, documents, websites
 ) VALUES ( $1, $2, $3 )
-RETURNING id, customer_id, status, message, documents, websites, created_at, updated_at
+RETURNING id, customer_id, documents, websites, created_at, updated_at
 `
 
 type CreateVectorizeJobParams struct {
@@ -869,17 +836,55 @@ type CreateVectorizeJobParams struct {
 //	INSERT INTO vectorize_job (
 //	    customer_id, documents, websites
 //	) VALUES ( $1, $2, $3 )
-//	RETURNING id, customer_id, status, message, documents, websites, created_at, updated_at
+//	RETURNING id, customer_id, documents, websites, created_at, updated_at
 func (q *Queries) CreateVectorizeJob(ctx context.Context, arg *CreateVectorizeJobParams) (*VectorizeJob, error) {
 	row := q.db.QueryRow(ctx, createVectorizeJob, arg.CustomerID, arg.Documents, arg.Websites)
 	var i VectorizeJob
 	err := row.Scan(
 		&i.ID,
 		&i.CustomerID,
-		&i.Status,
-		&i.Message,
 		&i.Documents,
 		&i.Websites,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createVectorizeJobItem = `-- name: CreateVectorizeJobItem :one
+INSERT INTO vectorize_job_item (
+    job_id, status, message, error
+) VALUES ( $1, $2, $3, $4 )
+RETURNING id, job_id, status, message, error, created_at, updated_at
+`
+
+type CreateVectorizeJobItemParams struct {
+	JobID   uuid.UUID          `db:"job_id" json:"jobId"`
+	Status  VectorizeJobStatus `db:"status" json:"status"`
+	Message string             `db:"message" json:"message"`
+	Error   string             `db:"error" json:"error"`
+}
+
+// CreateVectorizeJobItem
+//
+//	INSERT INTO vectorize_job_item (
+//	    job_id, status, message, error
+//	) VALUES ( $1, $2, $3, $4 )
+//	RETURNING id, job_id, status, message, error, created_at, updated_at
+func (q *Queries) CreateVectorizeJobItem(ctx context.Context, arg *CreateVectorizeJobItemParams) (*VectorizeJobItem, error) {
+	row := q.db.QueryRow(ctx, createVectorizeJobItem,
+		arg.JobID,
+		arg.Status,
+		arg.Message,
+		arg.Error,
+	)
+	var i VectorizeJobItem
+	err := row.Scan(
+		&i.ID,
+		&i.JobID,
+		&i.Status,
+		&i.Message,
+		&i.Error,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1562,34 +1567,85 @@ func (q *Queries) GetCustomerByName(ctx context.Context, name string) (*Customer
 }
 
 const getCustomerVectorizeJobs = `-- name: GetCustomerVectorizeJobs :many
-SELECT id, customer_id, status, message, documents, websites, created_at, updated_at FROM vectorize_job
-WHERE customer_id = $1
-ORDER BY created_at DESC
+WITH latest_vji AS (
+    SELECT 
+        vji.id, vji.job_id, vji.status, vji.message, vji.error, vji.created_at, vji.updated_at, 
+        ROW_NUMBER() OVER (PARTITION BY vji.job_id ORDER BY vji.created_at DESC) AS rn
+    FROM 
+        vectorize_job_item vji
+)
+SELECT 
+    vj.id, vj.customer_id, vj.documents, vj.websites, vj.created_at, vj.updated_at, 
+    vji.status, 
+    vji.message, 
+    vji.error
+FROM 
+    vectorize_job vj
+LEFT JOIN 
+    latest_vji vji 
+    ON vj.id = vji.job_id 
+    AND vji.rn = 1
+WHERE 
+    vj.customer_id = $1
+ORDER BY 
+    vj.created_at DESC
 `
+
+type GetCustomerVectorizeJobsRow struct {
+	ID         uuid.UUID              `db:"id" json:"id"`
+	CustomerID uuid.UUID              `db:"customer_id" json:"customerId"`
+	Documents  bool                   `db:"documents" json:"documents"`
+	Websites   bool                   `db:"websites" json:"websites"`
+	CreatedAt  pgtype.Timestamptz     `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz     `db:"updated_at" json:"updatedAt"`
+	Status     NullVectorizeJobStatus `db:"status" json:"status"`
+	Message    *string                `db:"message" json:"message"`
+	Error      *string                `db:"error" json:"error"`
+}
 
 // GetCustomerVectorizeJobs
 //
-//	SELECT id, customer_id, status, message, documents, websites, created_at, updated_at FROM vectorize_job
-//	WHERE customer_id = $1
-//	ORDER BY created_at DESC
-func (q *Queries) GetCustomerVectorizeJobs(ctx context.Context, customerID uuid.UUID) ([]*VectorizeJob, error) {
+//	WITH latest_vji AS (
+//	    SELECT
+//	        vji.id, vji.job_id, vji.status, vji.message, vji.error, vji.created_at, vji.updated_at,
+//	        ROW_NUMBER() OVER (PARTITION BY vji.job_id ORDER BY vji.created_at DESC) AS rn
+//	    FROM
+//	        vectorize_job_item vji
+//	)
+//	SELECT
+//	    vj.id, vj.customer_id, vj.documents, vj.websites, vj.created_at, vj.updated_at,
+//	    vji.status,
+//	    vji.message,
+//	    vji.error
+//	FROM
+//	    vectorize_job vj
+//	LEFT JOIN
+//	    latest_vji vji
+//	    ON vj.id = vji.job_id
+//	    AND vji.rn = 1
+//	WHERE
+//	    vj.customer_id = $1
+//	ORDER BY
+//	    vj.created_at DESC
+func (q *Queries) GetCustomerVectorizeJobs(ctx context.Context, customerID uuid.UUID) ([]*GetCustomerVectorizeJobsRow, error) {
 	rows, err := q.db.Query(ctx, getCustomerVectorizeJobs, customerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*VectorizeJob{}
+	items := []*GetCustomerVectorizeJobsRow{}
 	for rows.Next() {
-		var i VectorizeJob
+		var i GetCustomerVectorizeJobsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.CustomerID,
-			&i.Status,
-			&i.Message,
 			&i.Documents,
 			&i.Websites,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Status,
+			&i.Message,
+			&i.Error,
 		); err != nil {
 			return nil, err
 		}
@@ -2840,52 +2896,74 @@ func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, custome
 }
 
 const getVectorizeJob = `-- name: GetVectorizeJob :one
-SELECT id, customer_id, status, message, documents, websites, created_at, updated_at FROM vectorize_job
-WHERE id = $1
+SELECT vj.id, vj.customer_id, vj.documents, vj.websites, vj.created_at, vj.updated_at, vji.status, vji.message, vji.error
+FROM vectorize_job vj
+JOIN vectorize_job_item vji ON vj.id = vji.job_id
+WHERE vj.id = $1
+ORDER BY vji.created_at DESC
+LIMIT 1
 `
+
+type GetVectorizeJobRow struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	Documents  bool               `db:"documents" json:"documents"`
+	Websites   bool               `db:"websites" json:"websites"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	Status     VectorizeJobStatus `db:"status" json:"status"`
+	Message    string             `db:"message" json:"message"`
+	Error      string             `db:"error" json:"error"`
+}
 
 // GetVectorizeJob
 //
-//	SELECT id, customer_id, status, message, documents, websites, created_at, updated_at FROM vectorize_job
-//	WHERE id = $1
-func (q *Queries) GetVectorizeJob(ctx context.Context, id uuid.UUID) (*VectorizeJob, error) {
+//	SELECT vj.id, vj.customer_id, vj.documents, vj.websites, vj.created_at, vj.updated_at, vji.status, vji.message, vji.error
+//	FROM vectorize_job vj
+//	JOIN vectorize_job_item vji ON vj.id = vji.job_id
+//	WHERE vj.id = $1
+//	ORDER BY vji.created_at DESC
+//	LIMIT 1
+func (q *Queries) GetVectorizeJob(ctx context.Context, id uuid.UUID) (*GetVectorizeJobRow, error) {
 	row := q.db.QueryRow(ctx, getVectorizeJob, id)
-	var i VectorizeJob
+	var i GetVectorizeJobRow
 	err := row.Scan(
 		&i.ID,
 		&i.CustomerID,
-		&i.Status,
-		&i.Message,
 		&i.Documents,
 		&i.Websites,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.Message,
+		&i.Error,
 	)
 	return &i, err
 }
 
 const getVectorizeJobItems = `-- name: GetVectorizeJobItems :many
-SELECT id, job_id, object_id, error, created_at, updated_at FROM vectorize_item
+SELECT id, job_id, status, message, error, created_at, updated_at FROM vectorize_job_item
 WHERE job_id = $1
 `
 
 // GetVectorizeJobItems
 //
-//	SELECT id, job_id, object_id, error, created_at, updated_at FROM vectorize_item
+//	SELECT id, job_id, status, message, error, created_at, updated_at FROM vectorize_job_item
 //	WHERE job_id = $1
-func (q *Queries) GetVectorizeJobItems(ctx context.Context, jobID uuid.UUID) ([]*VectorizeItem, error) {
+func (q *Queries) GetVectorizeJobItems(ctx context.Context, jobID uuid.UUID) ([]*VectorizeJobItem, error) {
 	rows, err := q.db.Query(ctx, getVectorizeJobItems, jobID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*VectorizeItem{}
+	items := []*VectorizeJobItem{}
 	for rows.Next() {
-		var i VectorizeItem
+		var i VectorizeJobItem
 		if err := rows.Scan(
 			&i.ID,
 			&i.JobID,
-			&i.ObjectID,
+			&i.Status,
+			&i.Message,
 			&i.Error,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -2900,17 +2978,25 @@ func (q *Queries) GetVectorizeJobItems(ctx context.Context, jobID uuid.UUID) ([]
 	return items, nil
 }
 
-const getVectorizeJobsStatus = `-- name: GetVectorizeJobsStatus :many
-SELECT id, customer_id, status, message, documents, websites, created_at, updated_at FROM vectorize_job
-WHERE status = $1
+const getVectorizeJobsWaiting = `-- name: GetVectorizeJobsWaiting :many
+SELECT id, customer_id, documents, websites, created_at, updated_at FROM vectorize_job vj
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM vectorize_job_item vji
+    WHERE vj.id = vji.job_id
+)
 `
 
-// GetVectorizeJobsStatus
+// GetVectorizeJobsWaiting
 //
-//	SELECT id, customer_id, status, message, documents, websites, created_at, updated_at FROM vectorize_job
-//	WHERE status = $1
-func (q *Queries) GetVectorizeJobsStatus(ctx context.Context, status VectorizeStatus) ([]*VectorizeJob, error) {
-	rows, err := q.db.Query(ctx, getVectorizeJobsStatus, status)
+//	SELECT id, customer_id, documents, websites, created_at, updated_at FROM vectorize_job vj
+//	WHERE NOT EXISTS (
+//	    SELECT 1
+//	    FROM vectorize_job_item vji
+//	    WHERE vj.id = vji.job_id
+//	)
+func (q *Queries) GetVectorizeJobsWaiting(ctx context.Context) ([]*VectorizeJob, error) {
+	rows, err := q.db.Query(ctx, getVectorizeJobsWaiting)
 	if err != nil {
 		return nil, err
 	}
@@ -2921,8 +3007,6 @@ func (q *Queries) GetVectorizeJobsStatus(ctx context.Context, status VectorizeSt
 		if err := rows.Scan(
 			&i.ID,
 			&i.CustomerID,
-			&i.Status,
-			&i.Message,
 			&i.Documents,
 			&i.Websites,
 			&i.CreatedAt,
@@ -3869,43 +3953,6 @@ type UpdateDocumentVectorSigParams struct {
 func (q *Queries) UpdateDocumentVectorSig(ctx context.Context, arg *UpdateDocumentVectorSigParams) error {
 	_, err := q.db.Exec(ctx, updateDocumentVectorSig, arg.ID, arg.VectorSha256)
 	return err
-}
-
-const updateVectorizeJobStatus = `-- name: UpdateVectorizeJobStatus :one
-UPDATE vectorize_job SET
-    status = $2,
-    message = $3
-WHERE id = $1
-RETURNING id, customer_id, status, message, documents, websites, created_at, updated_at
-`
-
-type UpdateVectorizeJobStatusParams struct {
-	ID      uuid.UUID       `db:"id" json:"id"`
-	Status  VectorizeStatus `db:"status" json:"status"`
-	Message string          `db:"message" json:"message"`
-}
-
-// UpdateVectorizeJobStatus
-//
-//	UPDATE vectorize_job SET
-//	    status = $2,
-//	    message = $3
-//	WHERE id = $1
-//	RETURNING id, customer_id, status, message, documents, websites, created_at, updated_at
-func (q *Queries) UpdateVectorizeJobStatus(ctx context.Context, arg *UpdateVectorizeJobStatusParams) (*VectorizeJob, error) {
-	row := q.db.QueryRow(ctx, updateVectorizeJobStatus, arg.ID, arg.Status, arg.Message)
-	var i VectorizeJob
-	err := row.Scan(
-		&i.ID,
-		&i.CustomerID,
-		&i.Status,
-		&i.Message,
-		&i.Documents,
-		&i.Websites,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
 }
 
 const updateWebsitePageSignature = `-- name: UpdateWebsitePageSignature :one

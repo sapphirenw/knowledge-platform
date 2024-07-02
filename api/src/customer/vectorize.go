@@ -38,12 +38,12 @@ func (c *Customer) VectorizeDatastore(
 
 	// set the job status
 	logger.InfoContext(ctx, "Processing documents ...")
-	if _, err := dmodel.UpdateVectorizeJobStatus(ctx, &queries.UpdateVectorizeJobStatusParams{
-		ID:      job.ID,
-		Status:  queries.VectorizeStatusInProgress,
+	if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
+		JobID:   job.ID,
+		Status:  queries.VectorizeJobStatusInProgress,
 		Message: "Processing documents",
 	}); err != nil {
-		return slogger.Error(ctx, logger, "failed to update the job status", err)
+		return slogger.Error(ctx, logger, "failed to create the vector job item", err)
 	}
 
 	// get all documents
@@ -60,7 +60,15 @@ func (c *Customer) VectorizeDatastore(
 			return slogger.Error(ctx, logger, "failed to start a transaction", err)
 		}
 
-		errMsg := ""
+		// update the state of the job item
+		if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
+			JobID:   job.ID,
+			Status:  queries.VectorizeJobStatusInProgress,
+			Message: fmt.Sprintf("Processing document: %s", doc.Filename),
+		}); err != nil {
+			return slogger.Error(ctx, logger, "failed to create the vector job item", err)
+		}
+
 		usageRecord, err := c.handleDocumentVectorization(ctx, tx, logger, emb, doc)
 		if err == nil {
 			if err := tx.Commit(ctx); err != nil {
@@ -73,16 +81,6 @@ func (c *Customer) VectorizeDatastore(
 			if err := tx.Rollback(ctx); err != nil {
 				return slogger.Error(ctx, logger, "failed to rollback the transaction", err)
 			}
-			errMsg = err.Error()
-		}
-
-		// update the state of the job item
-		if _, err := dmodel.CreateVectorizeItem(ctx, &queries.CreateVectorizeItemParams{
-			JobID:    job.ID,
-			ObjectID: doc.ID,
-			Error:    errMsg,
-		}); err != nil {
-			return slogger.Error(ctx, logger, "failed to create the vectorize item object", err)
 		}
 	}
 
@@ -92,12 +90,13 @@ func (c *Customer) VectorizeDatastore(
 	}
 
 	logger.InfoContext(ctx, "Processing websites ...")
-	if _, err := dmodel.UpdateVectorizeJobStatus(ctx, &queries.UpdateVectorizeJobStatusParams{
-		ID:      job.ID,
-		Status:  queries.VectorizeStatusInProgress,
-		Message: "Processing websites ...",
+	// update the state of the job item
+	if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
+		JobID:   job.ID,
+		Status:  queries.VectorizeJobStatusInProgress,
+		Message: fmt.Sprintf("Processing websites ..."),
 	}); err != nil {
-		return slogger.Error(ctx, logger, "failed to update the job status", err)
+		return slogger.Error(ctx, logger, "failed to create the vector job item", err)
 	}
 
 	// get the websites
@@ -108,6 +107,15 @@ func (c *Customer) VectorizeDatastore(
 
 	// parse all sites
 	for _, site := range sites {
+		// update the state of the job item
+		if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
+			JobID:   job.ID,
+			Status:  queries.VectorizeJobStatusInProgress,
+			Message: fmt.Sprintf("Processing website: %s", site.Domain),
+		}); err != nil {
+			return slogger.Error(ctx, logger, "failed to create the vector job item", err)
+		}
+
 		// transactions are ran for each website
 		response, err := c.handleWesbiteVectorization(ctx, pool, job, site)
 		if err != nil {
@@ -128,12 +136,13 @@ func (c *Customer) VectorizeDatastore(
 	}
 
 	logger.InfoContext(ctx, "Reporting usage ...")
-	if _, err := dmodel.UpdateVectorizeJobStatus(ctx, &queries.UpdateVectorizeJobStatusParams{
-		ID:      job.ID,
-		Status:  queries.VectorizeStatusInProgress,
-		Message: "Reporting usage ...",
+	// update the state of the job item
+	if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
+		JobID:   job.ID,
+		Status:  queries.VectorizeJobStatusInProgress,
+		Message: fmt.Sprintf("Reporting usage ..."),
 	}); err != nil {
-		return slogger.Error(ctx, logger, "failed to update the job status", err)
+		return slogger.Error(ctx, logger, "failed to create the vector job item", err)
 	}
 
 	if err := utils.ReportUsage(ctx, logger, pool, c.ID, usageRecords, nil); err != nil {
@@ -266,7 +275,15 @@ func (c *Customer) handleWesbiteVectorization(
 			return nil, slogger.Error(ctx, logger, "failed to start a transaction", err)
 		}
 
-		errMsg := ""
+		// update the state of the job item
+		if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
+			JobID:   job.ID,
+			Status:  queries.VectorizeJobStatusInProgress,
+			Message: fmt.Sprintf("Processing page: %s", page.Url),
+		}); err != nil {
+			return nil, slogger.Error(ctx, logger, "failed to create the vector job item", err)
+		}
+
 		usageRecord, err := c.handleWebsitePageVectorization(ctx, tx, logger, emb, page)
 		if err == nil {
 			// commit the transction
@@ -277,19 +294,9 @@ func (c *Customer) handleWesbiteVectorization(
 				usageRecords = append(usageRecords, usageRecord)
 			}
 		} else {
-			errMsg = err.Error()
 			if err := tx.Rollback(ctx); err != nil {
 				return nil, slogger.Error(ctx, logger, "failed to rollback the transaction", err)
 			}
-		}
-
-		// update the state of the job item
-		if _, err := dmodel.CreateVectorizeItem(ctx, &queries.CreateVectorizeItemParams{
-			JobID:    job.ID,
-			ObjectID: page.ID,
-			Error:    errMsg,
-		}); err != nil {
-			return nil, slogger.Error(ctx, logger, "failed to create the vectorize item object", err)
 		}
 	}
 

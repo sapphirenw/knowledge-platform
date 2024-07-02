@@ -34,8 +34,8 @@ export default function VectorRequests() {
         for (let i = 0; i < data.length; i++) {
             items.push(<TableRow key={`doc-${i}`}>
                 <TableCell>{new Date(data[i].createdAt).toLocaleString()}</TableCell>
-                <TableCell>{data[i].message}</TableCell>
-                <TableCell className="text-right">{data[i].status}</TableCell>
+                <TableCell>{data[i].message ?? "Waiting ..."}</TableCell>
+                <TableCell className="text-right">{data[i].status.vectorizeJobStatus ?? "waiting"}</TableCell>
             </TableRow>)
         }
         return items

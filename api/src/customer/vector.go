@@ -36,7 +36,7 @@ func createVectorizeRequest(
 	defer tx.Commit(r.Context())
 
 	dmodel := queries.New(tx)
-	response, err := dmodel.CreateVectorizeJob(r.Context(), &queries.CreateVectorizeJobParams{
+	job, err := dmodel.CreateVectorizeJob(r.Context(), &queries.CreateVectorizeJobParams{
 		CustomerID: c.ID,
 		Documents:  body.Documents,
 		Websites:   body.Websites,
@@ -46,7 +46,7 @@ func createVectorizeRequest(
 		return
 	}
 
-	request.Encode(w, r, c.logger, http.StatusOK, response)
+	request.Encode(w, r, c.logger, http.StatusOK, job)
 }
 
 // get a vectorize request
