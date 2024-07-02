@@ -16,7 +16,7 @@ func getWebsites(
 	c *Customer,
 ) {
 	model := queries.New(pool)
-	sites, err := model.GetWebsitesByCustomer(r.Context(), c.ID)
+	sites, err := model.GetWebsitesByCustomerWithCount(r.Context(), c.ID)
 	if err != nil {
 		c.logger.Error("failed to get the websites", "error", err)
 		http.Error(w, "There was an internal server issue", http.StatusInternalServerError)

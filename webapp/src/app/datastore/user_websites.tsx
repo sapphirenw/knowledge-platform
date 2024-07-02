@@ -22,20 +22,18 @@ export default function UserWebsites() {
     }
 
     return <div className="w-full">
-        <Table>
-            <TableHeader>
+        <Table containerClassname="h-fit max-h-[500px] overflow-y-auto relative">
+            <TableHeader className="sticky w-full top-0">
                 <TableRow>
                     <TableHead className="">Domain</TableHead>
-                    <TableHead className="">Whitelist</TableHead>
-                    <TableHead className="">Blacklist</TableHead>
+                    <TableHead className="">Page Count</TableHead>
                     <TableHead className="text-right">Created</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {siteResponse.data!.map((item, i) => <TableRow key={`site-${i}`}>
                     <TableCell className="font-medium">{item.domain}</TableCell>
-                    <TableCell className="">{item.whitelist?.join(",") ?? ""}</TableCell>
-                    <TableCell className="">{item.blacklist?.join(",") ?? ""}</TableCell>
+                    <TableCell className="">{item.pageCount}</TableCell>
                     <TableCell className="text-right">{new Date(item.createdAt!).toLocaleString()}</TableCell>
                 </TableRow>)}
             </TableBody>

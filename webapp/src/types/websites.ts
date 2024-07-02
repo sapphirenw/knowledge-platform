@@ -10,6 +10,7 @@ export type Website = {
     customerId: string
     protocol: string
     domain: string
+    pageCount: number
     blacklist?: string[]
     whitelist?: string[]
     createdAt?: string

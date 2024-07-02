@@ -43,8 +43,8 @@ export default function VectorRequests() {
 
     return <div className="w-full space-y-4">
         <VectorizationRequest />
-        <Table>
-            <TableHeader>
+        <Table containerClassname="h-fit max-h-[500px] overflow-y-auto relative">
+            <TableHeader className="sticky w-full top-0">
                 <TableRow>
                     <TableHead>Job Date</TableHead>
                     <TableHead>Message</TableHead>

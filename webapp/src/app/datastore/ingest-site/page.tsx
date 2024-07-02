@@ -120,7 +120,7 @@ export default function WebsiteIngest() {
         return <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <h4 className="text-lg font-bold">Search Results</h4>
-                <Button onClick={() => scrapePages()}>
+                <Button className="space-x-2" onClick={() => scrapePages()}>
                     {scrapeLoading ? <DefaultLoader /> : <></>}
                     <p>Scrape Pages</p>
                 </Button>

@@ -22,7 +22,6 @@ export default function VectorizationRequest() {
             toast({
                 title: "Success!",
                 description: "Successfully initiated a request to vectorize your datastore.",
-                action: <ToastAction onClick={() => console.log("Hello")} altText="View Status">View Status</ToastAction>,
             })
         } catch (e) {
             toast({

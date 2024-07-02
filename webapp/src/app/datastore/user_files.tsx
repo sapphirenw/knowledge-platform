@@ -68,8 +68,8 @@ export default function UserFiles() {
             </Breadcrumb>
         </div> */}
         <div className="overflow-hidden">
-            <Table>
-                <TableHeader>
+            <Table containerClassname="h-fit max-h-[500px] overflow-y-auto relative">
+                <TableHeader className="sticky w-full top-0">
                     <TableRow>
                         <TableHead className="">Filename</TableHead>
                         <TableHead>Size</TableHead>

@@ -34,8 +34,14 @@ UPDATE document SET
     vector_sha_256 = $2
 WHERE id = $1;
 
+-- name: TouchDocument :exec
+UPDATE document SET
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
 -- name: UpdateDocumentSummary :one
 UPDATE document SET
+    updated_at = CURRENT_TIMESTAMP,
     summary = $2,
     summary_sha_256 = $3
 WHERE id = $1

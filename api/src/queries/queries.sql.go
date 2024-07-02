@@ -1118,6 +1118,30 @@ func (q *Queries) DeleteFoldersOlderThan(ctx context.Context, arg *DeleteFolders
 	return err
 }
 
+const deleteWebsiteEmpty = `-- name: DeleteWebsiteEmpty :exec
+DELETE FROM website w
+WHERE w.customer_id = $1
+AND NOT EXISTS (
+    SELECT 1
+    FROM website_page wp
+    WHERE wp.website_id = w.id
+)
+`
+
+// DeleteWebsiteEmpty
+//
+//	DELETE FROM website w
+//	WHERE w.customer_id = $1
+//	AND NOT EXISTS (
+//	    SELECT 1
+//	    FROM website_page wp
+//	    WHERE wp.website_id = w.id
+//	)
+func (q *Queries) DeleteWebsiteEmpty(ctx context.Context, customerID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteWebsiteEmpty, customerID)
+	return err
+}
+
 const deleteWebsitePageVectors = `-- name: DeleteWebsitePageVectors :exec
 DELETE FROM website_page_vector
 WHERE website_page_id = $1
@@ -3065,6 +3089,61 @@ func (q *Queries) GetWebsitesByCustomer(ctx context.Context, customerID uuid.UUI
 	return items, nil
 }
 
+const getWebsitesByCustomerWithCount = `-- name: GetWebsitesByCustomerWithCount :many
+SELECT w.id, w.customer_id, w.protocol, w.domain, w.blacklist, w.whitelist, w.created_at, w.updated_at, count(wp.*) as page_count FROM website w
+JOIN website_page wp ON w.id = wp.website_id
+WHERE w.customer_id = $1
+GROUP BY w.id
+`
+
+type GetWebsitesByCustomerWithCountRow struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	Protocol   string             `db:"protocol" json:"protocol"`
+	Domain     string             `db:"domain" json:"domain"`
+	Blacklist  []string           `db:"blacklist" json:"blacklist"`
+	Whitelist  []string           `db:"whitelist" json:"whitelist"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	PageCount  int64              `db:"page_count" json:"pageCount"`
+}
+
+// GetWebsitesByCustomerWithCount
+//
+//	SELECT w.id, w.customer_id, w.protocol, w.domain, w.blacklist, w.whitelist, w.created_at, w.updated_at, count(wp.*) as page_count FROM website w
+//	JOIN website_page wp ON w.id = wp.website_id
+//	WHERE w.customer_id = $1
+//	GROUP BY w.id
+func (q *Queries) GetWebsitesByCustomerWithCount(ctx context.Context, customerID uuid.UUID) ([]*GetWebsitesByCustomerWithCountRow, error) {
+	rows, err := q.db.Query(ctx, getWebsitesByCustomerWithCount, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*GetWebsitesByCustomerWithCountRow{}
+	for rows.Next() {
+		var i GetWebsitesByCustomerWithCountRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Protocol,
+			&i.Domain,
+			&i.Blacklist,
+			&i.Whitelist,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PageCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCustomers = `-- name: ListCustomers :many
 SELECT id, name, datastore, created_at, updated_at FROM customer
 ORDER BY name
@@ -3644,7 +3723,9 @@ func (q *Queries) SetProjectIdeaUsed(ctx context.Context, id uuid.UUID) (*Projec
 }
 
 const setWebsitePagesNotValid = `-- name: SetWebsitePagesNotValid :exec
-UPDATE website_page SET is_valid = FALSE
+UPDATE website_page SET
+    updated_at = CURRENT_TIMESTAMP,
+    is_valid = FALSE
 WHERE customer_id = $1
 AND website_id = $2
 `
@@ -3656,11 +3737,45 @@ type SetWebsitePagesNotValidParams struct {
 
 // SetWebsitePagesNotValid
 //
-//	UPDATE website_page SET is_valid = FALSE
+//	UPDATE website_page SET
+//	    updated_at = CURRENT_TIMESTAMP,
+//	    is_valid = FALSE
 //	WHERE customer_id = $1
 //	AND website_id = $2
 func (q *Queries) SetWebsitePagesNotValid(ctx context.Context, arg *SetWebsitePagesNotValidParams) error {
 	_, err := q.db.Exec(ctx, setWebsitePagesNotValid, arg.CustomerID, arg.WebsiteID)
+	return err
+}
+
+const touchDocument = `-- name: TouchDocument :exec
+UPDATE document SET
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+// TouchDocument
+//
+//	UPDATE document SET
+//	    updated_at = CURRENT_TIMESTAMP
+//	WHERE id = $1
+func (q *Queries) TouchDocument(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, touchDocument, id)
+	return err
+}
+
+const touchWebsitePage = `-- name: TouchWebsitePage :exec
+UPDATE website_page SET
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+// TouchWebsitePage
+//
+//	UPDATE website_page SET
+//	    updated_at = CURRENT_TIMESTAMP
+//	WHERE id = $1
+func (q *Queries) TouchWebsitePage(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, touchWebsitePage, id)
 	return err
 }
 
@@ -3689,6 +3804,7 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg *UpdateCustomerParams)
 
 const updateDocumentSummary = `-- name: UpdateDocumentSummary :one
 UPDATE document SET
+    updated_at = CURRENT_TIMESTAMP,
     summary = $2,
     summary_sha_256 = $3
 WHERE id = $1
@@ -3704,6 +3820,7 @@ type UpdateDocumentSummaryParams struct {
 // UpdateDocumentSummary
 //
 //	UPDATE document SET
+//	    updated_at = CURRENT_TIMESTAMP,
 //	    summary = $2,
 //	    summary_sha_256 = $3
 //	WHERE id = $1
@@ -3793,6 +3910,7 @@ func (q *Queries) UpdateVectorizeJobStatus(ctx context.Context, arg *UpdateVecto
 
 const updateWebsitePageSignature = `-- name: UpdateWebsitePageSignature :one
 UPDATE website_page SET
+    updated_at = CURRENT_TIMESTAMP,
     sha_256 = $2
 WHERE id = $1
 RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at
@@ -3806,6 +3924,7 @@ type UpdateWebsitePageSignatureParams struct {
 // UpdateWebsitePageSignature
 //
 //	UPDATE website_page SET
+//	    updated_at = CURRENT_TIMESTAMP,
 //	    sha_256 = $2
 //	WHERE id = $1
 //	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at
@@ -3831,6 +3950,7 @@ func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWeb
 
 const updateWebsitePageSummary = `-- name: UpdateWebsitePageSummary :one
 UPDATE website_page SET
+    updated_at = CURRENT_TIMESTAMP,
     summary = $2,
     summary_sha_256 = $3
 WHERE id = $1
@@ -3846,6 +3966,7 @@ type UpdateWebsitePageSummaryParams struct {
 // UpdateWebsitePageSummary
 //
 //	UPDATE website_page SET
+//	    updated_at = CURRENT_TIMESTAMP,
 //	    summary = $2,
 //	    summary_sha_256 = $3
 //	WHERE id = $1
@@ -3868,4 +3989,27 @@ func (q *Queries) UpdateWebsitePageSummary(ctx context.Context, arg *UpdateWebsi
 		&i.UpdatedAt,
 	)
 	return &i, err
+}
+
+const updateWebsitePageVectorSig = `-- name: UpdateWebsitePageVectorSig :exec
+UPDATE website_page SET
+    updated_at = CURRENT_TIMESTAMP,
+    vector_sha_256 = $2
+WHERE id = $1
+`
+
+type UpdateWebsitePageVectorSigParams struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	VectorSha256 string    `db:"vector_sha_256" json:"vectorSha256"`
+}
+
+// UpdateWebsitePageVectorSig
+//
+//	UPDATE website_page SET
+//	    updated_at = CURRENT_TIMESTAMP,
+//	    vector_sha_256 = $2
+//	WHERE id = $1
+func (q *Queries) UpdateWebsitePageVectorSig(ctx context.Context, arg *UpdateWebsitePageVectorSigParams) error {
+	_, err := q.db.Exec(ctx, updateWebsitePageVectorSig, arg.ID, arg.VectorSha256)
+	return err
 }

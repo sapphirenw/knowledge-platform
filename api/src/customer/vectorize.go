@@ -70,6 +70,9 @@ func (c *Customer) VectorizeDatastore(
 				usageRecords = append(usageRecords, usageRecord)
 			}
 		} else {
+			if err := tx.Rollback(ctx); err != nil {
+				return slogger.Error(ctx, logger, "failed to rollback the transaction", err)
+			}
 			errMsg = err.Error()
 		}
 
@@ -105,6 +108,7 @@ func (c *Customer) VectorizeDatastore(
 
 	// parse all sites
 	for _, site := range sites {
+		// transactions are ran for each website
 		response, err := c.handleWesbiteVectorization(ctx, pool, job, site)
 		if err != nil {
 			return slogger.Error(ctx, logger, "failed to process the site", err)
@@ -162,23 +166,20 @@ func (c *Customer) handleDocumentVectorization(
 		return nil, slogger.Error(ctx, logger, "there was an issue getting the cleaned document", err)
 	}
 
-	// TODO -- there is potential to get this to work
 	// see if the document changed
 	newSha256, err := doc.GetSha256()
 	if err != nil {
 		return nil, slogger.Error(ctx, logger, "failed to get the sha256 of the document", err)
 	}
 	if doc.VectorSha256 == newSha256 {
-		l.InfoContext(ctx, "This document has not changed")
-		if err := dmodel.UpdateDocumentVectorSig(ctx, &queries.UpdateDocumentVectorSigParams{
-			ID:           doc.ID,
-			VectorSha256: newSha256,
-		}); err != nil {
+		l.InfoContext(ctx, "This document has not changed", "vectorSHA256", doc.VectorSha256, "newSHA256", newSha256)
+		// touch the document to ensure it gets updated properly
+		if err := dmodel.TouchDocument(ctx, doc.ID); err != nil {
 			return nil, slogger.Error(ctx, logger, "failed to touch document", err)
 		}
 		return nil, nil
 	} else {
-		l.InfoContext(ctx, "The signatures do not match", "old", doc.Sha256, "newSha256", newSha256)
+		l.InfoContext(ctx, "The signatures do not match", "vectorSHA256", doc.VectorSha256, "newSHA256", newSha256)
 	}
 
 	// delete the old vectors
@@ -220,7 +221,9 @@ func (c *Customer) handleDocumentVectorization(
 		logger.InfoContext(ctx, "Finished.")
 	}
 
-	// set updated and sha field for intelligent parsing in the future
+	// set the vector signature
+	// this also sets the updated_at field, which is used ensuring this object does not get purged
+	// once the vectorization is complete
 	if err := dmodel.UpdateDocumentVectorSig(ctx, &queries.UpdateDocumentVectorSigParams{
 		ID:           doc.ID,
 		VectorSha256: newSha256,
@@ -275,6 +278,9 @@ func (c *Customer) handleWesbiteVectorization(
 			}
 		} else {
 			errMsg = err.Error()
+			if err := tx.Rollback(ctx); err != nil {
+				return nil, slogger.Error(ctx, logger, "failed to rollback the transaction", err)
+			}
 		}
 
 		// update the state of the job item
@@ -316,29 +322,18 @@ func (c *Customer) handleWebsitePageVectorization(
 
 	// create a signature to compare the old vs new
 	newSha256 := utils.GenerateFingerprint([]byte(scrapeResponse.Content))
-	if page.Sha256 == newSha256 {
-		logger.InfoContext(ctx, "this page did not change")
-		// update the page header
-		if _, err := dmodel.UpdateWebsitePageSignature(ctx, &queries.UpdateWebsitePageSignatureParams{
-			ID:     page.ID,
-			Sha256: newSha256,
-		}); err != nil {
-			return nil, slogger.Error(ctx, logger, "failed to update the page signature", err)
+	if page.VectorSha256 == newSha256 {
+		logger.InfoContext(ctx, "this page has not changed", "vectorSHA256", page.VectorSha256, "newSHA256", newSha256)
+		// touch the page to ensure it gets updated properly
+		if err := dmodel.TouchWebsitePage(ctx, page.ID); err != nil {
+			return nil, slogger.Error(ctx, logger, "failed to touch website page", err)
 		}
 		return nil, nil
 	} else {
-		logger.InfoContext(ctx, "The signatures do not match", "oldSHA256", page.Sha256, "newSHA256", newSha256)
+		logger.InfoContext(ctx, "The signatures do not match", "pageSHA256", page.VectorSha256, "vectorSHA256", newSha256)
 	}
 
 	logger.InfoContext(ctx, "Vecorizing the content ...")
-
-	// update the page header
-	if _, err := dmodel.UpdateWebsitePageSignature(ctx, &queries.UpdateWebsitePageSignatureParams{
-		ID:     page.ID,
-		Sha256: newSha256,
-	}); err != nil {
-		return nil, slogger.Error(ctx, logger, "failed to update the page signature", err)
-	}
 
 	// embed the content
 	res, err := emb.Embed(ctx, scrapeResponse.Content)
@@ -375,6 +370,15 @@ func (c *Customer) handleWebsitePageVectorization(
 		if err != nil {
 			return nil, slogger.Error(ctx, logger, "failed to create the vector relationship", err)
 		}
+	}
+
+	// update the page signature
+	// this also ensures the page does not get deleted after the vectorization is complete
+	if err := dmodel.UpdateWebsitePageVectorSig(ctx, &queries.UpdateWebsitePageVectorSigParams{
+		ID:           page.ID,
+		VectorSha256: newSha256,
+	}); err != nil {
+		return nil, slogger.Error(ctx, logger, "failed to update the page signature", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully processed page")

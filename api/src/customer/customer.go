@@ -676,12 +676,28 @@ func (c *Customer) PurgeDatastore(
 	}
 
 	// purge all folders
+	logger.Info("deleting stale folders ...")
 	err = model.DeleteFoldersOlderThan(ctx, &queries.DeleteFoldersOlderThanParams{
 		CustomerID: c.ID,
 		UpdatedAt:  pgtime,
 	})
 	if err != nil {
 		return fmt.Errorf("error deleting folders: %s", err)
+	}
+
+	// purge all website pages
+	logger.Info("deleting stale website pages ...")
+	if err := model.DeleteWebsitePagesOlderThan(ctx, &queries.DeleteWebsitePagesOlderThanParams{
+		CustomerID: c.ID,
+		UpdatedAt:  pgtime,
+	}); err != nil {
+		return slogger.Error(ctx, logger, "failed to delete the website pages", err)
+	}
+
+	// delete all websites where page count is 0
+	logger.Info("deleting stale websites ...")
+	if err := model.DeleteWebsiteEmpty(ctx, c.ID); err != nil {
+		return slogger.Error(ctx, logger, "failed to delete the empty websites", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully purged datastore")
