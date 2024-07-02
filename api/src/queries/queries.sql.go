@@ -953,7 +953,7 @@ ON CONFLICT ON CONSTRAINT cnst_unique_website_page
 DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP,
     is_valid = TRUE
-RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 `
 
 type CreateWebsitePageParams struct {
@@ -975,7 +975,7 @@ type CreateWebsitePageParams struct {
 //	DO UPDATE SET
 //	    updated_at = CURRENT_TIMESTAMP,
 //	    is_valid = TRUE
-//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageParams) (*WebsitePage, error) {
 	row := q.db.QueryRow(ctx, createWebsitePage,
 		arg.CustomerID,
@@ -995,6 +995,7 @@ func (q *Queries) CreateWebsitePage(ctx context.Context, arg *CreateWebsitePageP
 		&i.Metadata,
 		&i.Summary,
 		&i.SummarySha256,
+		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -2985,13 +2986,13 @@ func (q *Queries) GetWebsite(ctx context.Context, id uuid.UUID) (*Website, error
 }
 
 const getWebsitePagesBySite = `-- name: GetWebsitePagesBySite :many
-SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at FROM website_page
+SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM website_page
 WHERE website_id = $1
 `
 
 // GetWebsitePagesBySite
 //
-//	SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at FROM website_page
+//	SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM website_page
 //	WHERE website_id = $1
 func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID uuid.UUID) ([]*WebsitePage, error) {
 	rows, err := q.db.Query(ctx, getWebsitePagesBySite, websiteID)
@@ -3012,6 +3013,7 @@ func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID uuid.UUID
 			&i.Metadata,
 			&i.Summary,
 			&i.SummarySha256,
+			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -3422,7 +3424,7 @@ func (q *Queries) QueryVectorStoreRaw(ctx context.Context, arg *QueryVectorStore
 }
 
 const queryVectorStoreWebsitePages = `-- name: QueryVectorStoreWebsitePages :many
-SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at
 FROM vector_store vs
 JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 JOIN website_page wp ON wp.id = wpv.website_page_id
@@ -3439,7 +3441,7 @@ type QueryVectorStoreWebsitePagesParams struct {
 
 // QueryVectorStoreWebsitePages
 //
-//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at
 //	FROM vector_store vs
 //	JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 //	JOIN website_page wp ON wp.id = wpv.website_page_id
@@ -3465,6 +3467,7 @@ func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVe
 			&i.Metadata,
 			&i.Summary,
 			&i.SummarySha256,
+			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -3481,7 +3484,7 @@ func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVe
 const queryVectorStoreWebsitePagesScoped = `-- name: QueryVectorStoreWebsitePagesScoped :many
 SELECT
     vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
-    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at
 FROM vector_store vs
 JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 JOIN website_page wp ON wp.id = wpv.website_page_id
@@ -3513,7 +3516,7 @@ type QueryVectorStoreWebsitePagesScopedRow struct {
 //
 //	SELECT
 //	    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
-//	    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.created_at, wp.updated_at
+//	    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at
 //	FROM vector_store vs
 //	JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 //	JOIN website_page wp ON wp.id = wpv.website_page_id
@@ -3560,6 +3563,7 @@ func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *Q
 			&i.WebsitePage.Metadata,
 			&i.WebsitePage.Summary,
 			&i.WebsitePage.SummarySha256,
+			&i.WebsitePage.VectorSha256,
 			&i.WebsitePage.CreatedAt,
 			&i.WebsitePage.UpdatedAt,
 		); err != nil {
@@ -3660,29 +3664,6 @@ func (q *Queries) SetWebsitePagesNotValid(ctx context.Context, arg *SetWebsitePa
 	return err
 }
 
-const touchDocument = `-- name: TouchDocument :exec
-UPDATE document SET
-    updated_at = CURRENT_TIMESTAMP,
-    vector_sha_256 = $2
-WHERE id = $1
-`
-
-type TouchDocumentParams struct {
-	ID           uuid.UUID `db:"id" json:"id"`
-	VectorSha256 string    `db:"vector_sha_256" json:"vectorSha256"`
-}
-
-// TouchDocument
-//
-//	UPDATE document SET
-//	    updated_at = CURRENT_TIMESTAMP,
-//	    vector_sha_256 = $2
-//	WHERE id = $1
-func (q *Queries) TouchDocument(ctx context.Context, arg *TouchDocumentParams) error {
-	_, err := q.db.Exec(ctx, touchDocument, arg.ID, arg.VectorSha256)
-	return err
-}
-
 const updateCustomer = `-- name: UpdateCustomer :exec
 UPDATE customer
     set name = $2
@@ -3750,6 +3731,29 @@ func (q *Queries) UpdateDocumentSummary(ctx context.Context, arg *UpdateDocument
 	return &i, err
 }
 
+const updateDocumentVectorSig = `-- name: UpdateDocumentVectorSig :exec
+UPDATE document SET
+    updated_at = CURRENT_TIMESTAMP,
+    vector_sha_256 = $2
+WHERE id = $1
+`
+
+type UpdateDocumentVectorSigParams struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	VectorSha256 string    `db:"vector_sha_256" json:"vectorSha256"`
+}
+
+// UpdateDocumentVectorSig
+//
+//	UPDATE document SET
+//	    updated_at = CURRENT_TIMESTAMP,
+//	    vector_sha_256 = $2
+//	WHERE id = $1
+func (q *Queries) UpdateDocumentVectorSig(ctx context.Context, arg *UpdateDocumentVectorSigParams) error {
+	_, err := q.db.Exec(ctx, updateDocumentVectorSig, arg.ID, arg.VectorSha256)
+	return err
+}
+
 const updateVectorizeJobStatus = `-- name: UpdateVectorizeJobStatus :one
 UPDATE vectorize_job SET
     status = $2,
@@ -3791,7 +3795,7 @@ const updateWebsitePageSignature = `-- name: UpdateWebsitePageSignature :one
 UPDATE website_page SET
     sha_256 = $2
 WHERE id = $1
-RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 `
 
 type UpdateWebsitePageSignatureParams struct {
@@ -3804,7 +3808,7 @@ type UpdateWebsitePageSignatureParams struct {
 //	UPDATE website_page SET
 //	    sha_256 = $2
 //	WHERE id = $1
-//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWebsitePageSignatureParams) (*WebsitePage, error) {
 	row := q.db.QueryRow(ctx, updateWebsitePageSignature, arg.ID, arg.Sha256)
 	var i WebsitePage
@@ -3818,6 +3822,7 @@ func (q *Queries) UpdateWebsitePageSignature(ctx context.Context, arg *UpdateWeb
 		&i.Metadata,
 		&i.Summary,
 		&i.SummarySha256,
+		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -3829,7 +3834,7 @@ UPDATE website_page SET
     summary = $2,
     summary_sha_256 = $3
 WHERE id = $1
-RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
+RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 `
 
 type UpdateWebsitePageSummaryParams struct {
@@ -3844,7 +3849,7 @@ type UpdateWebsitePageSummaryParams struct {
 //	    summary = $2,
 //	    summary_sha_256 = $3
 //	WHERE id = $1
-//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, created_at, updated_at
+//	RETURNING id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at
 func (q *Queries) UpdateWebsitePageSummary(ctx context.Context, arg *UpdateWebsitePageSummaryParams) (*WebsitePage, error) {
 	row := q.db.QueryRow(ctx, updateWebsitePageSummary, arg.ID, arg.Summary, arg.SummarySha256)
 	var i WebsitePage
@@ -3858,6 +3863,7 @@ func (q *Queries) UpdateWebsitePageSummary(ctx context.Context, arg *UpdateWebsi
 		&i.Metadata,
 		&i.Summary,
 		&i.SummarySha256,
+		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

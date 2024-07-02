@@ -447,6 +447,7 @@ type WebsitePage struct {
 	Metadata      []byte             `db:"metadata" json:"metadata"`
 	Summary       string             `db:"summary" json:"summary"`
 	SummarySha256 string             `db:"summary_sha_256" json:"summarySha256"`
+	VectorSha256  string             `db:"vector_sha_256" json:"vectorSha256"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }

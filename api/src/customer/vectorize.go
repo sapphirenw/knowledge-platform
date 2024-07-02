@@ -170,7 +170,7 @@ func (c *Customer) handleDocumentVectorization(
 	}
 	if doc.VectorSha256 == newSha256 {
 		l.InfoContext(ctx, "This document has not changed")
-		if err := dmodel.TouchDocument(ctx, &queries.TouchDocumentParams{
+		if err := dmodel.UpdateDocumentVectorSig(ctx, &queries.UpdateDocumentVectorSigParams{
 			ID:           doc.ID,
 			VectorSha256: newSha256,
 		}); err != nil {
@@ -221,7 +221,7 @@ func (c *Customer) handleDocumentVectorization(
 	}
 
 	// set updated and sha field for intelligent parsing in the future
-	if err := dmodel.TouchDocument(ctx, &queries.TouchDocumentParams{
+	if err := dmodel.UpdateDocumentVectorSig(ctx, &queries.UpdateDocumentVectorSigParams{
 		ID:           doc.ID,
 		VectorSha256: newSha256,
 	}); err != nil {

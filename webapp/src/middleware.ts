@@ -33,7 +33,7 @@ export const config = {
          * - favicon.ico (favicon file)
          */
         {
-            source: '/((?!api|_next/static|_next/image|favicon.ico|login).*)',
+            source: '/((?!api|_next/static|_next/image|favicon.ico|login|beta-api-keys).*)',
             missing: [
                 { type: 'header', key: 'next-router-prefetch' },
                 { type: 'header', key: 'purpose', value: 'prefetch' },

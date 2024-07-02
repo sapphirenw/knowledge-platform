@@ -419,6 +419,8 @@ CREATE TABLE website_page(
     summary TEXT NOT NULL DEFAULT '',
     summary_sha_256 CHAR(64) NOT NULL DEFAULT '', -- fingerprint at the time the summary was taken
 
+    vector_sha_256 CHAR(64) NOT NULL DEFAULT '', -- fingerprint when last vectorized
+
     PRIMARY KEY (id),
     CONSTRAINT cnst_unique_website_page UNIQUE (customer_id, website_id, url), -- pages are only allowed once
 
