@@ -30,14 +30,14 @@ func getCustomer(
 	// parse the authToken for this user
 	authToken, err := utils.GoogleUUIDFromString(r.URL.Query().Get("authToken"))
 	if err != nil {
-		slogger.ServerError(w, r, &logger, 400, "'authToken', is a required url parameter", "error", err)
+		slogger.ServerError(w, &logger, 400, "'authToken', is a required url parameter", err)
 		return
 	}
 
 	// grab a connection from the pool
 	pool, err := db.GetPool()
 	if err != nil {
-		logger.ErrorContext(r.Context(), "Error getting the connection pool", "error", err)
+		logger.ErrorContext(r.Context(), "Error getting the connection pool", err)
 		http.Error(w, "There was an issue connecting to the database", http.StatusInternalServerError)
 		return
 	}
@@ -45,7 +45,7 @@ func getCustomer(
 	// create a transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		logger.Error("failed to start transaction", "error", err)
+		logger.Error("failed to start transaction", err)
 		http.Error(w, "There was a database issue", http.StatusInternalServerError)
 		return
 	}
@@ -56,13 +56,13 @@ func getCustomer(
 	// get the api key
 	key, err := dmodel.GetBetaApiKey(r.Context(), authToken)
 	if err != nil {
-		slogger.ServerError(w, r, &logger, 500, "failed to get the api key", "error", err)
+		slogger.ServerError(w, &logger, 500, "failed to get the api key", err)
 		return
 	}
 
 	// ensure that the name matches the key
 	if name != key.Name {
-		slogger.ServerError(w, r, &logger, 403, "Not Allowed.")
+		slogger.ServerError(w, &logger, 403, "Not Allowed.", nil)
 		return
 	}
 
@@ -86,6 +86,6 @@ func getCustomer(
 
 	// if here, then there was an issue and changes need to be rolled back
 	tx.Rollback(r.Context())
-	logger.Error("failed to create or get the test customer", "error", err)
+	logger.Error("failed to create or get the test customer", err)
 	http.Error(w, "There was an internal issue", http.StatusInternalServerError)
 }

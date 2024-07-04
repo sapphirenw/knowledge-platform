@@ -30,7 +30,7 @@ func createVectorizeRequest(
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to connect to the database", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to connect to the database", err)
 		return
 	}
 	defer tx.Commit(r.Context())
@@ -42,7 +42,7 @@ func createVectorizeRequest(
 		Websites:   body.Websites,
 	})
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to create the vectorize job", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to create the vectorize job", err)
 		return
 	}
 
@@ -58,14 +58,14 @@ func getVectorizeRequest(
 ) {
 	jobId, err := utils.GoogleUUIDFromString(chi.URLParam(r, "id"))
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 400, "failed to parse the id", "error", err)
+		slogger.ServerError(w, c.logger, 400, "failed to parse the id", err)
 		return
 	}
 
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to connect to the database", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to connect to the database", err)
 		return
 	}
 	defer tx.Commit(r.Context())
@@ -73,7 +73,7 @@ func getVectorizeRequest(
 	dmodel := queries.New(tx)
 	response, err := dmodel.GetVectorizeJob(r.Context(), jobId)
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to get the vectorize job", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to get the vectorize job", err)
 		return
 	}
 
@@ -90,7 +90,7 @@ func getAllVectorizeRequests(
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to connect to the database", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to connect to the database", err)
 		return
 	}
 	defer tx.Commit(r.Context())
@@ -98,7 +98,7 @@ func getAllVectorizeRequests(
 	dmodel := queries.New(tx)
 	response, err := dmodel.GetCustomerVectorizeJobs(r.Context(), c.ID)
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to get the vectorize jobs", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to get the vectorize jobs", err)
 		return
 	}
 
@@ -120,7 +120,7 @@ func queryVectorStore(
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		c.logger.Error("failed to start transaction", "error", err)
+		c.logger.Error("failed to start transaction", err)
 		http.Error(w, "There was a database issue", http.StatusInternalServerError)
 		return
 	}
@@ -129,7 +129,7 @@ func queryVectorStore(
 	response, err := c.QueryVectorStore(r.Context(), tx, &body)
 	if err != nil {
 		tx.Rollback(r.Context())
-		c.logger.Error("failed to query the vectorstore", "error", err)
+		c.logger.Error("failed to query the vectorstore", err)
 		http.Error(w, "There was an internal issue", http.StatusInternalServerError)
 		return
 	}
@@ -177,7 +177,7 @@ func queryVectorStoreDocuments(
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to start transaction", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to start transaction", err)
 		return
 	}
 	defer tx.Commit(r.Context())
@@ -190,7 +190,7 @@ func queryVectorStoreDocuments(
 		K:          body.K,
 	})
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to query the vectorstore", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to query the vectorstore", err)
 		return
 	}
 
@@ -212,7 +212,7 @@ func queryVectorStoreWebsitePages(
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to start transaction", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to start transaction", err)
 		return
 	}
 	defer tx.Commit(r.Context())
@@ -225,7 +225,7 @@ func queryVectorStoreWebsitePages(
 		K:          body.K,
 	})
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to query the vectorstore", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to query the vectorstore", err)
 		return
 	}
 
@@ -247,7 +247,7 @@ func queryVectorStoreRaw(
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to start transaction", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to start transaction", err)
 		return
 	}
 	defer tx.Commit(r.Context())
@@ -260,7 +260,7 @@ func queryVectorStoreRaw(
 		K:          body.K,
 	})
 	if err != nil {
-		slogger.ServerError(w, r, c.logger, 500, "failed to query the vectorstore", "error", err)
+		slogger.ServerError(w, c.logger, 500, "failed to query the vectorstore", err)
 		return
 	}
 

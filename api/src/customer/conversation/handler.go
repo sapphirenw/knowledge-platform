@@ -60,7 +60,7 @@ func rootHandler(
 			if err != nil {
 				// check if no rows
 				if strings.Contains(err.Error(), "no rows in result set") {
-					slogger.ServerError(w, r, &l, 404, "failed to get the customer", err)
+					slogger.ServerError(w, &l, 404, "failed to get the customer", err)
 					return
 				}
 

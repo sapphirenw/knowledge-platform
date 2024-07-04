@@ -26,15 +26,19 @@ func Error(
 
 func ServerError(
 	w http.ResponseWriter,
-	r *http.Request,
 	logger *slog.Logger,
 	statusCode int,
 	message string,
+	err error,
 	args ...any,
 ) {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	logger.Error(message, args...)
+	if err != nil {
+		logger.Error(fmt.Sprintf("%s: %s", message, err), args...)
+	} else {
+		logger.Error(message, args...)
+	}
 	http.Error(w, message, statusCode)
 }

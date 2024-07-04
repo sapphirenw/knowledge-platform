@@ -24,7 +24,7 @@ func TestConversation(t *testing.T) {
 	model, err := llm.GetLLM(ctx, pool, c.ID, pgtype.UUID{})
 	require.NoError(t, err)
 
-	conv, err := CreateConversation(ctx, logger, pool, c.ID, model, "You are a pirate", "Test Conversation", "Testing")
+	conv, err := CreateConversation(ctx, logger, pool, c.ID, "You are a pirate", "Test Conversation", "Testing")
 	require.NoError(t, err)
 
 	// create a completion event

@@ -120,7 +120,6 @@ func (c *Customer) RAG(
 		logger,
 		db,
 		c.ID,
-		chatLLM,
 		conversationId,
 		prompts.RAG_COMPLETE_SYSTEM_PROMPT,
 		"Information Chat",

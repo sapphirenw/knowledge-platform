@@ -421,19 +421,6 @@ Generated Content
 ############################################################
 */
 
--- for defining what types of content is supported
--- the customer does not have access to this table
-CREATE TABLE content_type(
-    title VARCHAR(256) NOT NULL,
-    parent TEXT NOT NULL DEFAULT 'Other', -- what list to sort this under
-
-    PRIMARY KEY (title),
-    CONSTRAINT cnst_unique_title_parent UNIQUE (title, parent),
-
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
 -- list of available models and metadata about them
 CREATE TABLE available_model(
     id VARCHAR(256) NOT NULL,
@@ -552,6 +539,19 @@ CREATE TABLE token_usage(
 Projects
 ############################################################
 */
+
+-- for defining what types of content is supported
+-- the customer does not have access to this table
+CREATE TABLE content_type(
+    title VARCHAR(256) NOT NULL,
+    parent TEXT NOT NULL DEFAULT 'Other', -- what list to sort this under
+
+    PRIMARY KEY (title),
+    CONSTRAINT cnst_unique_title_parent UNIQUE (title, parent),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Project for content generation. controls which documents are preferred default models
 -- generation configs, etc.

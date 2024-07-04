@@ -69,7 +69,6 @@ func AutoConversation(
 	logger *slog.Logger,
 	db queries.DBTX,
 	customerId uuid.UUID,
-	model *llm.LLM,
 	conversationId string,
 	systemMessage string,
 	title string,
@@ -79,7 +78,7 @@ func AutoConversation(
 	var err error
 	if conversationId == "" {
 		// create a new conversation
-		conv, err = CreateConversation(ctx, logger, db, customerId, model, systemMessage, title, conversationType)
+		conv, err = CreateConversation(ctx, logger, db, customerId, systemMessage, title, conversationType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create the conversation: %s", err)
 		}
@@ -103,7 +102,6 @@ func CreateConversation(
 	logger *slog.Logger,
 	db queries.DBTX,
 	customerId uuid.UUID,
-	model *llm.LLM,
 	systemMessage string,
 	title string,
 	conversationType string,
@@ -132,7 +130,7 @@ func CreateConversation(
 	}
 
 	// Add the system message
-	if err := conv.SaveMessage(ctx, db, model, gollm.NewSystemMessage(systemMessage)); err != nil {
+	if err := conv.SaveMessage(ctx, db, nil, gollm.NewSystemMessage(systemMessage)); err != nil {
 		return nil, fmt.Errorf("failed to sync the messages: %s", err)
 	}
 
@@ -297,15 +295,18 @@ func (c *Conversation) SaveMessage(
 ) error {
 	input := &queries.CreateConversationMessageParams{
 		ConversationID: c.ID,
-		LlmID:          utils.GoogleUUIDToPGXUUID(model.Llm.ID),
-		Model:          model.Llm.Model,
-		Temperature:    model.Llm.Temperature,
-		Instructions:   model.Llm.Instructions,
 		Role:           message.Role.ToString(),
 		Message:        message.Message,
 		Index:          int32(len(c.messages)),
 		ToolUseID:      message.ToolUseID,
 		ToolName:       message.ToolName,
+	}
+
+	if model != nil {
+		input.LlmID = utils.GoogleUUIDToPGXUUID(model.Llm.ID)
+		input.Model = model.Llm.Model
+		input.Temperature = model.Llm.Temperature
+		input.Instructions = model.Llm.Instructions
 	}
 
 	// add the arguments if valid

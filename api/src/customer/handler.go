@@ -76,6 +76,8 @@ func Handler(mux chi.Router) {
 
 	// rag
 	mux.Post("/rag", customerHandler(handleRAG))
+	mux.Get("/rag2Init", customerHandler(handleRag2Init))
+	mux.Get("/rag2", customerHandler(rag2Handler))
 
 }
 
@@ -118,7 +120,7 @@ func customerHandler(
 			if err != nil {
 				// check if no rows
 				if err.Error() == "no rows in result set" {
-					slogger.ServerError(w, r, &l, 404, "There was no customers found")
+					slogger.ServerError(w, &l, 404, "There was no customers found", err)
 					return
 				}
 

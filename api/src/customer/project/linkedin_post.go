@@ -232,7 +232,7 @@ func (p *Project) GenerateLinkedInPost(
 
 	// get the conversation
 	conv, err := conversation.AutoConversation(
-		ctx, logger, db, p.CustomerID, genModel, args.ConversationId, prompts.LINKEDIN_POST_SYSTEM,
+		ctx, logger, db, p.CustomerID, args.ConversationId, prompts.LINKEDIN_POST_SYSTEM,
 		fmt.Sprintf("LinkedIn Post: %s-conv", post.Title),
 		"linkedin-post",
 	)

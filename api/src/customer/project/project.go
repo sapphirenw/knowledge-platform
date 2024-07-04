@@ -141,7 +141,7 @@ func (p *Project) GenerateIdeas(
 		logger,
 		db,
 		p.CustomerID,
-		model,
+
 		args.ConversationId,
 		prompts.PROJECT_IDEA_SYSTEM,
 		fmt.Sprintf("Idea Generation for project: %s", p.Title),

@@ -1,5 +1,10 @@
 import { ConversationMessage } from "./conversation";
 
+export type RAG2Request = {
+    id: string
+    path: string
+}
+
 export interface RAGRequest {
     input: string;
     checkQuality?: boolean;

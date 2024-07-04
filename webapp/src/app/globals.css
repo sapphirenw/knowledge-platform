@@ -17,18 +17,6 @@ input:focus {
   box-shadow: none;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
-@layer components {
-  .safe-area {
-      @apply max-w-[1000px] mx-auto 2xl:max-w-[1300px] w-full
-  }
-}
-
 
 @layer base {
   :root {
@@ -74,6 +62,18 @@ input:focus {
     --border: 215 27.9% 16.9%;
     --input: 215 27.9% 16.9%;
     --ring: 263.4 70% 50.4%;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer components {
+  .safe-area {
+      @apply max-w-[1000px] mx-auto 2xl:max-w-[1300px] w-full
   }
 }
 
