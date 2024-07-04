@@ -73,7 +73,9 @@ ORDER BY vs.embeddings <#> $3
 LIMIT $2;
 
 -- name: QueryVectorStoreWebsitePages :many
-SELECT wp.*
+SELECT
+    sqlc.embed(vs),
+    sqlc.embed(wp)
 FROM vector_store vs
 JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 JOIN website_page wp ON wp.id = wpv.website_page_id

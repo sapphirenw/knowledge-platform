@@ -181,6 +181,11 @@ func (c *Customer) RAG(
 			return nil, slogger.Error(ctx, logger, "failed to run the tool", err)
 		}
 
+		// save the message
+		if err := conv.SaveMessage(ctx, db, chatLLM, vecResponse.Message); err != nil {
+			return nil, slogger.Error(ctx, logger, "failed to save the message", err)
+		}
+
 		return &ragResponse{
 			ConversationId: conv.ID.String(),
 			Message:        vecResponse.Message,

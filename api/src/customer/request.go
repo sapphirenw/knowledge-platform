@@ -98,7 +98,7 @@ func (r queryVectorStoreRequest) Valid(ctx context.Context) map[string]string {
 	if r.Query == "" {
 		p["query"] = "cannot be empty"
 	}
-	if r.K == 0 || r.K > 5 {
+	if r.K == 0 || r.K > 100 {
 		p["k"] = "has to be between 1 and 5"
 	}
 

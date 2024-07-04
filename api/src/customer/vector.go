@@ -196,3 +196,73 @@ func queryVectorStoreDocuments(
 
 	request.Encode(w, r, c.logger, http.StatusOK, response)
 }
+
+func queryVectorStoreWebsitePages(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	// parse the request
+	body, valid := request.Decode[queryVectorStoreRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	// start the transaction
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		slogger.ServerError(w, r, c.logger, 500, "failed to start transaction", "error", err)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	embs := llm.GetEmbeddings(c.logger, c.Customer)
+	response, err := vectorstore.QueryWebsitePages(r.Context(), c.logger, pool, &vectorstore.QueryInput{
+		CustomerID: c.ID,
+		Embeddings: embs,
+		Query:      body.Query,
+		K:          body.K,
+	})
+	if err != nil {
+		slogger.ServerError(w, r, c.logger, 500, "failed to query the vectorstore", "error", err)
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, response)
+}
+
+func queryVectorStoreRaw(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	// parse the request
+	body, valid := request.Decode[queryVectorStoreRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	// start the transaction
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		slogger.ServerError(w, r, c.logger, 500, "failed to start transaction", "error", err)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	embs := llm.GetEmbeddings(c.logger, c.Customer)
+	response, err := vectorstore.QueryRaw(r.Context(), c.logger, pool, &vectorstore.QueryInput{
+		CustomerID: c.ID,
+		Embeddings: embs,
+		Query:      body.Query,
+		K:          body.K,
+	})
+	if err != nil {
+		slogger.ServerError(w, r, c.logger, 500, "failed to query the vectorstore", "error", err)
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, response)
+}

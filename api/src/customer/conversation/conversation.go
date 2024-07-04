@@ -242,6 +242,8 @@ func (c *Conversation) internalCompletion(
 	return response, nil
 }
 
+// Runs a completion against the model, and automatically saves the response message into the
+// database
 func (c *Conversation) Completion(
 	ctx context.Context,
 	db queries.DBTX,

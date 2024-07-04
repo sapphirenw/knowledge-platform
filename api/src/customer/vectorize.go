@@ -94,7 +94,7 @@ func (c *Customer) VectorizeDatastore(
 	if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
 		JobID:   job.ID,
 		Status:  queries.VectorizeJobStatusInProgress,
-		Message: fmt.Sprintf("Processing websites ..."),
+		Message: "Processing websites ...",
 	}); err != nil {
 		return slogger.Error(ctx, logger, "failed to create the vector job item", err)
 	}
@@ -140,7 +140,7 @@ func (c *Customer) VectorizeDatastore(
 	if _, err := dmodel.CreateVectorizeJobItem(ctx, &queries.CreateVectorizeJobItemParams{
 		JobID:   job.ID,
 		Status:  queries.VectorizeJobStatusInProgress,
-		Message: fmt.Sprintf("Reporting usage ..."),
+		Message: "Reporting usage ...",
 	}); err != nil {
 		return slogger.Error(ctx, logger, "failed to create the vector job item", err)
 	}
@@ -209,9 +209,11 @@ func (c *Customer) handleDocumentVectorization(
 		logger.DebugContext(ctx, "Processing index", "index", index)
 		// create raw vector object
 		vecId, err := dmodel.CreateVector(ctx, &queries.CreateVectorParams{
-			Raw:        vec.Raw,
-			Embeddings: &vec.Embedding,
-			CustomerID: c.ID,
+			Raw:         vec.Raw,
+			ObjectID:    doc.ID,
+			ContentType: "document",
+			Embeddings:  &vec.Embedding,
+			CustomerID:  c.ID,
 		})
 		if err != nil {
 			return nil, slogger.Error(ctx, logger, "failed to insert the vector object", err)
@@ -357,10 +359,12 @@ func (c *Customer) handleWebsitePageVectorization(
 	for index, vec := range res.Embeddings {
 		// create raw vector object
 		vecId, err := dmodel.CreateVector(ctx, &queries.CreateVectorParams{
-			Raw:        vec.Raw,
-			Embeddings: &vec.Embedding,
-			CustomerID: c.ID,
-			Metadata:   encodedHeaders,
+			Raw:         vec.Raw,
+			Embeddings:  &vec.Embedding,
+			ObjectID:    page.ID,
+			ContentType: "website_page",
+			CustomerID:  c.ID,
+			Metadata:    encodedHeaders,
 		})
 		if err != nil {
 			return nil, slogger.Error(ctx, logger, "failed to insert the embeddings", err)

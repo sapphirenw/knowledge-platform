@@ -178,12 +178,17 @@ func QueryWebsitePages(
 
 	// send the request to the database
 	model := queries.New(db)
-	response, err := model.QueryVectorStoreWebsitePagesScoped(ctx, &queries.QueryVectorStoreWebsitePagesScopedParams{
+	// response, err := model.QueryVectorStoreWebsitePagesScoped(ctx, &queries.QueryVectorStoreWebsitePagesScopedParams{
+	// 	CustomerID: input.CustomerID,
+	// 	Limit:      int32(input.K),
+	// 	Embeddings: &vector.Embedding,
+	// 	Column4:    input.WebsitePageIDsFilter,
+	// 	Column5:    input.WebsiteIDsFilter,
+	// })
+	response, err := model.QueryVectorStoreWebsitePages(ctx, &queries.QueryVectorStoreWebsitePagesParams{
 		CustomerID: input.CustomerID,
 		Limit:      int32(input.K),
 		Embeddings: &vector.Embedding,
-		Column4:    input.WebsitePageIDsFilter,
-		Column5:    input.WebsiteIDsFilter,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "db cannot be empty") {

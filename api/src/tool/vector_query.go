@@ -130,7 +130,7 @@ func (t *ToolVectorQuery) Run(
 		return val.ID
 	})
 
-	// craft a response for the valler
+	// craft a response for the caller
 	var toolResponse string
 
 	if len(vectors) != 0 {

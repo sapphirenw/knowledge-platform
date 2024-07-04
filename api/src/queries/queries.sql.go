@@ -3587,7 +3587,9 @@ func (q *Queries) QueryVectorStoreRaw(ctx context.Context, arg *QueryVectorStore
 }
 
 const queryVectorStoreWebsitePages = `-- name: QueryVectorStoreWebsitePages :many
-SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at
+SELECT
+    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
+    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at
 FROM vector_store vs
 JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 JOIN website_page wp ON wp.id = wpv.website_page_id
@@ -3602,37 +3604,53 @@ type QueryVectorStoreWebsitePagesParams struct {
 	Embeddings *pgvector.Vector `db:"embeddings" json:"embeddings"`
 }
 
+type QueryVectorStoreWebsitePagesRow struct {
+	VectorStore VectorStore `db:"vector_store" json:"vectorStore"`
+	WebsitePage WebsitePage `db:"website_page" json:"websitePage"`
+}
+
 // QueryVectorStoreWebsitePages
 //
-//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at
+//	SELECT
+//	    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
+//	    wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at
 //	FROM vector_store vs
 //	JOIN website_page_vector wpv ON vs.id = wpv.vector_store_id
 //	JOIN website_page wp ON wp.id = wpv.website_page_id
 //	WHERE vs.customer_id = $1
 //	ORDER BY vs.embeddings <#> $3
 //	LIMIT $2
-func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVectorStoreWebsitePagesParams) ([]*WebsitePage, error) {
+func (q *Queries) QueryVectorStoreWebsitePages(ctx context.Context, arg *QueryVectorStoreWebsitePagesParams) ([]*QueryVectorStoreWebsitePagesRow, error) {
 	rows, err := q.db.Query(ctx, queryVectorStoreWebsitePages, arg.CustomerID, arg.Limit, arg.Embeddings)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*WebsitePage{}
+	items := []*QueryVectorStoreWebsitePagesRow{}
 	for rows.Next() {
-		var i WebsitePage
+		var i QueryVectorStoreWebsitePagesRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.WebsiteID,
-			&i.Url,
-			&i.Sha256,
-			&i.IsValid,
-			&i.Metadata,
-			&i.Summary,
-			&i.SummarySha256,
-			&i.VectorSha256,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.VectorStore.ID,
+			&i.VectorStore.CustomerID,
+			&i.VectorStore.Raw,
+			&i.VectorStore.Embeddings,
+			&i.VectorStore.ContentType,
+			&i.VectorStore.ObjectID,
+			&i.VectorStore.ObjectParentID,
+			&i.VectorStore.Metadata,
+			&i.VectorStore.CreatedAt,
+			&i.WebsitePage.ID,
+			&i.WebsitePage.CustomerID,
+			&i.WebsitePage.WebsiteID,
+			&i.WebsitePage.Url,
+			&i.WebsitePage.Sha256,
+			&i.WebsitePage.IsValid,
+			&i.WebsitePage.Metadata,
+			&i.WebsitePage.Summary,
+			&i.WebsitePage.SummarySha256,
+			&i.WebsitePage.VectorSha256,
+			&i.WebsitePage.CreatedAt,
+			&i.WebsitePage.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
