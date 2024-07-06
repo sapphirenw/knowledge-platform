@@ -76,8 +76,7 @@ func Handler(mux chi.Router) {
 
 	// rag
 	mux.Post("/rag", customerHandler(handleRAG))
-	mux.Get("/rag2Init", customerHandler(handleRag2Init))
-	mux.Get("/rag2", customerHandler(rag2Handler))
+	mux.Get("/rag2", customerHandler(handleRag2))
 
 }
 

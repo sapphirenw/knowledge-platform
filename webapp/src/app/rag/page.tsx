@@ -3,6 +3,7 @@ import RagClient from './rag_client';
 import { ConversationMessage } from '@/types/conversation';
 import ErrorPage from '@/components/error_page';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
+import { cookies } from 'next/headers';
 
 export default async function RAG() {
     const queryClient = new QueryClient()
@@ -17,7 +18,9 @@ export default async function RAG() {
         queryFn: getAllConversations,
     })
 
+    const cid = cookies().get("cid")?.value
+
     return <HydrationBoundary state={dehydrate(queryClient)}>
-        <RagClient></RagClient>
+        <RagClient wsBaseUrl={`${process.env.DB_HOST}/v1/customers/${cid}/rag2`}></RagClient>
     </HydrationBoundary>
 }

@@ -16,7 +16,8 @@ export async function getAllConversations(): Promise<Conversation[]> {
 export async function getConversation(): Promise<ConversationResponse> {
     // read the cookie
     const convId = cookies().get("conversationId")?.value
-    if (convId === "" || convId == undefined) {
+    if (convId === "" || convId === undefined) {
+        console.log("RETURNING EMPTY CONVERSATION")
         return {
             "conversationId": "",
             "messages": [],

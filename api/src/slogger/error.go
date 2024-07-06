@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+
+	"github.com/gorilla/websocket"
 )
 
 // Function to write an error message with varying levels of exposition.
@@ -24,6 +26,7 @@ func Error(
 	return fmt.Errorf(message)
 }
 
+// Http writer error
 func ServerError(
 	w http.ResponseWriter,
 	logger *slog.Logger,
@@ -41,4 +44,23 @@ func ServerError(
 		logger.Error(message, args...)
 	}
 	http.Error(w, message, statusCode)
+}
+
+// Websocket error
+func WsError(
+	conn *websocket.Conn,
+	logger *slog.Logger,
+	message string,
+	err error,
+	args ...any,
+) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	if err != nil {
+		logger.Error(fmt.Sprintf("%s: %s", message, err), args...)
+	} else {
+		logger.Error(message, args...)
+	}
+	conn.WriteMessage(websocket.TextMessage, []byte(message))
 }

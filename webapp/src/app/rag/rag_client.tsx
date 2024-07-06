@@ -10,14 +10,21 @@ import Cookies from "js-cookie"
 import { getConversation } from '@/actions/conversation';
 import RagEmpty from './rag_empty';
 import { toast } from '@/components/ui/use-toast';
+import useWebSocket, { ReadyState } from 'react-use-websocket';
 
-export default function RagClient() {
+export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
     const queryClient = useQueryClient()
+
+    // for controlling the socketUrl
+    const [socketUrl, setSocketUrl] = useState("");
 
     const [isLoading, setIsLoading] = useState(true)
     const [input, setInput] = useState("")
     const [messages, setMessages] = useState<ConversationMessage[]>([])
     const [isFirstMessage, setIsFirstMessage] = useState(true)
+
+    // websocket
+    const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
 
     const scrollableDivRef = useRef<HTMLDivElement | null>(null);
 
@@ -27,9 +34,15 @@ export default function RagClient() {
         queryFn: () => getConversation(),
     })
 
-    // react based on the conversation loading state
+    // handle the loading from the `useQuery` call. This will call mutliple times
+    // based on the loading state of the call, and eventually results in the messages
+    // being loaded into state and the screen scrolling to the bottom
     useEffect(() => {
         if (conv.status === "success") {
+            // set the websocket state
+            setSocketUrl(`${wsBaseUrl}?id=${conv.data.conversationId}`)
+
+            // set the message state
             setMessages(conv.data!.messages)
             setIsFirstMessage(conv.data!.messages.length === 0)
             setTimeout(() => scrollToBottom(), 200)
@@ -44,6 +57,35 @@ export default function RagClient() {
             setIsLoading(false)
         }
     }, [conv.data, conv.status])
+
+
+    // handle when new messages are recieved in the websocket
+    useEffect(() => {
+        if (lastMessage !== null) {
+            // parse the base64 payload into json
+            const base64String = lastMessage.data.trim().replace(/^"|"$/g, '');
+            const message = atob(base64String);
+            const data = JSON.parse(message)
+            console.log(data)
+
+            // check for an error
+            if (data.hasError) {
+                console.log("there was an error", data.content)
+                toast({
+                    variant: "destructive",
+                    title: "Oh no!",
+                    description: <p>{data.content}</p>
+                })
+            } else {
+                // valid message
+                setMessages((prev) => prev.concat(data.content))
+                setTimeout(() => scrollToBottom(), 200)
+            }
+
+        }
+    }, [lastMessage])
+
+
 
     const scrollToBottom = () => {
         if (scrollableDivRef.current) {
@@ -62,36 +104,56 @@ export default function RagClient() {
         console.log("clearing data ...")
         setMessages((prev) => [...prev, { role: 1, message: input, index: messages.length }])
         setInput("")
-        scrollToBottom()
+        setTimeout(() => scrollToBottom(), 200)
 
         // send the request
         sendRequest(input)
     }
 
     const sendRequest = async (input: string,) => {
+        // ensure the websocket is ready
+        if (readyState !== ReadyState.OPEN) {
+            console.log("the websocket is not open")
+            return
+        }
+
         // send the request
         setIsLoading(true)
         console.log("sending the request ...")
-        let req = {
-            input: input,
-        }
         try {
-            const response = await handleRAG(req)
-            console.log("Success!")
-            console.log(response)
-            setMessages((prev) => [...prev, response.message])
-            Cookies.set("conversationId", response.conversationId)
-            scrollToBottom()
+            // let req = {
+            //     input: input,
+            // }
+            // const response = await handleRAG(req)
+            // console.log("Success!")
+            // console.log(response)
+            // setMessages((prev) => [...prev, response.message])
+            // Cookies.set("conversationId", response.conversationId)
+            // scrollToBottom()
+
+            // // invalidate the conversation list query for re-rendering the sidebar
+            // if (isFirstMessage) {
+            //     setIsFirstMessage(false)
+            //     await queryClient.invalidateQueries({ queryKey: ['allConversations'] })
+            // }
+
+            // // check whether to auto send the response
+            // if (response.message.role == 3 || response.message.role == 4) {
+            //     await sendRequest("")
+            // }
+
+
+
+            //
+            // 
+            // ----------
+            // send on the websocket
+            sendMessage(input)
 
             // invalidate the conversation list query for re-rendering the sidebar
             if (isFirstMessage) {
                 setIsFirstMessage(false)
                 await queryClient.invalidateQueries({ queryKey: ['allConversations'] })
-            }
-
-            // check whether to auto send the response
-            if (response.message.role == 3 || response.message.role == 4) {
-                await sendRequest("")
             }
         } catch (e) {
             if (e instanceof Error) console.error(e)

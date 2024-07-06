@@ -250,7 +250,14 @@ func (c *Conversation) Completion(
 	tools []*gollm.Tool,
 	requiredTool *gollm.Tool,
 ) (*gollm.CompletionResponse, error) {
-	return c.internalCompletion(ctx, db, model, message, tools, requiredTool, "")
+	response, err := c.internalCompletion(ctx, db, model, message, tools, requiredTool, "")
+	if err != nil {
+		if err := c.ReportError(ctx, db, err); err != nil {
+			return nil, slogger.Error(ctx, c.logger, "failed to report the internal error for the convertation", err)
+		}
+		return nil, err
+	}
+	return response, nil
 }
 
 // Send a JSON completion against the model where the response is automatically serialized
@@ -258,6 +265,27 @@ func (c *Conversation) Completion(
 // Note: This will not response with the entire response object as seen in Completion. Ensure
 // there is no information in this object that you need.
 func JsonCompletion[T any](
+	conv *Conversation,
+	ctx context.Context,
+	db queries.DBTX,
+	model *llm.LLM,
+	message *gollm.Message,
+	tools []*gollm.Tool,
+	schema string,
+) (*T, error) {
+	// create a completion
+	response, err := jsonCompletion[T](conv, ctx, db, model, message, tools, schema)
+	if err != nil {
+		// report the error on the conversation
+		if err := conv.ReportError(ctx, db, err); err != nil {
+			return nil, slogger.Error(ctx, conv.logger, "failed to report the internal error for the convertation", err)
+		}
+		return nil, err
+	}
+	return response, nil
+}
+
+func jsonCompletion[T any](
 	conv *Conversation,
 	ctx context.Context,
 	db queries.DBTX,
@@ -334,6 +362,29 @@ func (c *Conversation) SaveMessage(
 
 	// add the message to the internal array
 	c.messages = append(c.messages, message)
+	return nil
+}
+
+func (c *Conversation) ReportError(
+	ctx context.Context,
+	db queries.DBTX,
+	err error,
+) error {
+	// update the conversation to have an error
+	var msg string
+	if err == nil {
+		msg = "Unknown Error"
+	} else {
+		msg = err.Error()
+	}
+	dmodel := queries.New(db)
+	_, err = dmodel.SetConversationError(ctx, &queries.SetConversationErrorParams{
+		ID:           c.ID,
+		ErrorMessage: &msg,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to save the message")
+	}
 	return nil
 }
 

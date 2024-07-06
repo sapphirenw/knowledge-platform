@@ -18,13 +18,14 @@ export default function Rag2Client({ wsUrl }: { wsUrl: string }) {
 
     useEffect(() => {
         if (lastMessage !== null) {
+            console.log(lastMessage)
             setMessageHistory((prev) => prev.concat(lastMessage));
         }
     }, [lastMessage]);
 
     const handleClickSendMessage = () => {
         console.log("sending:", message)
-        sendMessage(message)
+        sendMessage(JSON.stringify({ "message": message }))
         setMessage("")
     }
 
