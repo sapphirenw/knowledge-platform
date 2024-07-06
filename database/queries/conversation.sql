@@ -57,3 +57,9 @@ ORDER BY index ASC;
 -- name: ClearConversation :exec
 DELETE FROM conversation_message
 WHERE conversation_id = $1;
+
+-- name: UpdateConversationTitle :one
+UPDATE conversation SET
+    title = $2
+WHERE id = $1
+RETURNING *;

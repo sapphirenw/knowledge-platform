@@ -22,3 +22,21 @@ export interface RAGResponse {
     websitePages?: any[]
     message: ConversationMessage
 }
+
+// MessageType ragMessageType `json:"messageType"`
+
+// // dependent on the message type
+
+// ChatMessage    *gollm.Message `json:"chatMessage,omitempty"`
+// ConversationId string         `json:"conversationId"`
+// NewTitle       string         `json:"newTitle,omitempty"`
+// Error          string         `json:"error,omitempty"`
+
+export type RagMessagePayload = {
+    messageType: string
+
+    chatMessage?: ConversationMessage
+    conversationId?: string
+    newTitle?: string
+    error?: string
+}

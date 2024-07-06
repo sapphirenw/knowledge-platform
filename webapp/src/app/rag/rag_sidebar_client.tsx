@@ -3,18 +3,25 @@
 import { Conversation } from "@/types/conversation";
 import { useState } from "react";
 import Cookies from "js-cookie"
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SquarePlus } from "lucide-react";
+import { getAllConversations } from "@/actions/conversation";
+import DefaultLoader from "@/components/default_loader";
+import ErrorPage from "@/components/error_page";
 
 export default function RagSidebarClient({
-    conversations,
     activeConvId,
 }: {
-    conversations: Conversation[],
     activeConvId: string,
 }) {
     const queryClient = useQueryClient()
+
     const [selected, setSelected] = useState(activeConvId)
+
+    const { status, data, error } = useQuery({
+        queryKey: ['allConversations'],
+        queryFn: () => getAllConversations(),
+    })
 
     const handleClick = async (convId: string) => {
         // set the cookie
@@ -23,6 +30,15 @@ export default function RagSidebarClient({
 
         // invalidate the conversation query
         await queryClient.invalidateQueries({ queryKey: ['conversation'] })
+    }
+
+    if (status === "pending") {
+        return <DefaultLoader />
+    }
+
+    if (status === "error") {
+        console.error(error)
+        return <ErrorPage msg="" />
     }
 
     return <div className="">
@@ -36,7 +52,7 @@ export default function RagSidebarClient({
                 </div>
             </button>
         </div>
-        {conversations.map((c, index) => (
+        {data.map((c, index) => (
             <div key={`conv-${index}`}>
                 <button className="w-full" onClick={() => handleClick(c.id)}>
                     <p className={`py-2 pl-4 text-left w-full rounded-xl hover:bg-secondary ${selected === c.id ? "bg-secondary" : ""}`}>{c.title}</p>

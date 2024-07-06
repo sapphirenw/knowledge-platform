@@ -13,11 +13,6 @@ export default async function RAG() {
         queryFn: getConversation,
     })
 
-    await queryClient.prefetchQuery({
-        queryKey: ['allConversations'],
-        queryFn: getAllConversations,
-    })
-
     const cid = cookies().get("cid")?.value
 
     return <HydrationBoundary state={dehydrate(queryClient)}>

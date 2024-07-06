@@ -2,6 +2,7 @@
 
 import { handleRAG } from '@/actions/rag';
 import { ConversationMessage } from '@/types/conversation';
+import { RagMessagePayload } from '@/types/rag';
 import React, { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import DefaultLoader from '@/components/default_loader';
@@ -65,23 +66,46 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
             // parse the base64 payload into json
             const base64String = lastMessage.data.trim().replace(/^"|"$/g, '');
             const message = atob(base64String);
-            const data = JSON.parse(message)
+            const data = JSON.parse(message) as RagMessagePayload
             console.log(data)
 
-            // check for an error
-            if (data.hasError) {
-                console.log("there was an error", data.content)
-                toast({
-                    variant: "destructive",
-                    title: "Oh no!",
-                    description: <p>{data.content}</p>
-                })
-            } else {
-                // valid message
-                setMessages((prev) => prev.concat(data.content))
-                setTimeout(() => scrollToBottom(), 200)
-            }
+            // process the message based on the type
+            switch (data.messageType) {
+                case "loading":
+                    setIsLoading(true)
+                    break
+                case "newMessage":
+                    // recieved a new chat message from the connection
+                    setMessages((prev) => prev.concat(data.chatMessage!))
+                    setTimeout(() => scrollToBottom(), 200)
 
+                    // handle when to stop loading
+                    if (data.chatMessage!.role === 2) {
+                        setIsLoading(false)
+                    }
+                    break
+                case "newConversationId":
+                    // set the conversation id as a cookie
+                    Cookies.set("conversationId", data.conversationId!, { secure: true, sameSite: "strict" })
+                    break
+                case "titleUpdate":
+                    // invalidate the title query
+                    queryClient.invalidateQueries({ queryKey: ['allConversations'] })
+                    break
+                case "error":
+                    // the conversation is in an errored state
+                    console.error("there was an unexpected issue:", data.error!)
+                    toast({
+                        variant: "destructive",
+                        title: "Oh no!",
+                        description: <p>{data.error ?? "There was an unknown error"}</p>
+                    })
+                    setIsLoading(false)
+                    break
+                default:
+                    console.log("unexpected message type:", data.messageType)
+                    setIsLoading(false)
+            }
         }
     }, [lastMessage])
 
@@ -106,8 +130,11 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
         setInput("")
         setTimeout(() => scrollToBottom(), 200)
 
-        // send the request
-        sendRequest(input)
+        // send the request on the websocket
+        setIsLoading(true)
+        sendMessage(input)
+
+        // sendRequest(input)
     }
 
     const sendRequest = async (input: string,) => {
@@ -118,37 +145,28 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
         }
 
         // send the request
-        setIsLoading(true)
         console.log("sending the request ...")
         try {
-            // let req = {
-            //     input: input,
-            // }
-            // const response = await handleRAG(req)
-            // console.log("Success!")
-            // console.log(response)
-            // setMessages((prev) => [...prev, response.message])
-            // Cookies.set("conversationId", response.conversationId)
-            // scrollToBottom()
+            let req = {
+                input: input,
+            }
+            const response = await handleRAG(req)
+            console.log("Success!")
+            console.log(response)
+            setMessages((prev) => [...prev, response.message])
+            Cookies.set("conversationId", response.conversationId)
+            scrollToBottom()
 
-            // // invalidate the conversation list query for re-rendering the sidebar
-            // if (isFirstMessage) {
-            //     setIsFirstMessage(false)
-            //     await queryClient.invalidateQueries({ queryKey: ['allConversations'] })
-            // }
+            // invalidate the conversation list query for re-rendering the sidebar
+            if (isFirstMessage) {
+                setIsFirstMessage(false)
+                await queryClient.invalidateQueries({ queryKey: ['allConversations'] })
+            }
 
-            // // check whether to auto send the response
-            // if (response.message.role == 3 || response.message.role == 4) {
-            //     await sendRequest("")
-            // }
-
-
-
-            //
-            // 
-            // ----------
-            // send on the websocket
-            sendMessage(input)
+            // check whether to auto send the response
+            if (response.message.role == 3 || response.message.role == 4) {
+                await sendRequest("")
+            }
 
             // invalidate the conversation list query for re-rendering the sidebar
             if (isFirstMessage) {

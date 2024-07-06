@@ -2,6 +2,8 @@ package customer
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -10,22 +12,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
+	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/customer/conversation"
 	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
+	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
 	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 	"github.com/sapphirenw/ai-content-creation-api/src/tool"
+	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
-type RagMessageType string
+type ragMessageType string
 
 const (
-	Error             RagMessageType = "error"
-	Success           RagMessageType = "success"
-	Loading           RagMessageType = "loading"
-	NewConversationId RagMessageType = "newConversationId"
-	TitleUpdate       RagMessageType = "titleUpdate"
+	ragLoading ragMessageType = "loading"
+
+	ragNewMessage        ragMessageType = "newMessage"
+	ragNewConversationId ragMessageType = "newConversationId"
+	ragTitleUpdate       ragMessageType = "titleUpdate"
+	ragError             ragMessageType = "error"
 )
 
 /*
@@ -33,11 +39,52 @@ A RAG message is the content that is sent to the user through a websocket.
 this can be many different types of messages, such as control flow (loading),
 messages to and from the AI, tool calls, error throws, and so on.
 */
-type RagMessage struct {
-	MessageType RagMessageType `json:"messageType"`
-	Error       error          `json:"error"`
-	Status      string         `json:"status"`
-	ChatMessage *gollm.Message `json:"chatMessage"`
+type ragMessage struct {
+	// consistent for all messages
+
+	MessageType ragMessageType `json:"messageType"`
+
+	// dependent on the message type
+
+	ChatMessage    *gollm.Message `json:"chatMessage,omitempty"`
+	ConversationId string         `json:"conversationId"`
+	NewTitle       string         `json:"newTitle,omitempty"`
+	Error          string         `json:"error,omitempty"`
+}
+
+func newRmChatMessage(msg *gollm.Message) *ragMessage {
+	return &ragMessage{
+		MessageType: ragNewMessage,
+		ChatMessage: msg,
+	}
+}
+
+func newRmError(msg string, err error) *ragMessage {
+
+	return &ragMessage{
+		MessageType: ragError,
+		Error:       fmt.Sprintf("%s: %s", msg, err.Error()),
+	}
+}
+
+func writeRagResponse(
+	ctx context.Context,
+	logger *slog.Logger,
+	conn *websocket.Conn,
+	message *ragMessage,
+) error {
+	// encode the message
+	enc, err := json.Marshal(message)
+	if err != nil {
+		return slogger.Error(ctx, logger, "failed to write the message", err)
+	}
+
+	// write the message on the connection
+	if err := conn.WriteJSON(enc); err != nil {
+		return slogger.Error(ctx, logger, "failed to write on the websocket", err)
+	}
+
+	return nil
 }
 
 var upgrader = websocket.Upgrader{
@@ -64,24 +111,8 @@ func handleRag2(
 
 	logger.Info("Opened ws connection")
 
-	// get the conversation
-	// fetch or create a conversation
-	conv, err := conversation.AutoConversation(
-		r.Context(),
-		logger,
-		pool,
-		c.ID,
-		r.URL.Query().Get("id"),
-		prompts.RAG_COMPLETE_SYSTEM_PROMPT,
-		"Information Chat",
-		"rag",
-	)
-	if err != nil {
-		request.WriteWs(r.Context(), logger, conn, "failed to get the converation", err)
-		return
-	}
-	// conn.WriteMessage(websocket.TextMessage, []byte("Successfully got conversation"))
-	logger = logger.With("conversationId", conv.ID.String())
+	// hold the conversation in memory for the request
+	var conv *conversation.Conversation
 
 	for {
 		// read the message that was passed from the user
@@ -93,7 +124,36 @@ func handleRag2(
 			break
 		}
 
-		logger.Debug("Recived message from user", "message", string(message), "type", mt)
+		// check if the conversation exists in memory
+		if conv == nil {
+			// fetch the conversation
+			conv, err = conversation.AutoConversation(
+				r.Context(),
+				logger,
+				pool,
+				c.ID,
+				r.URL.Query().Get("id"),
+				prompts.RAG_COMPLETE_SYSTEM_PROMPT,
+				"Information Chat",
+				"rag",
+			)
+			if err != nil {
+				writeRagResponse(r.Context(), logger, conn, newRmError("failed to get the conversation", err))
+				break
+			}
+
+			// write the conversation id update
+			if err := writeRagResponse(r.Context(), logger, conn, &ragMessage{
+				MessageType:    ragNewConversationId,
+				ConversationId: conv.ID.String(),
+			}); err != nil {
+				slogger.Error(r.Context(), logger, "failed to write the rag message", err)
+				break
+			}
+			logger = logger.With("conversationId", conv.ID.String())
+		}
+
+		logger.Debug("Recieved message from user", "message", string(message), "type", mt)
 
 		// create the user message
 		userMessage := gollm.NewUserMessage(string(message))
@@ -101,7 +161,7 @@ func handleRag2(
 		// create a transaction to run this call inside of
 		tx, err := pool.Begin(r.Context())
 		if err != nil {
-			request.WriteWs(r.Context(), logger, conn, "failed to begin the transaction", err)
+			writeRagResponse(r.Context(), logger, conn, newRmError("failed to start the transaction", err))
 			break
 		}
 
@@ -109,11 +169,37 @@ func handleRag2(
 		// when a user sends a message, including tool calls and writing multiple messages to the user
 		// when a transaction is in process.
 		if err := c.rag2MessageHandler(r.Context(), logger, tx, conn, conv, userMessage); err != nil {
-			request.WriteWs(r.Context(), logger, conn, "failed to handle the message", err)
+			writeRagResponse(r.Context(), logger, conn, newRmError("failed to handle the message", err))
 			tx.Rollback(r.Context())
 			break
 		}
 		tx.Commit(r.Context())
+
+		// send a request to create a title if the conversation does not have one
+		if conv.Title == "Information Chat" {
+			logger.Info("Creating a new title ... ")
+			newTitle, err := c.createRagTitle(r.Context(), logger, pool, userMessage)
+			if err != nil {
+				slogger.Error(r.Context(), logger, "failed to create the title, but not closing the ws", err)
+			}
+
+			// update the conversation
+			dmodel := queries.New(pool)
+			_, err = dmodel.UpdateConversationTitle(r.Context(), &queries.UpdateConversationTitleParams{
+				ID:    conv.ID,
+				Title: newTitle,
+			})
+			if err != nil {
+				slogger.Error(r.Context(), logger, "failed tp update the conversation title, but not closing ws", err)
+			}
+			conv.Title = newTitle
+
+			// send the new title to the user
+			writeRagResponse(r.Context(), logger, conn, &ragMessage{
+				MessageType: ragTitleUpdate,
+				NewTitle:    newTitle,
+			})
+		}
 	}
 
 	logger.Info("Closing ws connection")
@@ -150,7 +236,7 @@ func (c *Customer) rag2MessageHandler(
 	}
 
 	// write the message to the connection
-	if err := request.WriteWs(ctx, logger, conn, completionResponse.Message, nil); err != nil {
+	if err := writeRagResponse(ctx, logger, conn, newRmChatMessage(completionResponse.Message)); err != nil {
 		return slogger.Error(ctx, logger, "failed to write the message", err)
 	}
 
@@ -163,7 +249,7 @@ func (c *Customer) rag2MessageHandler(
 	case gollm.RoleToolCall:
 		// perform the tool call chain
 		logger.Debug("calling the rag2 tool handler")
-		return c.rag2ToolCallHandler(ctx, logger, tx, conn, conv, chatLLM, completionResponse.Message)
+		return c.rag2ToolCallHandler(ctx, logger, tx, conn, conv, completionResponse.Message)
 	default:
 		return slogger.Error(ctx, logger, "unexpected message role from the AI", nil, "role", completionResponse.Message.Role.ToString())
 	}
@@ -175,7 +261,6 @@ func (c *Customer) rag2ToolCallHandler(
 	tx pgx.Tx,
 	conn *websocket.Conn,
 	conv *conversation.Conversation,
-	chatLLM *llm.LLM,
 	message *gollm.Message,
 ) error {
 
@@ -205,7 +290,7 @@ func (c *Customer) rag2ToolCallHandler(
 	}
 
 	// write the message to the connection
-	if err := request.WriteWs(ctx, logger, conn, toolResponse.Message, nil); err != nil {
+	if err := writeRagResponse(ctx, logger, conn, newRmChatMessage(toolResponse.Message)); err != nil {
 		return slogger.Error(ctx, logger, "failed to write the message", err)
 	}
 
@@ -216,6 +301,38 @@ func (c *Customer) rag2ToolCallHandler(
 	}
 
 	return nil
+}
+
+// creates a chat title based on the passed message to this function.
+// it is recommended to use the first customer message as the input to this function
+func (c *Customer) createRagTitle(
+	ctx context.Context,
+	logger *slog.Logger,
+	db queries.DBTX,
+	message *gollm.Message,
+) (string, error) {
+	// get the title creation llm
+	dmodel := queries.New(db)
+	response, err := dmodel.GetInteralLLM(ctx, "Title creator")
+	if err != nil {
+		return "", slogger.Error(ctx, logger, "failed to get the internal llm for title creation", err)
+	}
+
+	lm := llm.FromObjects(&response.Llm, &response.AvailableModel)
+
+	// create a single completion
+	completion, err := lm.SingleCompletion(ctx, logger, c.ID, prompts.RAG_TITLE_GENERATION_SYSTEM_PROMPT, message.Message)
+	if err != nil {
+		return "", slogger.Error(ctx, logger, "failed to send the single completion for a new title", err)
+	}
+
+	// report the usage
+	if err := utils.ReportUsage(ctx, logger, db, c.ID, []*tokens.UsageRecord{completion.UsageRecord}, nil); err != nil {
+		return "", slogger.Error(ctx, logger, "failed to report the usage", err)
+	}
+
+	return completion.Message.Message, nil
+
 }
 
 func rag2Tools() []tool.Tool {

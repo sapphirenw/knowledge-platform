@@ -3881,6 +3881,42 @@ func (q *Queries) TouchWebsitePage(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const updateConversationTitle = `-- name: UpdateConversationTitle :one
+UPDATE conversation SET
+    title = $2
+WHERE id = $1
+RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+`
+
+type UpdateConversationTitleParams struct {
+	ID    uuid.UUID `db:"id" json:"id"`
+	Title string    `db:"title" json:"title"`
+}
+
+// UpdateConversationTitle
+//
+//	UPDATE conversation SET
+//	    title = $2
+//	WHERE id = $1
+//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+func (q *Queries) UpdateConversationTitle(ctx context.Context, arg *UpdateConversationTitleParams) (*Conversation, error) {
+	row := q.db.QueryRow(ctx, updateConversationTitle, arg.ID, arg.Title)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.ConversationType,
+		&i.SystemMessage,
+		&i.Metadata,
+		&i.HasError,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const updateCustomer = `-- name: UpdateCustomer :exec
 UPDATE customer
     set name = $2

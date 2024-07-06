@@ -204,3 +204,14 @@ INSERT INTO llm (
     false,
     false
 );
+INSERT INTO llm (
+    customer_id, title, model, temperature, instructions, is_default, public
+) VALUES (
+    NULL,
+    'Title creator',
+    'gpt-4o',
+    1.2,
+    'You are creative and concise, as all of your outputs are very short.',
+    false,
+    false
+);
