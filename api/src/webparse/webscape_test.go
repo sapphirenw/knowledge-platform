@@ -22,7 +22,7 @@ func TestSitemap(t *testing.T) {
 	}
 
 	// parse based on all pages
-	pages, err := ParseSitemap(context.TODO(), logger, &site)
+	pages, err := ParseSitemap(context.TODO(), logger, &site, 0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -30,7 +30,7 @@ func TestSitemap(t *testing.T) {
 
 	// add a blacklist
 	site.Blacklist = append(site.Blacklist, "docs/.*$")
-	pages, err = ParseSitemap(context.TODO(), logger, &site)
+	pages, err = ParseSitemap(context.TODO(), logger, &site, 0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -39,7 +39,7 @@ func TestSitemap(t *testing.T) {
 	// add a whitelist
 	site.Blacklist = []string{}
 	site.Whitelist = append(site.Whitelist, "docs/.*$")
-	pages, err = ParseSitemap(context.TODO(), logger, &site)
+	pages, err = ParseSitemap(context.TODO(), logger, &site, 0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -52,7 +52,7 @@ func TestSitemap(t *testing.T) {
 	// add both
 	site.Blacklist = []string{"create.*$"}
 	site.Whitelist = []string{"docs/.*$"}
-	pages, err = ParseSitemap(context.TODO(), logger, &site)
+	pages, err = ParseSitemap(context.TODO(), logger, &site, 0)
 	if err != nil {
 		t.Error(err)
 	}

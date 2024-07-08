@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ConversationMessage } from "@/types/conversation"
 import { Document } from "@/types/document"
 import { WebsitePage } from "@/types/websites";
-import { File } from "lucide-react";
+import { File, FileText } from "lucide-react";
 
 export default function MessageToolCallResult({
     message,
@@ -30,7 +30,7 @@ export default function MessageToolCallResult({
         return items
     }
 
-    return <div className="grid grid-cols-3 gap-4">
+    return <div className="grid grid-cols-2 gap-2">
         {getItems()}
     </div>
 }
@@ -39,7 +39,7 @@ function DocumentItem({ doc }: { doc: Document }) {
     return <Button variant="secondary">
         <div className="flex items-center truncate w-full text-left">
             <div className="w-[20px] mr-2">
-                <File size={20} />
+                <FileText size={20} />
             </div>
             <p className="truncate">{doc.filename}</p>
         </div>
@@ -47,12 +47,16 @@ function DocumentItem({ doc }: { doc: Document }) {
 }
 
 function WebsitePageItem({ page }: { page: WebsitePage }) {
-    return <Button variant="secondary">
-        <div className="flex items-center space-x-2 truncate">
-            <div className="w-[20px]">
-                <File size={20} />
+    const urlObj = new URL(page.url);
+
+    return <a href={page.url} target="_blank" rel="" className="bg-secondary hover:opacity-75 transition-opacity rounded-lg grid place-items-center">
+        <div className="w-full">
+            <div className="flex items-center space-x-2 px-2">
+                <div className="min-w-[30px] min-h-[30px]">
+                    <img className="w-[30px] h-[30px]" src={`${urlObj.origin}/favicon.ico`} />
+                </div>
+                <p className="text-wrap text-left">{page.url}</p>
             </div>
-            <p className="truncate">{page.url}</p>
         </div>
-    </Button>
+    </a>
 }

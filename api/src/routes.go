@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/sapphirenw/ai-content-creation-api/src/beta"
 	"github.com/sapphirenw/ai-content-creation-api/src/customer"
+	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 )
 
 // Function to define all routes in the api
@@ -23,5 +24,6 @@ func addRoutes(
 
 		r.Route("/beta", beta.Handler)
 		r.Route("/customers/{customerId}", customer.Handler)
+		r.Route("/llms", llm.Handler)
 	})
 }

@@ -31,13 +31,13 @@ func (t *ToolVectorQuery) GetType() ToolType {
 func (t *ToolVectorQuery) GetSchema() *gollm.Tool {
 	return &gollm.Tool{
 		Title:       string(t.GetType()),
-		Description: "Send a request against the user's private stored information. Be liberal with the use of this tool, as the tool repsonse will contain valuable information to help you create more personalized answers.",
+		Description: "Send an information request against the user's private stored information. Be EXTREMELY liberal with the use of this tool, as the tool repsonse will contain valuable information to help you create more personalized answers. If you have any questions of context, use this tool to bridge your gap in information.",
 		Schema: &ltypes.ToolSchema{
 			Type: "object",
 			Properties: map[string]*ltypes.ToolSchema{
 				"vector_query": {
 					Type:        "string",
-					Description: "A simple query that can be used to query the user's private information stored in a vector database. Make sure your query contains all the semantic information you are seeking, as the vector store potentially contains lots of similar information.",
+					Description: "A simple query that can be used to query the user's private information stored in a vector database. Make sure your query contains all the semantic information you are seeking, as the vector store potentially contains lots of similar information, but is optimized to match against relevant information in a vectorized context.",
 				},
 			},
 		},
@@ -146,7 +146,7 @@ func (t *ToolVectorQuery) Run(
 		bufStr := buf.String()
 		response, err := args.ToolLLM.Summarize(ctx, logger, args.Customer.ID, bufStr)
 		if err != nil {
-			logger.Error("failed to summarize the content", err)
+			logger.Error("failed to summarize the content", "err", err)
 			// still pass on information to response even with an error
 			toolResponse = fmt.Sprintf("[Query Response]: %s", bufStr)
 		} else {

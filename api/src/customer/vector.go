@@ -120,7 +120,7 @@ func queryVectorStore(
 	// start the transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		c.logger.Error("failed to start transaction", err)
+		c.logger.Error("failed to start transaction", "err", err)
 		http.Error(w, "There was a database issue", http.StatusInternalServerError)
 		return
 	}
@@ -129,7 +129,7 @@ func queryVectorStore(
 	response, err := c.QueryVectorStore(r.Context(), tx, &body)
 	if err != nil {
 		tx.Rollback(r.Context())
-		c.logger.Error("failed to query the vectorstore", err)
+		c.logger.Error("failed to query the vectorstore", "err", err)
 		http.Error(w, "There was an internal issue", http.StatusInternalServerError)
 		return
 	}

@@ -12,6 +12,8 @@ import { getConversation } from '@/actions/conversation';
 import RagEmpty from './rag_empty';
 import { toast } from '@/components/ui/use-toast';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
+import RagLLMSelector from './rag_llm_selector';
+import { ModelRow } from '@/types/llm';
 
 export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
     const queryClient = useQueryClient()
@@ -23,6 +25,9 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
     const [input, setInput] = useState("")
     const [messages, setMessages] = useState<ConversationMessage[]>([])
     const [isFirstMessage, setIsFirstMessage] = useState(true)
+    const [currentChatLLM, setCurrentChatLLM] = useState<ModelRow | undefined>(undefined)
+
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // websocket
     const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
@@ -87,10 +92,15 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
                 case "newConversationId":
                     // set the conversation id as a cookie
                     Cookies.set("conversationId", data.conversationId!, { secure: true, sameSite: "strict" })
+                    queryClient.invalidateQueries({ queryKey: ['allConversations'] })
                     break
                 case "titleUpdate":
                     // invalidate the title query
                     queryClient.invalidateQueries({ queryKey: ['allConversations'] })
+                    break
+                case "changeChatLLM":
+                    console.log("CHANGED CHAT LLM")
+                    setCurrentChatLLM(data.chatLLM!)
                     break
                 case "error":
                     // the conversation is in an errored state
@@ -117,13 +127,17 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
         }
     };
 
-    const enterKeyHandler = (event: KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'Enter') {
-            handleSubmit()
+    const enterKeyHandler = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            handleSubmit();
         }
     };
 
     const handleSubmit = async () => {
+        if (input.trim() === "") {
+            return
+        }
         // clear the data
         console.log("clearing data ...")
         setMessages((prev) => [...prev, { role: 1, message: input, index: messages.length }])
@@ -132,57 +146,13 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
 
         // send the request on the websocket
         setIsLoading(true)
-        sendMessage(input)
+        sendMessage(JSON.stringify({ "messageType": "ragMessage", "message": input }))
 
         // sendRequest(input)
     }
 
-    const sendRequest = async (input: string,) => {
-        // ensure the websocket is ready
-        if (readyState !== ReadyState.OPEN) {
-            console.log("the websocket is not open")
-            return
-        }
-
-        // send the request
-        console.log("sending the request ...")
-        try {
-            let req = {
-                input: input,
-            }
-            const response = await handleRAG(req)
-            console.log("Success!")
-            console.log(response)
-            setMessages((prev) => [...prev, response.message])
-            Cookies.set("conversationId", response.conversationId)
-            scrollToBottom()
-
-            // invalidate the conversation list query for re-rendering the sidebar
-            if (isFirstMessage) {
-                setIsFirstMessage(false)
-                await queryClient.invalidateQueries({ queryKey: ['allConversations'] })
-            }
-
-            // check whether to auto send the response
-            if (response.message.role == 3 || response.message.role == 4) {
-                await sendRequest("")
-            }
-
-            // invalidate the conversation list query for re-rendering the sidebar
-            if (isFirstMessage) {
-                setIsFirstMessage(false)
-                await queryClient.invalidateQueries({ queryKey: ['allConversations'] })
-            }
-        } catch (e) {
-            if (e instanceof Error) console.error(e)
-            toast({
-                variant: "destructive",
-                title: "Oh no!",
-                description: <p>{e instanceof Error ? e.message : "Unknown error"}</p>
-            })
-        }
-
-        setIsLoading(false)
+    const changeChatLLM = (model: ModelRow) => {
+        sendMessage(JSON.stringify({ "messageType": "changeChatLLM", "chatLLMId": model.llm.id }))
     }
 
     const getMessages = () => {
@@ -204,30 +174,61 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
                 </div>)
             }
         }
+
         return items
     }
 
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        }
+    }, [input]);
+
+    const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const element = event.target;
+        element.style.height = 'auto';
+        element.style.height = `${element.scrollHeight}px`;
+        setInput(event.target.value);
+    };
+
     return <div className="flex flex-col flex-grow h-full overflow-hidden">
         <div ref={scrollableDivRef} className="bg-bg flex-grow overflow-scroll p-4">
+            <div className="sticky top-0">
+                <RagLLMSelector currLLM={currentChatLLM} onSelect={changeChatLLM} />
+            </div>
             <div className="flex h-full justify-center items-start w-full">
-                <div className="flex flex-col pb-16 max-w-[800px] w-full h-full">
+                <div className="flex flex-col max-w-[800px] w-full h-full">
                     {getMessages()}
+                    <div className="min-h-16" />
                 </div>
             </div>
         </div>
         <div className="bg-background flex flex-col justify-center items-center px-8 pt-0 pb-4">
-            <div className="w-full bg-secondary p-3 pl-8 pr-3 rounded-full max-w-[1000px]">
+            <div className="w-full bg-secondary p-2 pl-8 pr-3 rounded-[30px] max-w-[800px]">
                 <div className="flex space-x-4">
-                    <input
-                        type="text"
-                        onKeyDown={enterKeyHandler}
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="Your query here ..."
-                        className="bg-secondary w-full"
-                    />
+                    <div className="w-full grid place-items-center">
+                        <textarea
+                            ref={textareaRef}
+                            rows={1}
+                            onKeyDown={enterKeyHandler}
+                            value={input}
+                            onChange={handleInput}
+                            placeholder="Message our AI"
+                            // className="bg-secondary w-full min-h-[1rem] resize-none"
+                            className='m-0 resize-none border-0 bg-transparent px-0 block'
+                            style={{
+                                width: '100%',
+                                maxHeight: `${10 * 1.2}em`, // Approximate height of maxRows lines
+                                overflowY: 'auto',
+                                resize: 'none',
+                                boxSizing: 'border-box',
+                                height: 'auto'
+                            }}
+                        />
+                    </div>
                     <button
-                        className="bg-primary text-primary-foreground w-10 h-10 rounded-full font-bold flex-shrink-0"
+                        className="bg-primary hover:opacity-70 text-primary-foreground w-10 h-10 rounded-full font-bold flex-shrink-0"
                         onClick={handleSubmit}
                     >
                         <div className='grid place-items-center'>

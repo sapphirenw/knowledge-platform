@@ -22,6 +22,9 @@ func Handler(mux chi.Router) {
 	mux.Use(middleware.BetaAuthToken)
 	mux.Get("/", customerHandler(getCustomer))
 
+	mux.Put("/updateLLMConfigurations", customerHandler(updateCustomerLLMConfigurations))
+	mux.Get("/llms", customerHandler(getAvailableLLMs))
+
 	// datastore
 
 	mux.Route("/datastore", func(r chi.Router) {

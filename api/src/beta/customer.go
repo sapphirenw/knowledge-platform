@@ -37,7 +37,7 @@ func getCustomer(
 	// grab a connection from the pool
 	pool, err := db.GetPool()
 	if err != nil {
-		logger.ErrorContext(r.Context(), "Error getting the connection pool", err)
+		logger.ErrorContext(r.Context(), "Error getting the connection pool", "err", err)
 		http.Error(w, "There was an issue connecting to the database", http.StatusInternalServerError)
 		return
 	}
@@ -45,7 +45,7 @@ func getCustomer(
 	// create a transaction
 	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		logger.Error("failed to start transaction", err)
+		logger.Error("failed to start transaction", "err", err)
 		http.Error(w, "There was a database issue", http.StatusInternalServerError)
 		return
 	}
@@ -86,6 +86,6 @@ func getCustomer(
 
 	// if here, then there was an issue and changes need to be rolled back
 	tx.Rollback(r.Context())
-	logger.Error("failed to create or get the test customer", err)
+	logger.Error("failed to create or get the test customer", "err", err)
 	http.Error(w, "There was an internal issue", http.StatusInternalServerError)
 }

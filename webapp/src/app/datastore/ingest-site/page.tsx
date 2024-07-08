@@ -56,7 +56,6 @@ export default function WebsiteIngest() {
         try {
             const response = await handleWebsite(payload)
             setData(response)
-            console.log(response)
         } catch (e) {
             toast({
                 variant: "destructive",
@@ -119,7 +118,10 @@ export default function WebsiteIngest() {
 
         return <div className="space-y-2">
             <div className="flex items-center justify-between">
-                <h4 className="text-lg font-bold">Search Results</h4>
+                <div className="flex items-center space-x-2">
+                    <h4 className="text-lg font-bold">Search Results</h4>
+                    <p className="text-sm text-muted-foreground font-medium">- {data.pages.length}</p>
+                </div>
                 <Button className="space-x-2" onClick={() => scrapePages()}>
                     {scrapeLoading ? <DefaultLoader /> : <></>}
                     <p>Scrape Pages</p>

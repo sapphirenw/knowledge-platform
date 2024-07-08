@@ -296,7 +296,7 @@ func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *
 	}
 
 	// parse the pages from the site
-	urls, err := webparse.ParseSitemap(ctx, logger, &tmpSite)
+	urls, err := webparse.ParseSitemap(ctx, logger, &tmpSite, 100)
 	if err != nil {
 		return nil, fmt.Errorf("there was an issue parsing the sitemap: %v", err)
 	}
@@ -453,7 +453,7 @@ func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site 
 		tokenRecords = append(tokenRecords, item)
 	}
 	if err := utils.ReportUsage(ctx, logger, txn, c.ID, tokenRecords, nil); err != nil {
-		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
+		logger.ErrorContext(ctx, "Failed to log vector usage", "err", err)
 	}
 
 	// parse the errors
@@ -749,7 +749,7 @@ func (c *Customer) VectorizeDatastoreOLD(
 
 			doc, err := datastore.NewDocumentFromDocument(ctx, l, &d)
 			if err != nil {
-				l.ErrorContext(ctx, "failed parsing the database doc: %s", err)
+				l.ErrorContext(ctx, "failed parsing the database doc", "err", err)
 				errCh <- err
 				return
 			}
@@ -758,7 +758,7 @@ func (c *Customer) VectorizeDatastoreOLD(
 			l.InfoContext(ctx, "Fetching document from datastore ...")
 			cleaned, err := doc.GetCleaned(ctx)
 			if err != nil {
-				l.ErrorContext(ctx, "there was an issue getting the cleaned document: %s", err)
+				l.ErrorContext(ctx, "there was an issue getting the cleaned document", "err", err)
 				errCh <- err
 				return
 			}
@@ -777,7 +777,7 @@ func (c *Customer) VectorizeDatastoreOLD(
 			l.InfoContext(ctx, "Embedding the document ...")
 			res, err := emb.Embed(ctx, cleaned.String())
 			if err != nil {
-				l.ErrorContext(ctx, "error embedding the content: %v", err)
+				l.ErrorContext(ctx, "error embedding the content", "err", err)
 				errCh <- err
 				return
 			}
@@ -804,7 +804,7 @@ func (c *Customer) VectorizeDatastoreOLD(
 		tokenRecords = append(tokenRecords, item)
 	}
 	if err := utils.ReportUsage(ctx, logger, txn, c.ID, tokenRecords, nil); err != nil {
-		logger.ErrorContext(ctx, "Failed to log vector usage: %s", err)
+		logger.ErrorContext(ctx, "Failed to log vector usage", "err", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully processed all documents")

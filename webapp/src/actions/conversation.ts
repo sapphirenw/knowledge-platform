@@ -17,7 +17,7 @@ export async function getConversation(): Promise<ConversationResponse> {
     // read the cookie
     const convId = cookies().get("conversationId")?.value
     if (convId === "" || convId === undefined) {
-        console.log("RETURNING EMPTY CONVERSATION")
+        console.log("empty conversation")
         return {
             "conversationId": "",
             "messages": [],
@@ -37,6 +37,12 @@ export async function getConversation(): Promise<ConversationResponse> {
         if (e instanceof Error) console.error(e)
         // remove the convid
         cookies().delete("conversationId")
-        throw e
+
+        // return an empty conversation
+        console.log("there was an error, so returning an empty conversation")
+        return {
+            "conversationId": "",
+            "messages": [],
+        }
     }
 }

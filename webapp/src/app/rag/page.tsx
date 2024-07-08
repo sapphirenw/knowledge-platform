@@ -4,6 +4,7 @@ import { ConversationMessage } from '@/types/conversation';
 import ErrorPage from '@/components/error_page';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 import { cookies } from 'next/headers';
+import { getAvailableLLMs } from '@/actions/llm';
 
 export default async function RAG() {
     const queryClient = new QueryClient()
@@ -11,6 +12,11 @@ export default async function RAG() {
     await queryClient.prefetchQuery({
         queryKey: ['conversation'],
         queryFn: getConversation,
+    })
+
+    await queryClient.prefetchQuery({
+        queryKey: ['availableLLMs'],
+        queryFn: getAvailableLLMs,
     })
 
     const cid = cookies().get("cid")?.value

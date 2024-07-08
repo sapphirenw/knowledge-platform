@@ -49,6 +49,20 @@ CREATE TABLE llm(
 );
 CREATE INDEX idx_llm_title ON llm(title);
 
+-- customer llm default configurations
+CREATE TABLE customer_llm_configurations(
+    customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+
+    -- model configurations
+    summary_llm_id uuid REFERENCES llm(id) ON DELETE SET NULL,
+    chat_llm_id uuid REFERENCES llm(id) ON DELETE SET NULL,
+
+    PRIMARY KEY (customer_id),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ties together conversation messages, can be used to seed an llm
 CREATE TABLE conversation(
     id uuid NOT NULL DEFAULT uuid7(),

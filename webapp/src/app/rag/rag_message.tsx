@@ -22,7 +22,7 @@ export default function RagMessage({
             case 1:
                 // user
                 return <div className="w-full flex justify-end">
-                    <div className="bg-secondary p-4 rounded-2xl w-fit">
+                    <div className="bg-secondary p-4 rounded-2xl w-fit max-w-lg">
                         <p className={proseClass}>{message.message}</p>
                     </div>
                 </div>
@@ -32,7 +32,7 @@ export default function RagMessage({
                     <div className="w-12 h-12 bg-blue-900 rounded-full flex-shrink-0 font-bold text-white grid place-items-center">
                         <p>AI</p>
                     </div>
-                    <p className={`${proseClass} prose-lg`}>{message.message}</p>
+                    <div className={`${proseClass} prose-lg`}>{message.message}</div>
                 </div>
             case 3:
                 // tool call

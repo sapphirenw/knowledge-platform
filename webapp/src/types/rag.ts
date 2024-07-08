@@ -1,4 +1,5 @@
 import { ConversationMessage } from "./conversation";
+import { ModelRow } from "./llm";
 
 export type RAG2Request = {
     id: string
@@ -35,8 +36,9 @@ export interface RAGResponse {
 export type RagMessagePayload = {
     messageType: string
 
+    error?: string
     chatMessage?: ConversationMessage
     conversationId?: string
     newTitle?: string
-    error?: string
+    chatLLM?: ModelRow
 }

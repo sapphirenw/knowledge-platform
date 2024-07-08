@@ -108,7 +108,7 @@ export async function sendRequestV1<T>({
         return rawData as T;
     } catch (e) {
         if (e instanceof AuthError) {
-            console.log("Authentication error", e);
+            console.log("Authentication error, removing all cookies:", e);
             cookies().delete("cid");
             cookies().delete("apiKey");
             throw new AuthError("Not Allowed.");

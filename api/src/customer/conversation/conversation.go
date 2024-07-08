@@ -255,7 +255,7 @@ func (c *Conversation) Completion(
 		if err := c.ReportError(ctx, db, err); err != nil {
 			return nil, slogger.Error(ctx, c.logger, "failed to report the internal error for the convertation", err)
 		}
-		return nil, err
+		return nil, slogger.Error(ctx, c.logger, "failed the internal completion on the converstaion", err)
 	}
 	return response, nil
 }
@@ -383,7 +383,7 @@ func (c *Conversation) ReportError(
 		ErrorMessage: &msg,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to save the message")
+		return fmt.Errorf("failed to report the internal error to the database: %s", err)
 	}
 	return nil
 }

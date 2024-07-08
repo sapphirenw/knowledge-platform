@@ -235,6 +235,14 @@ type Customer struct {
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
+type CustomerLlmConfiguration struct {
+	CustomerID   uuid.UUID          `db:"customer_id" json:"customerId"`
+	SummaryLlmID pgtype.UUID        `db:"summary_llm_id" json:"summaryLlmId"`
+	ChatLlmID    pgtype.UUID        `db:"chat_llm_id" json:"chatLlmId"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
 type Document struct {
 	ID            uuid.UUID          `db:"id" json:"id"`
 	ParentID      pgtype.UUID        `db:"parent_id" json:"parentId"`

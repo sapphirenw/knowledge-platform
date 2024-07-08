@@ -131,3 +131,13 @@ func (r createVectorRequest) Valid(ctx context.Context) map[string]string {
 	p := make(map[string]string, 0)
 	return p
 }
+
+type updateCustomerLLMConfigsRequest struct {
+	SummaryLLMID string `json:"summaryLLMId"`
+	ChatLLMID    string `json:"chatLLMId"`
+}
+
+func (r updateCustomerLLMConfigsRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string, 0)
+	return p
+}

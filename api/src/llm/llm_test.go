@@ -22,7 +22,7 @@ func TestLLMConsistency(t *testing.T) {
 	model := queries.New(pool)
 
 	// ensure there is a single default at startup time
-	defaults, err := model.GetStandardLLMs(ctx)
+	defaults, err := model.GetPublicLLMs(ctx)
 	require.NoError(t, err)
 	count := 0
 	for _, item := range defaults {

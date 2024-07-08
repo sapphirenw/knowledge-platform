@@ -14,8 +14,8 @@ import (
 )
 
 type LLM struct {
-	*queries.Llm
-	*queries.AvailableModel
+	*queries.Llm            `json:"llm"`
+	*queries.AvailableModel `json:"availableModel"`
 }
 
 type CompletionArgs struct {

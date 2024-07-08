@@ -17,6 +17,10 @@ input:focus {
   box-shadow: none;
 }
 
+textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
 
 @layer base {
   :root {

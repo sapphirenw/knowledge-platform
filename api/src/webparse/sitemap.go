@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strings"
 
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"go.dpb.io/sitemap/data"
@@ -19,6 +20,7 @@ func ParseSitemap(
 	ctx context.Context,
 	l *slog.Logger,
 	site *queries.Website,
+	max int,
 ) ([]string, error) {
 	logger := l.With("site", site.Domain)
 	logger.InfoContext(ctx, "Parsing sitemap ...")
@@ -41,26 +43,39 @@ func ParseSitemap(
 		blacklist[i] = r
 	}
 
-	// create an array to hold the result
+	// create data structures to handle canceling when the stop confidition is met
 	pages := make([]string, 0)
 
 	// parse the sitemap
 	err := httputil.DefaultFetcher.Fetch(
 		fmt.Sprintf("%s://%s/sitemap.xml", site.Protocol, site.Domain),
 		data.EntryCallbackFunc(func(entry data.Entry) error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
 			switch eT := entry.(type) {
 			case *data.Sitemap:
 			case *data.URL:
 				// add if url passes the checks
 				if allowed := isURLAllowed(eT.Location, whitelist, blacklist); allowed {
 					pages = append(pages, eT.Location)
+
+					// set break statement
+					if max != 0 && len(pages) >= max {
+						return fmt.Errorf("max page limit hit")
+
+					}
 				}
 			}
-
 			return nil
 		}),
 	)
-	if err != nil {
+
+	// ignore the control flow error
+	if err != nil && !strings.Contains(err.Error(), "max page limit hit") {
 		return pages, fmt.Errorf("there was an error parsing the sitemaps: %v", err)
 	}
 
