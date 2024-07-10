@@ -142,35 +142,6 @@ func handleRag2(
 			break
 		}
 
-		// check if the conversation exists in memory
-		if conv == nil {
-			// fetch the conversation
-			conv, err = conversation.AutoConversation(
-				r.Context(),
-				logger,
-				pool,
-				c.ID,
-				r.URL.Query().Get("id"),
-				prompts.RAG_COMPLETE_SYSTEM_PROMPT,
-				"Information Chat",
-				"rag",
-			)
-			if err != nil {
-				writeRagResponse(r.Context(), logger, conn, newRmError("failed to get the conversation", err))
-				break
-			}
-
-			// write the conversation id update
-			if err := writeRagResponse(r.Context(), logger, conn, &ragMessage{
-				MessageType:    ragNewConversationId,
-				ConversationId: conv.ID.String(),
-			}); err != nil {
-				slogger.Error(r.Context(), logger, "failed to write the rag message", err)
-				break
-			}
-			logger = logger.With("conversationId", conv.ID.String())
-		}
-
 		logger.Debug("Recieved message from user", "message", string(message), "type", mt)
 
 		// parse the user message
@@ -211,6 +182,35 @@ func handleRag2(
 
 		// handle the rag message
 		if userMessage.MessageType == "ragMessage" {
+			// check if the conversation exists in memory
+			if conv == nil {
+				// fetch the conversation
+				conv, err = conversation.AutoConversation(
+					r.Context(),
+					logger,
+					pool,
+					c.ID,
+					r.URL.Query().Get("id"),
+					prompts.RAG_COMPLETE_SYSTEM_PROMPT,
+					"Information Chat",
+					"rag",
+				)
+				if err != nil {
+					writeRagResponse(r.Context(), logger, conn, newRmError("failed to get the conversation", err))
+					break
+				}
+
+				// write the conversation id update
+				if err := writeRagResponse(r.Context(), logger, conn, &ragMessage{
+					MessageType:    ragNewConversationId,
+					ConversationId: conv.ID.String(),
+				}); err != nil {
+					slogger.Error(r.Context(), logger, "failed to write the rag message", err)
+					break
+				}
+				logger = logger.With("conversationId", conv.ID.String())
+			}
+
 			// create a transaction to run this call inside of
 			tx, err := pool.Begin(r.Context())
 			if err != nil {

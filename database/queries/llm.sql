@@ -6,6 +6,15 @@ INSERT INTO llm (
 )
 RETURNING *;
 
+-- name: UpdateLLM :one
+UPDATE llm SET
+    title = $2,
+    model = $3,
+    temperature = $4,
+    instructions = $5
+WHERE id = $1
+RETURNING *;
+
 -- name: GetLLM :one
 SELECT sqlc.embed(llm), sqlc.embed(am) FROM llm
 INNER JOIN available_model am ON am.id = llm.model

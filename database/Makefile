@@ -9,7 +9,7 @@ sql: db-schema
 
 clean:
 	rm -rf ./data
-	docker ps -a --filter "ancestor=database_aicontent-db" -q | xargs -r docker rm -f
+	docker ps -a --filter "ancestor=database_aicontent-db-testing" -q | xargs -r docker rm -f
 	@IMAGES=$$(docker images -f "dangling=true" -q); \
 	if [ -n "$$IMAGES" ]; then \
 		docker rmi $$IMAGES; \
@@ -28,7 +28,7 @@ test: db-schema
 	$(MAKE) clean
 
 logs:
-	docker logs aicontent-db
+	docker logs aicontent-db-testing
 
 connect:
 	psql 'postgresql://aicontent:aicontent@localhost:5432/aicontent'

@@ -21,11 +21,109 @@ func getAvailableLLMs(
 ) {
 	logger := c.logger.With("handler", "getAvailableLLMs")
 
+	// parse the url query
+	includeAll := r.URL.Query().Get("includeAll")
+
 	dmodel := queries.New(pool)
 
-	response, err := dmodel.GetLLMsByCustomerAvailable(r.Context(), utils.GoogleUUIDToPGXUUID(c.ID))
+	// check to get the defaults too, or just the customer created ones
+	if includeAll == "true" {
+		response, err := dmodel.GetLLMsByCustomerAvailable(r.Context(), utils.GoogleUUIDToPGXUUID(c.ID))
+		if err != nil {
+			slogger.ServerError(w, logger, 500, "failed to query the database", err)
+			return
+		}
+		request.Encode(w, r, logger, 200, response)
+	} else {
+		response, err := dmodel.GetLLMsByCustomer(r.Context(), utils.GoogleUUIDToPGXUUID(c.ID))
+		if err != nil {
+			slogger.ServerError(w, logger, 500, "failed to query the database", err)
+			return
+		}
+		request.Encode(w, r, logger, 200, response)
+	}
+}
+
+func createModel(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	logger := c.logger.With("handler", "createModel")
+
+	// process the body
+	body, valid := request.Decode[createModelRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	tx, err := pool.Begin(r.Context())
 	if err != nil {
-		slogger.ServerError(w, logger, 500, "failed to query the database", err)
+		slogger.ServerError(w, logger, 500, "failed to start a transaction", err)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	dmodel := queries.New(tx)
+
+	response, err := dmodel.CreateLLM(r.Context(), &queries.CreateLLMParams{
+		CustomerID:   utils.GoogleUUIDToPGXUUID(c.ID),
+		Title:        body.Title,
+		Model:        body.AvailableModelName,
+		Temperature:  body.Temperature,
+		Instructions: body.Instructions,
+		IsDefault:    false,
+	})
+	if err != nil {
+		tx.Rollback(r.Context())
+		slogger.ServerError(w, logger, 500, "failed to create the model", err)
+		return
+	}
+
+	request.Encode(w, r, logger, 200, response)
+}
+
+func updateModel(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	logger := c.logger.With("handler", "createModel")
+
+	// parse the id
+	llmId, err := utils.GoogleUUIDFromString(r.URL.Query().Get("llmId"))
+	if err != nil {
+		slogger.ServerError(w, logger, 400, "invalid llm id", err)
+		return
+	}
+
+	// process the body
+	body, valid := request.Decode[createModelRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		slogger.ServerError(w, logger, 500, "failed to start a transaction", err)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	dmodel := queries.New(tx)
+
+	response, err := dmodel.UpdateLLM(r.Context(), &queries.UpdateLLMParams{
+		ID:           llmId,
+		Title:        body.Title,
+		Model:        body.AvailableModelName,
+		Temperature:  body.Temperature,
+		Instructions: body.Instructions,
+	})
+	if err != nil {
+		tx.Rollback(r.Context())
+		slogger.ServerError(w, logger, 500, "failed to create the model", err)
 		return
 	}
 

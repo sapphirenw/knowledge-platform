@@ -141,3 +141,22 @@ func (r updateCustomerLLMConfigsRequest) Valid(ctx context.Context) map[string]s
 	p := make(map[string]string, 0)
 	return p
 }
+
+type createModelRequest struct {
+	AvailableModelName string  `json:"availableModelName"`
+	Title              string  `json:"title"`
+	Temperature        float64 `json:"temperature"`
+	Instructions       string  `json:"instructions"`
+}
+
+func (r createModelRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string, 0)
+	if r.AvailableModelName == "" {
+		p["AvailableModelName"] = "Cannot be empty"
+	}
+	if r.Title == "" {
+		p["Title"] = "Cannot be empty"
+	}
+
+	return p
+}

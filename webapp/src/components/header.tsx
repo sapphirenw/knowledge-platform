@@ -16,6 +16,9 @@ export default function Header() {
                             <a href="/rag">Chat</a>
                         </Button>
                         <Button variant="outline" asChild>
+                            <a href="/models">Models</a>
+                        </Button>
+                        <Button variant="outline" asChild>
                             <a href="/datastore">Datastore</a>
                         </Button>
                     </div>}

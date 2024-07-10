@@ -1,6 +1,6 @@
 "use client"
 
-import { getAvailableLLMs } from "@/actions/llm"
+import { getCustomerLLMs } from "@/actions/llm"
 import DefaultLoader from "@/components/default_loader"
 import ErrorPage from "@/components/error_page"
 import { Button } from "@/components/ui/button"
@@ -8,11 +8,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ModelRow } from "@/types/llm"
 import { useQuery } from "@tanstack/react-query"
 import { ChevronDown } from "lucide-react"
+import { useState } from "react"
 
 export default function RagLLMSelector({ currLLM, onSelect }: { currLLM?: ModelRow, onSelect: (model: ModelRow) => void }) {
+    const [isOpen, setIsOpen] = useState(false)
     const { data, status, error } = useQuery({
-        queryKey: ['availableLLMs'],
-        queryFn: () => getAvailableLLMs(),
+        queryKey: ['customerLLMs', true],
+        queryFn: () => getCustomerLLMs(true),
     })
 
     if (status === "pending") {
@@ -28,14 +30,17 @@ export default function RagLLMSelector({ currLLM, onSelect }: { currLLM?: ModelR
         const items = []
 
         for (let i = 0; i < data.length; i++) {
-            items.push(<button key={data[i].llm.id} className="w-full" onClick={() => onSelect(data[i])}>
+            items.push(<button key={data[i].llm.id} className="w-full" onClick={() => {
+                onSelect(data[i])
+                setIsOpen(false)
+            }}>
                 <RagLLMSelectorRow currLLM={currLLM} model={data[i]} />
             </button>)
         }
         return items
     }
 
-    return <Popover>
+    return <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
             <Button variant="outline">
                 <div className="flex items-center space-x-2">

@@ -4332,6 +4332,58 @@ func (q *Queries) UpdateDocumentVectorSig(ctx context.Context, arg *UpdateDocume
 	return err
 }
 
+const updateLLM = `-- name: UpdateLLM :one
+UPDATE llm SET
+    title = $2,
+    model = $3,
+    temperature = $4,
+    instructions = $5
+WHERE id = $1
+RETURNING id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at
+`
+
+type UpdateLLMParams struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	Title        string    `db:"title" json:"title"`
+	Model        string    `db:"model" json:"model"`
+	Temperature  float64   `db:"temperature" json:"temperature"`
+	Instructions string    `db:"instructions" json:"instructions"`
+}
+
+// UpdateLLM
+//
+//	UPDATE llm SET
+//	    title = $2,
+//	    model = $3,
+//	    temperature = $4,
+//	    instructions = $5
+//	WHERE id = $1
+//	RETURNING id, customer_id, title, color, model, temperature, instructions, is_default, public, created_at, updated_at
+func (q *Queries) UpdateLLM(ctx context.Context, arg *UpdateLLMParams) (*Llm, error) {
+	row := q.db.QueryRow(ctx, updateLLM,
+		arg.ID,
+		arg.Title,
+		arg.Model,
+		arg.Temperature,
+		arg.Instructions,
+	)
+	var i Llm
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.Color,
+		&i.Model,
+		&i.Temperature,
+		&i.Instructions,
+		&i.IsDefault,
+		&i.Public,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const updateWebsitePageSignature = `-- name: UpdateWebsitePageSignature :one
 UPDATE website_page SET
     updated_at = CURRENT_TIMESTAMP,

@@ -32,3 +32,10 @@ export type ModelRow = {
     llm: LLM
     availableModel: AvailableModel
 }
+
+export type CreateLLMRequest = {
+    availableModelName: string
+    title: string
+    temperature: number
+    instructions: string
+}
