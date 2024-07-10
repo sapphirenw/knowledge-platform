@@ -31,7 +31,7 @@ func (t *ToolVectorQuery) GetType() ToolType {
 func (t *ToolVectorQuery) GetSchema() *gollm.Tool {
 	return &gollm.Tool{
 		Title:       string(t.GetType()),
-		Description: "Send an information request against the user's private stored information. Be EXTREMELY liberal with the use of this tool, as the tool repsonse will contain valuable information to help you create more personalized answers. If you have any questions of context, use this tool to bridge your gap in information.",
+		Description: "Send an information request against the user's private stored information. The tool response will contain information to help you create more personalized answers if applicable. You should look to use this tool often, but do not over-use it as it causes additional latency for the user. A key tell to use this tool is when users are talking about a specific subject that you may not have context about.",
 		Schema: &ltypes.ToolSchema{
 			Type: "object",
 			Properties: map[string]*ltypes.ToolSchema{
