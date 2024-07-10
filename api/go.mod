@@ -9,12 +9,15 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.4
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.6
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.51.1
+	github.com/fatih/color v1.17.0
 	github.com/go-chi/chi/v5 v5.0.12
+	github.com/go-chi/cors v1.2.1
 	github.com/go-chi/httplog/v2 v2.0.9
 	github.com/gocolly/colly/v2 v2.1.0
 	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.5.4
-	github.com/jake-landersweb/gollm/v2 v2.5.1
+	github.com/jake-landersweb/gollm/v2 v2.7.0
 	github.com/lmittmann/tint v1.0.4
 	github.com/pgvector/pgvector-go v0.1.1
 	github.com/stretchr/testify v1.9.0
@@ -23,7 +26,7 @@ require (
 	go.dpb.io/sitemap v0.0.0-20210828150946-52a1fb6f10fa
 )
 
-replace github.com/jake-landersweb/gollm/v2 => /Users/jakelanders/code/gollm
+// replace github.com/jake-landersweb/gollm/v2 => /Users/jakelanders/code/gollm
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
@@ -62,11 +65,9 @@ require (
 	github.com/docker/docker v25.0.5+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/fatih/color v1.17.0 // indirect
 	github.com/fatih/set v0.2.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gigawattio/window v0.0.0-20180317192513-0f5467e35573 // indirect
-	github.com/go-chi/cors v1.2.1 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -75,7 +76,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect

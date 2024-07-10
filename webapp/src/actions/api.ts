@@ -82,7 +82,7 @@ export async function sendRequestV1<T>({
             }
         }
 
-        const response = await fetch(`${process.env.DB_HOST}/v1/${route}`, {
+        const response = await fetch(`${process.env.INTERNAL_API_HOST}/v1/${route}`, {
             method: method ?? "GET",
             cache: cache ?? 'no-store',
             headers: headers,

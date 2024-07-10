@@ -21,7 +21,8 @@ export default async function RAG() {
 
     const cid = cookies().get("cid")?.value
 
+    // send with the external api host, so that the client can hit the api as well
     return <HydrationBoundary state={dehydrate(queryClient)}>
-        <RagClient wsBaseUrl={`${process.env.DB_HOST}/v1/customers/${cid}/rag2`}></RagClient>
+        <RagClient wsBaseUrl={`${process.env.EXTERNAL_API_HOST}/v1/customers/${cid}/rag2`}></RagClient>
     </HydrationBoundary>
 }

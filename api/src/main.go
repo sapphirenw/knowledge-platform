@@ -33,6 +33,11 @@ func run(
 	// set the database url
 	db.DATABASE_URL = getenv("DATABASE_URL")
 
+	// ensure the database can be reached
+	if _, err := db.GetPool(); err != nil {
+		panic(fmt.Sprintf("Could not connect to the database! %s", err))
+	}
+
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(getenv("SERVER_HOST"), getenv("SERVER_PORT")),
 		Handler: srv,

@@ -9,7 +9,7 @@ export default async function Rag2() {
         console.log(req)
 
         // create the url to create the ws with
-        const url = `${process.env.DB_HOST}/${req.path}`
+        const url = `${process.env.INTERNAL_API_HOST}/${req.path}`
 
         return <Rag2Client wsUrl={url} />
     } catch (e) {

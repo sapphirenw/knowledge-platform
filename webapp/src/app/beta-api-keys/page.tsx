@@ -41,7 +41,7 @@ const FormSchema = z.object({
     }),
 })
 
-export default function CreateBetaApiKey({ cid }: { cid?: string }) {
+export default function CreateBetaApiKey() {
     const [isLoading, setIsLoading] = useState(false)
     const [openDialog, setOpenDialog] = useState(false)
     const [data, setData] = useState<BetaApiKey | undefined>(undefined)
