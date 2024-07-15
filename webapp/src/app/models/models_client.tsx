@@ -27,6 +27,10 @@ function CustomerLLMsView() {
         return <p>Failed to get your custom models</p>
     }
 
+    if (data.length === 0) {
+        return <div className="">No custom models found.</div>
+    }
+
     return <div className="border border-border rounded-lg w-full">
         {data.map((item, i) => <LLMView key={item.llm.id} llm={item} />)}
     </div>

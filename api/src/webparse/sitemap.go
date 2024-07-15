@@ -26,28 +26,16 @@ func ParseSitemap(
 	logger.InfoContext(ctx, "Parsing sitemap ...")
 
 	// compose the regex lists for the comparison
-	whitelist := make([]*regexp.Regexp, len(site.Whitelist))
-	for i, item := range site.Whitelist {
-		r, err := regexp.Compile(item)
-		if err != nil {
-			return nil, fmt.Errorf("REGEX: there was an issue parsing the regex: %v", err)
-		}
-		whitelist[i] = r
-	}
-	blacklist := make([]*regexp.Regexp, len(site.Blacklist))
-	for i, item := range site.Blacklist {
-		r, err := regexp.Compile(item)
-		if err != nil {
-			return nil, fmt.Errorf("REGEX: there was an issue parsing the regex: %v", err)
-		}
-		blacklist[i] = r
+	whitelist, blacklist, err := createLists(site)
+	if err != nil {
+		return nil, fmt.Errorf("REGEX: there was an issue parsing the regex: %v", err)
 	}
 
 	// create data structures to handle canceling when the stop confidition is met
 	pages := make([]string, 0)
 
 	// parse the sitemap
-	err := httputil.DefaultFetcher.Fetch(
+	err = httputil.DefaultFetcher.Fetch(
 		fmt.Sprintf("%s://%s/sitemap.xml", site.Protocol, site.Domain),
 		data.EntryCallbackFunc(func(entry data.Entry) error {
 			select {
@@ -84,8 +72,30 @@ func ParseSitemap(
 	return pages, nil
 }
 
+func createLists(site *queries.Website) ([]*regexp.Regexp, []*regexp.Regexp, error) {
+	// compose the regex lists for the comparison
+	whitelist := make([]*regexp.Regexp, len(site.Whitelist))
+	for i, item := range site.Whitelist {
+		r, err := regexp.Compile(item)
+		if err != nil {
+			return nil, nil, fmt.Errorf("REGEX: there was an issue parsing the regex: %v", err)
+		}
+		whitelist[i] = r
+	}
+	blacklist := make([]*regexp.Regexp, len(site.Blacklist))
+	for i, item := range site.Blacklist {
+		r, err := regexp.Compile(item)
+		if err != nil {
+			return nil, nil, fmt.Errorf("REGEX: there was an issue parsing the regex: %v", err)
+		}
+		blacklist[i] = r
+	}
+	return whitelist, blacklist, nil
+}
+
 // Ensures that the url is valid or not
 func isURLAllowed(url string, whitelist, blacklist []*regexp.Regexp) bool {
+
 	// Check against blacklist first
 	for _, pattern := range blacklist {
 		if pattern.MatchString(url) {

@@ -14,9 +14,9 @@ GROUP BY w.id;
 
 -- name: CreateWebsite :one
 INSERT INTO website (
-    customer_id, protocol, domain, blacklist, whitelist
+    customer_id, protocol, domain, path, blacklist, whitelist
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6
 )
 ON CONFLICT ON CONSTRAINT cnst_unique_website
 DO UPDATE SET

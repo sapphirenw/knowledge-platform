@@ -32,7 +32,7 @@ export default function UserWebsites() {
             </TableHeader>
             <TableBody>
                 {siteResponse.data!.map((item, i) => <TableRow key={`site-${i}`}>
-                    <TableCell className="font-medium">{item.domain}</TableCell>
+                    <TableCell className="font-medium">{`${item.domain}${item.path}`}</TableCell>
                     <TableCell className="">{item.pageCount}</TableCell>
                     <TableCell className="text-right">{new Date(item.createdAt!).toLocaleString()}</TableCell>
                 </TableRow>)}

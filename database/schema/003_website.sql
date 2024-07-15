@@ -10,11 +10,12 @@ CREATE TABLE website(
     customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
     protocol TEXT NOT NULL DEFAULT 'https',
     domain TEXT NOT NULL,
+    path TEXT NOT NULL DEFAULT '',
     blacklist TEXT[] NOT NULL DEFAULT '{}', -- regex patterns that are disallowed
     whitelist TEXT[] NOT NULL DEFAULT '{}', -- regex patterns that are allowed
 
     PRIMARY KEY (id),
-    CONSTRAINT cnst_unique_website UNIQUE (customer_id, domain), -- websites are only allowed once
+    CONSTRAINT cnst_unique_website UNIQUE (customer_id, domain, path), -- websites are only allowed once
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

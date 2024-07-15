@@ -4,83 +4,121 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"strings"
-	"sync"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/gocolly/colly/v2"
+	"github.com/gocolly/colly/v2/extensions"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
-func Scrape(
+type ScrapeHrefsArgs struct {
+	MaxDepth          int  // max depth for own domain
+	MaxDepthOther     int  // max depth for other domains
+	AllowOtherDomains bool // whether to allow other domains
+	Limit             int  // max number of urls that will be returned
+}
+
+// Scrapes a webpage looking for ahrefs to crawl instead of the sitemap.
+// returns a list of domain names to further process
+func ScrapeHrefs(
 	ctx context.Context,
 	logger *slog.Logger,
 	site *queries.Website,
-) (*map[string][]byte, error) {
+	args *ScrapeHrefsArgs,
+) ([]string, error) {
+	if args == nil {
+		args = &ScrapeHrefsArgs{}
+	}
+	if args.MaxDepthOther < 2 {
+		args.MaxDepthOther = 2
+	}
+	if args.Limit == 0 {
+		args.Limit = 100
+	}
 
-	// create a map for the results to be piped to along with the mutex
-	res := make(map[string][]byte)
-	var mu sync.Mutex
+	// create the lists
+	whitelist, blacklist, err := createLists(site)
+	if err != nil {
+		return nil, fmt.Errorf("REGEX: there was an issue parsing the regex: %v", err)
+	}
+
+	// create the results
+	result := make([]string, 0)
 
 	// converter and scraper
-	converter := md.NewConverter("", true, nil)
-	scraper := colly.NewCollector(
-		colly.AllowedDomains(site.Domain),
-		colly.Async(true),
+	c := colly.NewCollector(
+		colly.Async(false),
+		colly.IgnoreRobotsTxt(),
 	)
-	scraper.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 10})
+
+	// configurations
+	c.DisableCookies()
+	c.CheckHead = false
+	extensions.RandomUserAgent(c)
+
+	// limit to the passed domain
+	if !args.AllowOtherDomains {
+		c.AllowedDomains = []string{
+			site.Domain,
+			fmt.Sprintf("%s://%s", site.Protocol, site.Domain),
+		}
+	}
+
+	// if a max depth was passed, set it
+	if args.MaxDepth > 2 {
+		c.MaxDepth = args.MaxDepth
+	}
+
+	// setup a limit for the max number of urls visited
+	c.OnRequest(func(r *colly.Request) {
+		if len(result) >= args.Limit {
+			r.Abort()
+		}
+	})
 
 	// Find and visit all links
-	scraper.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		e.Request.Visit(e.Attr("href"))
+	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		u := e.Request.AbsoluteURL(e.Attr("href"))
+
+		// ignore mail links
+		if strings.Contains(u, "mailto") {
+			return
+		}
+
+		// do not allow much recursion on non-main domains
+		if !strings.Contains(u, site.Domain) && e.Request.Depth > args.MaxDepthOther {
+			return
+		}
+
+		// check white/black list
+		if isURLAllowed(u, whitelist, blacklist) {
+			e.Request.Visit(u)
+		}
 	})
 
-	// parse the bodies from the webpage
-	scraper.OnHTML("html", func(e *colly.HTMLElement) {
-		// normalize url
-		url, err := normalizeURL(e.Request.URL)
-		if err != nil {
-			logger.ErrorContext(ctx, "Error normalizing the url", "error", err)
-			return
+	c.OnScraped(func(r *colly.Response) {
+		if len(result) < args.Limit {
+			result = append(result, r.Request.URL.String())
 		}
-
-		// check if this url was already processed
-		if _, exists := res[url]; exists {
-			return
-		}
-
-		// parse the markdown from the html elements
-		markdown, err := converter.ConvertBytes(e.Response.Body)
-		if err != nil {
-			logger.ErrorContext(ctx, "Error parsing the markdown from the html", "error", err)
-			return
-		}
-
-		// add to the map
-		mu.Lock()
-		res[url] = markdown
-		mu.Unlock()
-	})
-
-	// visit all entries in a parsed sitemap
-	scraper.OnXML("loc", func(x *colly.XMLElement) {
-		x.Request.Visit(x.Attr("loc"))
 	})
 
 	// error handler
-	scraper.OnError(func(r *colly.Response, err error) {
-		logger.ErrorContext(ctx, "There was an issue scraping the url", "url", r.Request.URL, "statusCode", r.StatusCode)
+	c.OnError(func(r *colly.Response, err error) {
+		logger.ErrorContext(ctx, "There was an issue scraping the url", "url", r.Request.URL, "statusCode", r.StatusCode, "error", err)
 	})
 
-	scraper.OnRequest(func(r *colly.Request) {
-		logger.DebugContext(ctx, "Visiting url", "url", r.URL)
+	// run the href scraper
+	c.Visit(fmt.Sprintf("%s://%s%s", site.Protocol, site.Domain, site.Path))
+	c.Wait()
+
+	// remove duplicates
+	result = utils.RemoveDuplicates(result, func(val string) any {
+		return val
 	})
 
-	scraper.Visit(fmt.Sprintf("%s://%s", site.Protocol, site.Domain))
-	scraper.Wait() // with async = true
-
-	return &res, nil
+	return result, nil
 }
 
 func ScrapeSingle(
@@ -143,23 +181,4 @@ func ScrapeSingle(
 		Header:  &header,
 		Content: res,
 	}, err
-}
-
-func normalizeURL(u *url.URL) (string, error) {
-	// Ensure the path ends with a "/" if it's not empty and doesn't already have one.
-	if u.Path != "" && !strings.HasSuffix(u.Path, "/") {
-		u.Path += "/"
-	}
-
-	// Normalize the URL by ensuring it has a trailing slash if it has no path.
-	if u.Path == "" {
-		u.Path = "/"
-	}
-
-	// Remove the default port for http and https schemes.
-	if (u.Scheme == "http" && u.Port() == "80") || (u.Scheme == "https" && u.Port() == "443") {
-		u.Host = strings.Split(u.Host, ":")[0]
-	}
-
-	return u.String(), nil
 }

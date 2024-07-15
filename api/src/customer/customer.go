@@ -254,79 +254,112 @@ func (c *Customer) NotifyOfSuccessfulUpload(ctx context.Context, db queries.DBTX
 /*
 Adds a website for the user, but does not scrape it.
 */
-func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *handleWebsiteRequest) (*handleWebsiteResponse, error) {
+func (c *Customer) SearchWebsite(ctx context.Context, request *handleWebsiteRequest) (*handleWebsiteResponse, error) {
 	logger := c.logger.With("domain", request.Domain)
-	logger.InfoContext(ctx, "Ingesting the domain...", "whitelist", request.Whitelist, "blacklist", request.Blacklist, "insert", request.Insert)
-
-	// ensure the domain has a scheme
-	parsed, err := url.Parse(request.Domain)
-	if err != nil {
-		return nil, slogger.Error(ctx, logger, "failed to parse the domain", err)
-	}
-	if parsed.Scheme == "" {
-		parsed.Scheme = "https"
-	}
-
-	// compose the new domain
-	var parsedDomain string
-	if parsed.Host != "" {
-		parsedDomain = fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
-	} else if parsed.Path != "" {
-		parsedDomain = fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Path)
-	} else {
-		return nil, slogger.Error(ctx, logger, "failed to parse the domain", err, "parsed", parsed)
-	}
-
-	logger = logger.With("domain", parsedDomain)
-	logger.Info("Cleaned the domain name")
+	logger.InfoContext(ctx, "Ingesting the domain...", "request", *request)
 
 	// parse the domain
-	protocol, domain, err := utils.ParseWebsiteInformation(parsedDomain)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing the website: %v", err)
+	var parsed *url.URL
+	var err error
+	if strings.HasPrefix(request.Domain, "http") {
+		parsed, err = url.Parse(request.Domain)
+	} else {
+		parsed, err = url.Parse(fmt.Sprintf("https://%s", request.Domain))
 	}
+
+	if err != nil {
+		return nil, slogger.Error(ctx, logger, "failed to parse the url", err)
+	}
+
+	logger = logger.With("domain", parsed.String())
+	logger.Info("Cleaned the domain name")
 
 	// create a site object
 	tmpSite := queries.Website{
 		CustomerID: c.ID,
-		Protocol:   protocol,
-		Domain:     domain,
+		Protocol:   parsed.Scheme,
+		Domain:     parsed.Host,
+		Path:       parsed.Path,
 		Blacklist:  request.Blacklist,
 		Whitelist:  request.Whitelist,
 	}
 
-	// parse the pages from the site
-	urls, err := webparse.ParseSitemap(ctx, logger, &tmpSite, 100)
+	var urls []string
+	if request.UseSitemap {
+		urls, err = webparse.ParseSitemap(ctx, logger, &tmpSite, 100)
+	} else {
+		urls, err = webparse.ScrapeHrefs(ctx, logger, &tmpSite, &webparse.ScrapeHrefsArgs{
+			MaxDepth:          5,
+			MaxDepthOther:     3,
+			AllowOtherDomains: request.AllowOtherDomains,
+		})
+	}
+
 	if err != nil {
-		return nil, fmt.Errorf("there was an issue parsing the sitemap: %v", err)
+		return nil, fmt.Errorf("there was an issue parsing the site urls: %v", err)
 	}
 
 	pages := make([]*queries.WebsitePage, len(urls))
 
-	// send back the parsed data if not an insertion request
-	if !request.Insert {
-		// create tmp pages
-		for i, item := range urls {
-			pages[i] = &queries.WebsitePage{
-				CustomerID: c.ID,
-				Url:        item,
-			}
+	// create tmp pages
+	for i, item := range urls {
+		pages[i] = &queries.WebsitePage{
+			CustomerID: c.ID,
+			Url:        item,
 		}
-
-		return &handleWebsiteResponse{
-			Site:  &tmpSite,
-			Pages: pages,
-		}, nil
 	}
+
+	return &handleWebsiteResponse{
+		Site:  &tmpSite,
+		Pages: pages,
+	}, nil
+}
+
+func (c *Customer) InsertWebsite(
+	ctx context.Context,
+	db queries.DBTX,
+	request *handleWebsiteRequest,
+) (*handleWebsiteResponse, error) {
+	logger := c.logger.With("domain", request.Domain)
+	logger.InfoContext(ctx, "Inserting the domain...", "request", *request)
+
+	// parse the domain
+	var parsed *url.URL
+	var err error
+	if strings.HasPrefix(request.Domain, "http") {
+		parsed, err = url.Parse(request.Domain)
+	} else {
+		parsed, err = url.Parse(fmt.Sprintf("https://%s", request.Domain))
+	}
+
+	if err != nil {
+		return nil, slogger.Error(ctx, logger, "failed to parse the url", err)
+	}
+
+	logger = logger.With("domain", parsed.String())
+	logger.Info("Cleaned the domain name")
+
+	// create a site object
+	tmpSite := queries.Website{
+		Protocol:  parsed.Scheme,
+		Domain:    parsed.Host,
+		Path:      parsed.Path,
+		Blacklist: request.Blacklist,
+		Whitelist: request.Whitelist,
+	}
+
+	// create a list of pages
+	pages := make([]*queries.WebsitePage, len(request.Pages))
 
 	// insert the website
 	model := queries.New(db)
 	site, err := model.CreateWebsite(ctx, &queries.CreateWebsiteParams{
 		CustomerID: c.ID,
-		Protocol:   protocol,
-		Domain:     domain,
-		Blacklist:  request.Blacklist,
-		Whitelist:  request.Whitelist,
+		Protocol:   tmpSite.Protocol,
+		Domain:     tmpSite.Domain,
+		Path:       tmpSite.Path,
+		Blacklist:  tmpSite.Blacklist,
+		Whitelist:  tmpSite.Whitelist,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating the website: %v", err)
@@ -342,7 +375,7 @@ func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *
 	}
 
 	// insert the pages
-	for i, item := range urls {
+	for i, item := range request.Pages {
 		page, err := model.CreateWebsitePage(ctx, &queries.CreateWebsitePageParams{
 			CustomerID: c.ID,
 			WebsiteID:  site.ID,
@@ -367,6 +400,57 @@ func (c *Customer) HandleWebsite(ctx context.Context, db queries.DBTX, request *
 		Site:  site,
 		Pages: pages,
 	}, nil
+}
+
+func (c *Customer) InsertSinglePage(
+	ctx context.Context,
+	db queries.DBTX,
+	domain string,
+) error {
+	logger := c.logger.With("domain", domain)
+	logger.InfoContext(ctx, "Inserting the single page")
+
+	// parse the domain
+	var parsed *url.URL
+	var err error
+	if strings.HasPrefix(domain, "http") {
+		parsed, err = url.Parse(domain)
+	} else {
+		parsed, err = url.Parse(fmt.Sprintf("https://%s", domain))
+	}
+
+	if err != nil {
+		return slogger.Error(ctx, logger, "failed to parse the url", err)
+	}
+
+	// insert the website
+	model := queries.New(db)
+	site, err := model.CreateWebsite(ctx, &queries.CreateWebsiteParams{
+		CustomerID: c.ID,
+		Protocol:   parsed.Scheme,
+		Domain:     parsed.Host,
+		Path:       parsed.Path,
+		Whitelist:  []string{},
+		Blacklist:  []string{},
+	})
+	if err != nil {
+		return slogger.Error(ctx, logger, "error creating the website", err)
+	}
+
+	// insert the single page
+	u := fmt.Sprintf("%s://%s%s", site.Protocol, site.Domain, site.Path)
+	if _, err = model.CreateWebsitePage(ctx, &queries.CreateWebsitePageParams{
+		CustomerID: c.ID,
+		WebsiteID:  site.ID,
+		Url:        u,
+		Sha256:     utils.GenerateFingerprint([]byte(u)), // use a tmp hash until the content is actually ingested
+	}); err != nil {
+		return slogger.Error(ctx, logger, "there was an issue inserting the page", err)
+	}
+
+	logger.Info("successfully inserted the single page")
+
+	return nil
 }
 
 func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site *queries.Website) error {

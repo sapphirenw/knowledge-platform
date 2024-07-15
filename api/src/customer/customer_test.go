@@ -68,25 +68,22 @@ func TestCustomerWebsites(t *testing.T) {
 	ctx, _, pool, c := testInit(t)
 
 	// parse some rules
-	noRules, err := c.HandleWebsite(ctx, pool, &handleWebsiteRequest{
+	noRules, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
 		Domain:    "https://crosschecksports.com",
 		Blacklist: []string{},
 		Whitelist: []string{},
-		Insert:    false,
 	})
 	require.NoError(t, err)
-	whitelist, err := c.HandleWebsite(ctx, pool, &handleWebsiteRequest{
+	whitelist, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
 		Domain:    "https://crosschecksports.com",
 		Blacklist: []string{},
 		Whitelist: []string{"docs"},
-		Insert:    false,
 	})
 	require.NoError(t, err)
-	blacklist, err := c.HandleWebsite(ctx, pool, &handleWebsiteRequest{
+	blacklist, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
 		Domain:    "https://crosschecksports.com",
 		Blacklist: []string{"docs"},
 		Whitelist: []string{},
-		Insert:    false,
 	})
 	require.NoError(t, err)
 
@@ -96,11 +93,10 @@ func TestCustomerWebsites(t *testing.T) {
 	require.Less(t, len(whitelist.Pages), len(blacklist.Pages))
 
 	// insert a website
-	site, err := c.HandleWebsite(ctx, pool, &handleWebsiteRequest{
+	site, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
 		Domain:    "https://crosschecksports.com",
 		Blacklist: []string{},
 		Whitelist: []string{"docs"},
-		Insert:    true,
 	})
 	require.NoError(t, err)
 

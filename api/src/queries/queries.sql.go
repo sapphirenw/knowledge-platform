@@ -893,22 +893,23 @@ func (q *Queries) CreateVectorizeJobItem(ctx context.Context, arg *CreateVectori
 
 const createWebsite = `-- name: CreateWebsite :one
 INSERT INTO website (
-    customer_id, protocol, domain, blacklist, whitelist
+    customer_id, protocol, domain, path, blacklist, whitelist
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6
 )
 ON CONFLICT ON CONSTRAINT cnst_unique_website
 DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP,
     blacklist = EXCLUDED.blacklist,
     whitelist = EXCLUDED.whitelist
-RETURNING id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at
+RETURNING id, customer_id, protocol, domain, path, blacklist, whitelist, created_at, updated_at
 `
 
 type CreateWebsiteParams struct {
 	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
 	Protocol   string    `db:"protocol" json:"protocol"`
 	Domain     string    `db:"domain" json:"domain"`
+	Path       string    `db:"path" json:"path"`
 	Blacklist  []string  `db:"blacklist" json:"blacklist"`
 	Whitelist  []string  `db:"whitelist" json:"whitelist"`
 }
@@ -916,21 +917,22 @@ type CreateWebsiteParams struct {
 // CreateWebsite
 //
 //	INSERT INTO website (
-//	    customer_id, protocol, domain, blacklist, whitelist
+//	    customer_id, protocol, domain, path, blacklist, whitelist
 //	) VALUES (
-//	    $1, $2, $3, $4, $5
+//	    $1, $2, $3, $4, $5, $6
 //	)
 //	ON CONFLICT ON CONSTRAINT cnst_unique_website
 //	DO UPDATE SET
 //	    updated_at = CURRENT_TIMESTAMP,
 //	    blacklist = EXCLUDED.blacklist,
 //	    whitelist = EXCLUDED.whitelist
-//	RETURNING id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at
+//	RETURNING id, customer_id, protocol, domain, path, blacklist, whitelist, created_at, updated_at
 func (q *Queries) CreateWebsite(ctx context.Context, arg *CreateWebsiteParams) (*Website, error) {
 	row := q.db.QueryRow(ctx, createWebsite,
 		arg.CustomerID,
 		arg.Protocol,
 		arg.Domain,
+		arg.Path,
 		arg.Blacklist,
 		arg.Whitelist,
 	)
@@ -940,6 +942,7 @@ func (q *Queries) CreateWebsite(ctx context.Context, arg *CreateWebsiteParams) (
 		&i.CustomerID,
 		&i.Protocol,
 		&i.Domain,
+		&i.Path,
 		&i.Blacklist,
 		&i.Whitelist,
 		&i.CreatedAt,
@@ -3286,7 +3289,7 @@ func (q *Queries) GetVectorizeJobsWaiting(ctx context.Context) ([]*VectorizeJob,
 const getWebsite = `-- name: GetWebsite :one
 
 
-SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
+SELECT id, customer_id, protocol, domain, path, blacklist, whitelist, created_at, updated_at FROM website
 WHERE id = $1
 `
 
@@ -3336,7 +3339,7 @@ WHERE id = $1
 // ORDER BY vs.embeddings <#> $3
 // LIMIT $2;
 //
-//	SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
+//	SELECT id, customer_id, protocol, domain, path, blacklist, whitelist, created_at, updated_at FROM website
 //	WHERE id = $1
 func (q *Queries) GetWebsite(ctx context.Context, id uuid.UUID) (*Website, error) {
 	row := q.db.QueryRow(ctx, getWebsite, id)
@@ -3346,6 +3349,7 @@ func (q *Queries) GetWebsite(ctx context.Context, id uuid.UUID) (*Website, error
 		&i.CustomerID,
 		&i.Protocol,
 		&i.Domain,
+		&i.Path,
 		&i.Blacklist,
 		&i.Whitelist,
 		&i.CreatedAt,
@@ -3397,13 +3401,13 @@ func (q *Queries) GetWebsitePagesBySite(ctx context.Context, websiteID uuid.UUID
 }
 
 const getWebsitesByCustomer = `-- name: GetWebsitesByCustomer :many
-SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
+SELECT id, customer_id, protocol, domain, path, blacklist, whitelist, created_at, updated_at FROM website
 WHERE customer_id = $1
 `
 
 // GetWebsitesByCustomer
 //
-//	SELECT id, customer_id, protocol, domain, blacklist, whitelist, created_at, updated_at FROM website
+//	SELECT id, customer_id, protocol, domain, path, blacklist, whitelist, created_at, updated_at FROM website
 //	WHERE customer_id = $1
 func (q *Queries) GetWebsitesByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Website, error) {
 	rows, err := q.db.Query(ctx, getWebsitesByCustomer, customerID)
@@ -3419,6 +3423,7 @@ func (q *Queries) GetWebsitesByCustomer(ctx context.Context, customerID uuid.UUI
 			&i.CustomerID,
 			&i.Protocol,
 			&i.Domain,
+			&i.Path,
 			&i.Blacklist,
 			&i.Whitelist,
 			&i.CreatedAt,
@@ -3435,7 +3440,7 @@ func (q *Queries) GetWebsitesByCustomer(ctx context.Context, customerID uuid.UUI
 }
 
 const getWebsitesByCustomerWithCount = `-- name: GetWebsitesByCustomerWithCount :many
-SELECT w.id, w.customer_id, w.protocol, w.domain, w.blacklist, w.whitelist, w.created_at, w.updated_at, count(wp.*) as page_count FROM website w
+SELECT w.id, w.customer_id, w.protocol, w.domain, w.path, w.blacklist, w.whitelist, w.created_at, w.updated_at, count(wp.*) as page_count FROM website w
 JOIN website_page wp ON w.id = wp.website_id
 WHERE w.customer_id = $1
 GROUP BY w.id
@@ -3446,6 +3451,7 @@ type GetWebsitesByCustomerWithCountRow struct {
 	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	Protocol   string             `db:"protocol" json:"protocol"`
 	Domain     string             `db:"domain" json:"domain"`
+	Path       string             `db:"path" json:"path"`
 	Blacklist  []string           `db:"blacklist" json:"blacklist"`
 	Whitelist  []string           `db:"whitelist" json:"whitelist"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
@@ -3455,7 +3461,7 @@ type GetWebsitesByCustomerWithCountRow struct {
 
 // GetWebsitesByCustomerWithCount
 //
-//	SELECT w.id, w.customer_id, w.protocol, w.domain, w.blacklist, w.whitelist, w.created_at, w.updated_at, count(wp.*) as page_count FROM website w
+//	SELECT w.id, w.customer_id, w.protocol, w.domain, w.path, w.blacklist, w.whitelist, w.created_at, w.updated_at, count(wp.*) as page_count FROM website w
 //	JOIN website_page wp ON w.id = wp.website_id
 //	WHERE w.customer_id = $1
 //	GROUP BY w.id
@@ -3473,6 +3479,7 @@ func (q *Queries) GetWebsitesByCustomerWithCount(ctx context.Context, customerID
 			&i.CustomerID,
 			&i.Protocol,
 			&i.Domain,
+			&i.Path,
 			&i.Blacklist,
 			&i.Whitelist,
 			&i.CreatedAt,

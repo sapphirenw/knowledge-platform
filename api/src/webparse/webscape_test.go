@@ -60,7 +60,7 @@ func TestSitemap(t *testing.T) {
 	require.Less(t, len(pages), black)
 }
 
-func TestWebscrape(t *testing.T) {
+func TestScrapeHrefs(t *testing.T) {
 	logger := utils.DefaultLogger()
 	uid, err := uuid.NewV7()
 	require.NoError(t, err)
@@ -68,18 +68,27 @@ func TestWebscrape(t *testing.T) {
 		CustomerID: uid,
 		Protocol:   "https",
 		Domain:     "crosschecksports.com",
+		Blacklist: []string{
+			"github.com",
+			"google.com",
+			"apple.com",
+		},
 	}
 
-	res, err := Scrape(context.TODO(), logger, &site)
+	res, err := ScrapeHrefs(context.TODO(), logger, &site, &ScrapeHrefsArgs{
+		AllowOtherDomains: true,
+		MaxDepth:          5,
+		MaxDepthOther:     3,
+	})
 	if err != nil {
 		t.Error(err)
 	}
+	utils.DebugPrint(res)
 	if res == nil {
 		t.Error("res is nil")
 		return
 	}
 	require.NotEmpty(t, res)
-	require.Equal(t, 11, len(*res))
 }
 
 func TestScrapeSingle(t *testing.T) {

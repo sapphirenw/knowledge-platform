@@ -2,7 +2,9 @@ export type HandleWebsiteRequest = {
     domain: string
     whitelist?: string[]
     blacklist?: string[]
-    insert: boolean
+    useSitemap?: boolean
+    allowOtherDomains?: boolean
+    pages?: string[]
 }
 
 export type Website = {
@@ -10,6 +12,7 @@ export type Website = {
     customerId: string
     protocol: string
     domain: string
+    path: string
     pageCount: number
     blacklist?: string[]
     whitelist?: string[]

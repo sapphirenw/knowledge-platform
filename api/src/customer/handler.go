@@ -54,9 +54,11 @@ func Handler(mux chi.Router) {
 	})
 
 	// websites
+	mux.Post("/insertSingleWebsitePage", customerHandler(insertSinglePage))
 	mux.Route("/websites", func(r chi.Router) {
 		r.Get("/", customerHandler(getWebsites))
-		r.Post("/", customerHandler(handleWesbite))
+		r.Put("/", customerHandler(searchWebsite))
+		r.Post("/", customerHandler(insertWebsite))
 		r.Route("/{websiteId}", func(r chi.Router) {
 			r.Get("/", websiteHandler(getWebsite))
 			r.Get("/pages", websiteHandler(getWebsitePages))

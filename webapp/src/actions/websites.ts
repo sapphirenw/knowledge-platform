@@ -4,13 +4,32 @@ import { HandleWebsiteRequest, HandleWebsiteResponse, Website } from "@/types/we
 import { getCID } from "./customer";
 import { sendRequestV1 } from "./api";
 
-export async function handleWebsite(payload: HandleWebsiteRequest): Promise<HandleWebsiteResponse> {
+export async function searchWebsite(payload: HandleWebsiteRequest): Promise<HandleWebsiteResponse> {
+    const cid = await getCID()
+    return await sendRequestV1<HandleWebsiteResponse>({
+        route: `customers/${cid}/websites`,
+        method: "PUT",
+        body: JSON.stringify(payload)
+    })
+}
+
+export async function insertWebsite(payload: HandleWebsiteRequest): Promise<HandleWebsiteResponse> {
     const cid = await getCID()
     return await sendRequestV1<HandleWebsiteResponse>({
         route: `customers/${cid}/websites`,
         method: "POST",
         body: JSON.stringify(payload)
     })
+}
+
+export async function insertSingleWebsitePage(domain: string): Promise<boolean> {
+    const cid = await getCID()
+    await sendRequestV1({
+        route: `customers/${cid}/insertSingleWebsitePage`,
+        method: "POST",
+        body: JSON.stringify({ "domain": domain })
+    })
+    return true
 }
 
 export async function getWebsites(): Promise<Website[]> {

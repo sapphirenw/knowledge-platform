@@ -10,6 +10,7 @@ import { listFolder } from "@/actions/document";
 import UserFiles from "./user_files";
 import UserWebsites from "./user_websites";
 import { Separator } from "@/components/ui/separator";
+import InsertSingleWebsitePageButton from "./create_model";
 
 export default async function Datastore() {
     const queryClient = new QueryClient()
@@ -54,9 +55,12 @@ export default async function Datastore() {
                             <Label htmlFor="user_websites">
                                 <h3 className="text-lg font-bold">Websites</h3>
                             </Label>
-                            <Button asChild>
-                                <Link href="/datastore/ingest-site">Ingest New Site</Link>
-                            </Button>
+                            <div className="flex items-center space-x-2">
+                                <InsertSingleWebsitePageButton />
+                                <Button asChild>
+                                    <Link href="/datastore/ingest-site">Ingest Website</Link>
+                                </Button>
+                            </div>
                         </div>
                         <div id="user_websites">
                             <UserWebsites />

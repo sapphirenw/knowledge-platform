@@ -438,6 +438,7 @@ type Website struct {
 	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
 	Protocol   string             `db:"protocol" json:"protocol"`
 	Domain     string             `db:"domain" json:"domain"`
+	Path       string             `db:"path" json:"path"`
 	Blacklist  []string           `db:"blacklist" json:"blacklist"`
 	Whitelist  []string           `db:"whitelist" json:"whitelist"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`

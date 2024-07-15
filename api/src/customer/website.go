@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 )
 
 func getWebsites(
@@ -54,7 +55,34 @@ func getWebsitePages(
 	request.Encode(w, r, c.logger, http.StatusOK, pages)
 }
 
-func handleWesbite(
+func searchWebsite(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	// parse the body
+	body, valid := request.Decode[handleWebsiteRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	site, err := c.SearchWebsite(r.Context(), &body)
+	if err != nil {
+		// rollback
+		c.logger.Error("failed to parse the website", "error", err)
+		if strings.Contains(err.Error(), "REGEX") {
+			http.Error(w, "There was an issue with your regex", http.StatusBadRequest)
+		} else {
+			http.Error(w, "There was an internal issue", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, site)
+}
+
+func insertWebsite(
 	w http.ResponseWriter,
 	r *http.Request,
 	pool *pgxpool.Pool,
@@ -75,7 +103,7 @@ func handleWesbite(
 	}
 	defer tx.Commit(r.Context())
 
-	site, err := c.HandleWebsite(r.Context(), tx, &body)
+	site, err := c.InsertWebsite(r.Context(), tx, &body)
 	if err != nil {
 		// rollback
 		tx.Rollback(r.Context())
@@ -89,6 +117,38 @@ func handleWesbite(
 	}
 
 	request.Encode(w, r, c.logger, http.StatusOK, site)
+}
+
+func insertSinglePage(
+	w http.ResponseWriter,
+	r *http.Request,
+	pool *pgxpool.Pool,
+	c *Customer,
+) {
+	// parse the body
+	body, valid := request.Decode[insertSingleWebsitePageRequest](w, r, c.logger)
+	if !valid {
+		return
+	}
+
+	// create a transaction
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		c.logger.Error("failed to start transaction", "error", err)
+		http.Error(w, "There was a database issue", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	if err := c.InsertSinglePage(r.Context(), tx, body.Domain); err != nil {
+		// rollback
+		tx.Rollback(r.Context())
+		slogger.ServerError(w, c.logger, 500, "There was an internal issue", err)
+		return
+	}
+
+	// send the success
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func vectorizeWebsite(

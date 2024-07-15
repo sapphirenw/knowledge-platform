@@ -44,13 +44,27 @@ func (r *createFolderRequest) Valid(ctx context.Context) map[string]string {
 }
 
 type handleWebsiteRequest struct {
-	Domain    string   `json:"domain"`
-	Blacklist []string `json:"blacklist"`
-	Whitelist []string `json:"whitelist"`
-	Insert    bool     `json:"insert"`
+	Domain            string   `json:"domain"`
+	Blacklist         []string `json:"blacklist"`
+	Whitelist         []string `json:"whitelist"`
+	UseSitemap        bool     `json:"useSitemap"`
+	AllowOtherDomains bool     `json:"allowOtherDomains"`
+	Pages             []string `json:"pages,omitempty"` // only included on the insert request
 }
 
 func (r handleWebsiteRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string, 0)
+	if r.Domain == "" {
+		p["domain"] = "cannot be empty"
+	}
+	return p
+}
+
+type insertSingleWebsitePageRequest struct {
+	Domain string `json:"domain"`
+}
+
+func (r insertSingleWebsitePageRequest) Valid(ctx context.Context) map[string]string {
 	p := make(map[string]string, 0)
 	if r.Domain == "" {
 		p["domain"] = "cannot be empty"
