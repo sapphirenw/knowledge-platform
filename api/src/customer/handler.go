@@ -77,6 +77,12 @@ func Handler(mux chi.Router) {
 		r.Get("/vectorize/{id}", customerHandler(getVectorizeRequest))
 	})
 
+	// usage
+	mux.Route("/usage", func(r chi.Router) {
+		r.Get("/", customerHandler(getUsage))
+	})
+	mux.Get("/usageGrouped", customerHandler(getUsageGrouped))
+
 	// project
 	mux.Route("/projects", project.Handler)
 	// mux.Route("/projects", func(r chi.Router) {

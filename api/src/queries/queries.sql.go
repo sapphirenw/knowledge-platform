@@ -1763,6 +1763,153 @@ func (q *Queries) GetCustomerSummaryLLM(ctx context.Context, customerID uuid.UUI
 	return &i, err
 }
 
+const getCustomerTokenUsage = `-- name: GetCustomerTokenUsage :many
+SELECT id, customer_id, conversation_id, model, input_tokens, output_tokens, total_tokens, created_at FROM token_usage
+WHERE customer_id = $1
+  AND (model = $2 OR $2 = '')
+ORDER BY created_at DESC, id DESC
+LIMIT $3 OFFSET ($4::int - 1) * $3
+`
+
+type GetCustomerTokenUsageParams struct {
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	Model      string    `db:"model" json:"model"`
+	Limit      int32     `db:"limit" json:"limit"`
+	Column4    int32     `db:"column_4" json:"column4"`
+}
+
+// GetCustomerTokenUsage
+//
+//	SELECT id, customer_id, conversation_id, model, input_tokens, output_tokens, total_tokens, created_at FROM token_usage
+//	WHERE customer_id = $1
+//	  AND (model = $2 OR $2 = '')
+//	ORDER BY created_at DESC, id DESC
+//	LIMIT $3 OFFSET ($4::int - 1) * $3
+func (q *Queries) GetCustomerTokenUsage(ctx context.Context, arg *GetCustomerTokenUsageParams) ([]*TokenUsage, error) {
+	rows, err := q.db.Query(ctx, getCustomerTokenUsage,
+		arg.CustomerID,
+		arg.Model,
+		arg.Limit,
+		arg.Column4,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*TokenUsage{}
+	for rows.Next() {
+		var i TokenUsage
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.ConversationID,
+			&i.Model,
+			&i.InputTokens,
+			&i.OutputTokens,
+			&i.TotalTokens,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getCustomerTokensPageCount = `-- name: GetCustomerTokensPageCount :one
+SELECT
+    CEIL(COUNT(*)::FLOAT / $3) as max_pages
+FROM token_usage
+WHERE customer_id = $1
+AND (model = $2 OR $2 = '')
+`
+
+type GetCustomerTokensPageCountParams struct {
+	CustomerID uuid.UUID   `db:"customer_id" json:"customerId"`
+	Model      string      `db:"model" json:"model"`
+	Column3    interface{} `db:"column_3" json:"column3"`
+}
+
+// GetCustomerTokensPageCount
+//
+//	SELECT
+//	    CEIL(COUNT(*)::FLOAT / $3) as max_pages
+//	FROM token_usage
+//	WHERE customer_id = $1
+//	AND (model = $2 OR $2 = '')
+func (q *Queries) GetCustomerTokensPageCount(ctx context.Context, arg *GetCustomerTokensPageCountParams) (float64, error) {
+	row := q.db.QueryRow(ctx, getCustomerTokensPageCount, arg.CustomerID, arg.Model, arg.Column3)
+	var max_pages float64
+	err := row.Scan(&max_pages)
+	return max_pages, err
+}
+
+const getCustomerUsageGrouped = `-- name: GetCustomerUsageGrouped :many
+SELECT
+    tu.model AS model,
+    SUM(tu.input_tokens) AS input_tokens_sum,
+    SUM(tu.output_tokens) AS output_tokens_sum,
+    SUM(tu.total_tokens) AS total_tokens_sum,
+    am.input_cost_per_million_tokens,
+    am.output_cost_per_million_tokens
+FROM token_usage tu
+JOIN available_model am ON tu.model = am.id
+WHERE tu.customer_id = $1
+GROUP BY tu.model, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens
+`
+
+type GetCustomerUsageGroupedRow struct {
+	Model                      string         `db:"model" json:"model"`
+	InputTokensSum             int64          `db:"input_tokens_sum" json:"inputTokensSum"`
+	OutputTokensSum            int64          `db:"output_tokens_sum" json:"outputTokensSum"`
+	TotalTokensSum             int64          `db:"total_tokens_sum" json:"totalTokensSum"`
+	InputCostPerMillionTokens  pgtype.Numeric `db:"input_cost_per_million_tokens" json:"inputCostPerMillionTokens"`
+	OutputCostPerMillionTokens pgtype.Numeric `db:"output_cost_per_million_tokens" json:"outputCostPerMillionTokens"`
+}
+
+// GetCustomerUsageGrouped
+//
+//	SELECT
+//	    tu.model AS model,
+//	    SUM(tu.input_tokens) AS input_tokens_sum,
+//	    SUM(tu.output_tokens) AS output_tokens_sum,
+//	    SUM(tu.total_tokens) AS total_tokens_sum,
+//	    am.input_cost_per_million_tokens,
+//	    am.output_cost_per_million_tokens
+//	FROM token_usage tu
+//	JOIN available_model am ON tu.model = am.id
+//	WHERE tu.customer_id = $1
+//	GROUP BY tu.model, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens
+func (q *Queries) GetCustomerUsageGrouped(ctx context.Context, customerID uuid.UUID) ([]*GetCustomerUsageGroupedRow, error) {
+	rows, err := q.db.Query(ctx, getCustomerUsageGrouped, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*GetCustomerUsageGroupedRow{}
+	for rows.Next() {
+		var i GetCustomerUsageGroupedRow
+		if err := rows.Scan(
+			&i.Model,
+			&i.InputTokensSum,
+			&i.OutputTokensSum,
+			&i.TotalTokensSum,
+			&i.InputCostPerMillionTokens,
+			&i.OutputCostPerMillionTokens,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCustomerVectorizeJobs = `-- name: GetCustomerVectorizeJobs :many
 WITH latest_vji AS (
     SELECT 
@@ -3065,44 +3212,6 @@ func (q *Queries) GetRootFoldersByCustomer(ctx context.Context, customerID uuid.
 			&i.Title,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTokenUsage = `-- name: GetTokenUsage :many
-SELECT id, customer_id, conversation_id, model, input_tokens, output_tokens, total_tokens, created_at FROM token_usage
-WHERE customer_id = $1
-`
-
-// GetTokenUsage
-//
-//	SELECT id, customer_id, conversation_id, model, input_tokens, output_tokens, total_tokens, created_at FROM token_usage
-//	WHERE customer_id = $1
-func (q *Queries) GetTokenUsage(ctx context.Context, customerID uuid.UUID) ([]*TokenUsage, error) {
-	rows, err := q.db.Query(ctx, getTokenUsage, customerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*TokenUsage{}
-	for rows.Next() {
-		var i TokenUsage
-		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.ConversationID,
-			&i.Model,
-			&i.InputTokens,
-			&i.OutputTokens,
-			&i.TotalTokens,
-			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

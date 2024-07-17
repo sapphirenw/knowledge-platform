@@ -43,7 +43,11 @@ func TestConversation(t *testing.T) {
 	require.Equal(t, 3, len(msgs))
 
 	// check the saved token records
-	records, err := dmodel.GetTokenUsage(ctx, c.ID)
+	records, err := dmodel.GetCustomerTokenUsage(ctx, &queries.GetCustomerTokenUsageParams{
+		CustomerID: c.ID,
+		Limit:      20,
+		Column4:    1,
+	})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(records))
 	require.Equal(t, conv.ID.String(), utils.PGXUUIDToGoogleUUID(records[0].ConversationID).String())

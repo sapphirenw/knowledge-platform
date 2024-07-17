@@ -21,6 +21,9 @@ export default function Header() {
                         <Button variant="outline" asChild>
                             <a href="/datastore">Datastore</a>
                         </Button>
+                        <Button variant="outline" asChild>
+                            <a href="/usage">Usage</a>
+                        </Button>
                     </div>}
                     <Button variant="outline" asChild>
                         <a href="/login">Login</a>
