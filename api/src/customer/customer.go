@@ -3,7 +3,6 @@ package customer
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -13,11 +12,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jake-landersweb/gollm/v2/src/ltypes"
-	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
-	"github.com/sapphirenw/ai-content-creation-api/src/llm"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
@@ -453,188 +449,188 @@ func (c *Customer) InsertSinglePage(
 	return nil
 }
 
-func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site *queries.Website) error {
-	logger := c.logger.With("site.ID", site.ID.String(), "site.Domain", site.Domain)
-	logger.InfoContext(ctx, "Parsing site ...")
+// func (c *Customer) VectorizeWebsite(ctx context.Context, txn queries.DBTX, site *queries.Website) error {
+// 	logger := c.logger.With("site.ID", site.ID.String(), "site.Domain", site.Domain)
+// 	logger.InfoContext(ctx, "Parsing site ...")
 
-	// get the pages
-	model := queries.New(txn)
-	pages, err := model.GetWebsitePagesBySite(ctx, site.ID)
-	if err != nil {
-		return fmt.Errorf("there was an issue fetching the sites: %v", err)
-	}
+// 	// get the pages
+// 	model := queries.New(txn)
+// 	pages, err := model.GetWebsitePagesBySite(ctx, site.ID)
+// 	if err != nil {
+// 		return fmt.Errorf("there was an issue fetching the sites: %v", err)
+// 	}
 
-	logger.InfoContext(ctx, "Creating embeddings for each page ...")
+// 	logger.InfoContext(ctx, "Creating embeddings for each page ...")
 
-	// create an embeddings object
-	emb := llm.GetEmbeddings(logger, c.Customer)
+// 	// create an embeddings object
+// 	emb := llm.GetEmbeddings(logger, c.Customer)
 
-	// loop and perform the vectorization
-	var wg sync.WaitGroup
+// 	// loop and perform the vectorization
+// 	var wg sync.WaitGroup
 
-	// create a results slice for the data
-	results := make([]*vectorizeWebsiteResult, len(pages))
-	tokenRecsChannel := make(chan *tokens.UsageRecord, len(pages))
-	errs := make(chan error, len(pages))
+// 	// create a results slice for the data
+// 	results := make([]*vectorizeWebsiteResult, len(pages))
+// 	tokenRecsChannel := make(chan *tokens.UsageRecord, len(pages))
+// 	errs := make(chan error, len(pages))
 
-	for i, item := range pages {
-		wg.Add(1)
-		go func(index int, page *queries.WebsitePage) {
-			defer wg.Done()
-			pLogger := logger.With("page", page.Url)
+// 	for i, item := range pages {
+// 		wg.Add(1)
+// 		go func(index int, page *queries.WebsitePage) {
+// 			defer wg.Done()
+// 			pLogger := logger.With("page", page.Url)
 
-			pLogger.InfoContext(ctx, "Scraping the page ...")
+// 			pLogger.InfoContext(ctx, "Scraping the page ...")
 
-			// scrape the webpage
-			response, err := webparse.ScrapeSingle(ctx, pLogger, page)
-			if err != nil {
-				errs <- fmt.Errorf("error scraping the site: %v", err)
-				return
-			}
+// 			// scrape the webpage
+// 			response, err := webparse.ScrapeSingle(ctx, pLogger, page)
+// 			if err != nil {
+// 				errs <- fmt.Errorf("error scraping the site: %v", err)
+// 				return
+// 			}
 
-			// create a signature to compare the old vs new
-			sig := utils.GenerateFingerprint([]byte(response.Content))
-			if page.Sha256 == sig {
-				pLogger.InfoContext(ctx, "This website page has not changed")
-				return
-			} else {
-				pLogger.InfoContext(ctx, "The signatures do not match", "oldSHA256", page.Sha256, "newSHA256", sig)
-			}
+// 			// create a signature to compare the old vs new
+// 			sig := utils.GenerateFingerprint([]byte(response.Content))
+// 			if page.Sha256 == sig {
+// 				pLogger.InfoContext(ctx, "This website page has not changed")
+// 				return
+// 			} else {
+// 				pLogger.InfoContext(ctx, "The signatures do not match", "oldSHA256", page.Sha256, "newSHA256", sig)
+// 			}
 
-			pLogger.InfoContext(ctx, "Vecorizing the content ...")
+// 			pLogger.InfoContext(ctx, "Vecorizing the content ...")
 
-			// embed the content
-			res, err := emb.Embed(ctx, response.Content)
-			if err != nil {
-				errs <- fmt.Errorf("error embedding the content: %v", err)
-				return
-			}
+// 			// embed the content
+// 			res, err := emb.Embed(ctx, response.Content)
+// 			if err != nil {
+// 				errs <- fmt.Errorf("error embedding the content: %v", err)
+// 				return
+// 			}
 
-			tokenRecsChannel <- res.Usage
+// 			tokenRecsChannel <- res.Usage
 
-			// write to index in the list
-			results[index] = &vectorizeWebsiteResult{
-				page:    page,
-				headers: response.Header,
-				sha256:  sig,
-				vectors: res.Embeddings,
-			}
+// 			// write to index in the list
+// 			results[index] = &vectorizeWebsiteResult{
+// 				page:    page,
+// 				headers: response.Header,
+// 				sha256:  sig,
+// 				vectors: res.Embeddings,
+// 			}
 
-			pLogger.InfoContext(ctx, "Successfully processed page")
-		}(i, item)
-	}
+// 			pLogger.InfoContext(ctx, "Successfully processed page")
+// 		}(i, item)
+// 	}
 
-	logger.InfoContext(ctx, "Processed all pages")
+// 	logger.InfoContext(ctx, "Processed all pages")
 
-	// wait for the routines to finish
-	wg.Wait()
-	close(errs)
-	close(tokenRecsChannel)
+// 	// wait for the routines to finish
+// 	wg.Wait()
+// 	close(errs)
+// 	close(tokenRecsChannel)
 
-	// report vectors
-	tokenRecords := make([]*tokens.UsageRecord, 0)
-	for item := range tokenRecsChannel {
-		tokenRecords = append(tokenRecords, item)
-	}
-	if err := utils.ReportUsage(ctx, logger, txn, c.ID, tokenRecords, nil); err != nil {
-		logger.ErrorContext(ctx, "Failed to log vector usage", "err", err)
-	}
+// 	// report vectors
+// 	tokenRecords := make([]*tokens.UsageRecord, 0)
+// 	for item := range tokenRecsChannel {
+// 		tokenRecords = append(tokenRecords, item)
+// 	}
+// 	if err := utils.ReportUsage(ctx, logger, txn, c.ID, tokenRecords, nil); err != nil {
+// 		logger.ErrorContext(ctx, "Failed to log vector usage", "err", err)
+// 	}
 
-	// parse the errors
-	var runtimeErr error
-	for err := range errs {
-		runtimeErr = err
-		logger.ErrorContext(ctx, "there was an error vectorizing data", "error", runtimeErr)
-	}
-	if runtimeErr != nil {
-		return fmt.Errorf("there was an issue during vecorization: %v", runtimeErr)
-	}
+// 	// parse the errors
+// 	var runtimeErr error
+// 	for err := range errs {
+// 		runtimeErr = err
+// 		logger.ErrorContext(ctx, "there was an error vectorizing data", "error", runtimeErr)
+// 	}
+// 	if runtimeErr != nil {
+// 		return fmt.Errorf("there was an issue during vecorization: %v", runtimeErr)
+// 	}
 
-	logger.InfoContext(ctx, "Parsing the result ...")
+// 	logger.InfoContext(ctx, "Parsing the result ...")
 
-	// parse the results
-	for _, item := range results {
-		// ignore pages that did not change
-		if item == nil {
-			continue
-		}
+// 	// parse the results
+// 	for _, item := range results {
+// 		// ignore pages that did not change
+// 		if item == nil {
+// 			continue
+// 		}
 
-		plogger := logger.With("page", *item.page)
+// 		plogger := logger.With("page", *item.page)
 
-		plogger.InfoContext(ctx, "Updating the web page signature")
-		newPage, err := model.UpdateWebsitePageSignature(ctx, &queries.UpdateWebsitePageSignatureParams{
-			ID:     item.page.ID,
-			Sha256: item.sha256,
-		})
-		if err != nil {
-			return fmt.Errorf("there was an issue updating the page sha256: %v", err)
-		}
-		item.page = newPage
+// 		plogger.InfoContext(ctx, "Updating the web page signature")
+// 		newPage, err := model.UpdateWebsitePageSignature(ctx, &queries.UpdateWebsitePageSignatureParams{
+// 			ID:     item.page.ID,
+// 			Sha256: item.sha256,
+// 		})
+// 		if err != nil {
+// 			return fmt.Errorf("there was an issue updating the page sha256: %v", err)
+// 		}
+// 		item.page = newPage
 
-		// encode the headers from the website page to store with the vectors
-		encodedHeaders, err := json.Marshal(item.headers)
-		if err != nil {
-			return fmt.Errorf("failed to serialize headers: %s", err)
-		}
+// 		// encode the headers from the website page to store with the vectors
+// 		encodedHeaders, err := json.Marshal(item.headers)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to serialize headers: %s", err)
+// 		}
 
-		plogger.InfoContext(ctx, "Uploading page vectors ...")
+// 		plogger.InfoContext(ctx, "Uploading page vectors ...")
 
-		// lastly upload the vectors to the datastore
-		for index, vec := range item.vectors {
-			// create raw vector object
-			vecId, err := model.CreateVector(ctx, &queries.CreateVectorParams{
-				Raw:        vec.Raw,
-				Embeddings: &vec.Embedding,
-				CustomerID: c.ID,
-				Metadata:   encodedHeaders,
-			})
-			if err != nil {
-				return fmt.Errorf("error inserting the vector object: %s", err)
-			}
+// 		// lastly upload the vectors to the datastore
+// 		for index, vec := range item.vectors {
+// 			// create raw vector object
+// 			vecId, err := model.CreateVector(ctx, &queries.CreateVectorParams{
+// 				Raw:        vec.Raw,
+// 				Embeddings: &vec.Embedding,
+// 				CustomerID: c.ID,
+// 				Metadata:   encodedHeaders,
+// 			})
+// 			if err != nil {
+// 				return fmt.Errorf("error inserting the vector object: %s", err)
+// 			}
 
-			// create a reference to the vector onto the document
-			_, err = model.CreateWebsitePageVector(ctx, &queries.CreateWebsitePageVectorParams{
-				WebsitePageID: item.page.ID,
-				VectorStoreID: vecId,
-				CustomerID:    c.ID,
-				Index:         int32(index),
-				Metadata:      encodedHeaders,
-			})
-			if err != nil {
-				return fmt.Errorf("error creating document vector relationship: %s", err)
-			}
-		}
+// 			// create a reference to the vector onto the document
+// 			_, err = model.CreateWebsitePageVector(ctx, &queries.CreateWebsitePageVectorParams{
+// 				WebsitePageID: item.page.ID,
+// 				VectorStoreID: vecId,
+// 				CustomerID:    c.ID,
+// 				Index:         int32(index),
+// 				Metadata:      encodedHeaders,
+// 			})
+// 			if err != nil {
+// 				return fmt.Errorf("error creating document vector relationship: %s", err)
+// 			}
+// 		}
 
-		plogger.InfoContext(ctx, "Successfully uploaded page")
-	}
+// 		plogger.InfoContext(ctx, "Successfully uploaded page")
+// 	}
 
-	logger.InfoContext(ctx, "Successfully vectorized site")
+// 	logger.InfoContext(ctx, "Successfully vectorized site")
 
-	return nil
-}
+// 	return nil
+// }
 
-func (c *Customer) VectorizeAllWebsites(ctx context.Context, txn queries.DBTX) error {
-	c.logger.InfoContext(ctx, "Querying all sites ...")
-	// get all the sites
-	model := queries.New(txn)
-	sites, err := model.GetWebsitesByCustomer(ctx, c.ID)
-	if err != nil {
-		return fmt.Errorf("failed to get websites: %s", err)
-	}
+// func (c *Customer) VectorizeAllWebsites(ctx context.Context, txn queries.DBTX) error {
+// 	c.logger.InfoContext(ctx, "Querying all sites ...")
+// 	// get all the sites
+// 	model := queries.New(txn)
+// 	sites, err := model.GetWebsitesByCustomer(ctx, c.ID)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get websites: %s", err)
+// 	}
 
-	c.logger.InfoContext(ctx, "Processing all sites ...")
+// 	c.logger.InfoContext(ctx, "Processing all sites ...")
 
-	// process all sites
-	for _, site := range sites {
-		if err := c.VectorizeWebsite(ctx, txn, site); err != nil {
-			return fmt.Errorf("error vectorizing site: %s", err)
-		}
-	}
+// 	// process all sites
+// 	for _, site := range sites {
+// 		if err := c.VectorizeWebsite(ctx, txn, site); err != nil {
+// 			return fmt.Errorf("error vectorizing site: %s", err)
+// 		}
+// 	}
 
-	c.logger.InfoContext(ctx, "Successfully vectorized all sites")
+// 	c.logger.InfoContext(ctx, "Successfully vectorized all sites")
 
-	return nil
-}
+// 	return nil
+// }
 
 func (c *Customer) PurgeDatastore(
 	ctx context.Context,
@@ -788,159 +784,159 @@ func (c *Customer) PurgeDatastore(
 	return nil
 }
 
-func (c *Customer) VectorizeDatastoreOLD(
-	ctx context.Context,
-	txn queries.DBTX,
-) error {
-	logger := c.logger.With()
-	logger.InfoContext(ctx, "Vectorizing datastore ...")
+// func (c *Customer) VectorizeDatastoreOLD(
+// 	ctx context.Context,
+// 	txn queries.DBTX,
+// ) error {
+// 	logger := c.logger.With()
+// 	logger.InfoContext(ctx, "Vectorizing datastore ...")
 
-	// get the embeddings
-	emb := llm.GetEmbeddings(logger, c.Customer)
+// 	// get the embeddings
+// 	emb := llm.GetEmbeddings(logger, c.Customer)
 
-	// create the model object
-	model := queries.New(txn)
+// 	// create the model object
+// 	model := queries.New(txn)
 
-	logger.InfoContext(ctx, "Getting all documents for the customer")
+// 	logger.InfoContext(ctx, "Getting all documents for the customer")
 
-	// get all documents
-	docs, err := model.GetDocumentsByCustomer(ctx, c.ID)
-	if err != nil {
-		return fmt.Errorf("error getting all the documents: %s", err)
-	}
+// 	// get all documents
+// 	docs, err := model.GetDocumentsByCustomer(ctx, c.ID)
+// 	if err != nil {
+// 		return fmt.Errorf("error getting all the documents: %s", err)
+// 	}
 
-	// create a type to store the embeddings data
-	type embeddingResponse struct {
-		doc     *datastore.Document
-		vectors []*ltypes.EmbeddingsData
-	}
+// 	// create a type to store the embeddings data
+// 	type embeddingResponse struct {
+// 		doc     *datastore.Document
+// 		vectors []*ltypes.EmbeddingsData
+// 	}
 
-	// create an array for the results to be stored in
-	vectors := make([]*embeddingResponse, len(docs))
+// 	// create an array for the results to be stored in
+// 	vectors := make([]*embeddingResponse, len(docs))
 
-	logger.InfoContext(ctx, "Processing all documents ...", "length", len(docs))
+// 	logger.InfoContext(ctx, "Processing all documents ...", "length", len(docs))
 
-	// process all docs in paralell
-	var wg sync.WaitGroup
-	tokenRecsChannel := make(chan *tokens.UsageRecord)
-	errCh := make(chan error)
+// 	// process all docs in paralell
+// 	var wg sync.WaitGroup
+// 	tokenRecsChannel := make(chan *tokens.UsageRecord)
+// 	errCh := make(chan error)
 
-	for i, item := range docs {
-		wg.Add(1)
-		go func(index int, d queries.Document) {
-			defer wg.Done()
-			l := logger.With("doc", d)
+// 	for i, item := range docs {
+// 		wg.Add(1)
+// 		go func(index int, d queries.Document) {
+// 			defer wg.Done()
+// 			l := logger.With("doc", d)
 
-			doc, err := datastore.NewDocumentFromDocument(ctx, l, &d)
-			if err != nil {
-				l.ErrorContext(ctx, "failed parsing the database doc", "err", err)
-				errCh <- err
-				return
-			}
+// 			doc, err := datastore.NewDocumentFromDocument(ctx, l, &d)
+// 			if err != nil {
+// 				l.ErrorContext(ctx, "failed parsing the database doc", "err", err)
+// 				errCh <- err
+// 				return
+// 			}
 
-			// get the cleaned data from the document and a parser
-			l.InfoContext(ctx, "Fetching document from datastore ...")
-			cleaned, err := doc.GetCleaned(ctx)
-			if err != nil {
-				l.ErrorContext(ctx, "there was an issue getting the cleaned document", "err", err)
-				errCh <- err
-				return
-			}
+// 			// get the cleaned data from the document and a parser
+// 			l.InfoContext(ctx, "Fetching document from datastore ...")
+// 			cleaned, err := doc.GetCleaned(ctx)
+// 			if err != nil {
+// 				l.ErrorContext(ctx, "there was an issue getting the cleaned document", "err", err)
+// 				errCh <- err
+// 				return
+// 			}
 
-			// TODO -- there is potential to get this to work
-			// see if the document changed
-			// sig := utils.GenerateFingerprint(d.Data)
-			// if doc.Sha256 == sig {
-			// 	l.InfoContext(ctx, "This document has not changed")
-			// 	return
-			// } else {
-			// 	l.InfoContext(ctx, "The signatures do not match", "old", doc.Sha256, "new", sig)
-			// }
+// 			// TODO -- there is potential to get this to work
+// 			// see if the document changed
+// 			// sig := utils.GenerateFingerprint(d.Data)
+// 			// if doc.Sha256 == sig {
+// 			// 	l.InfoContext(ctx, "This document has not changed")
+// 			// 	return
+// 			// } else {
+// 			// 	l.InfoContext(ctx, "The signatures do not match", "old", doc.Sha256, "new", sig)
+// 			// }
 
-			// embed the content
-			l.InfoContext(ctx, "Embedding the document ...")
-			res, err := emb.Embed(ctx, cleaned.String())
-			if err != nil {
-				l.ErrorContext(ctx, "error embedding the content", "err", err)
-				errCh <- err
-				return
-			}
-			tokenRecsChannel <- res.Usage
+// 			// embed the content
+// 			l.InfoContext(ctx, "Embedding the document ...")
+// 			res, err := emb.Embed(ctx, cleaned.String())
+// 			if err != nil {
+// 				l.ErrorContext(ctx, "error embedding the content", "err", err)
+// 				errCh <- err
+// 				return
+// 			}
+// 			tokenRecsChannel <- res.Usage
 
-			// add to the result
-			vectors[index] = &embeddingResponse{
-				doc:     doc,
-				vectors: res.Embeddings,
-			}
+// 			// add to the result
+// 			vectors[index] = &embeddingResponse{
+// 				doc:     doc,
+// 				vectors: res.Embeddings,
+// 			}
 
-			l.InfoContext(ctx, "Successfully processed document")
-		}(i, *item)
-	}
+// 			l.InfoContext(ctx, "Successfully processed document")
+// 		}(i, *item)
+// 	}
 
-	// wait for threads
-	wg.Wait()
-	close(errCh)
-	close(tokenRecsChannel)
+// 	// wait for threads
+// 	wg.Wait()
+// 	close(errCh)
+// 	close(tokenRecsChannel)
 
-	// report vectors
-	tokenRecords := make([]*tokens.UsageRecord, 0)
-	for item := range tokenRecsChannel {
-		tokenRecords = append(tokenRecords, item)
-	}
-	if err := utils.ReportUsage(ctx, logger, txn, c.ID, tokenRecords, nil); err != nil {
-		logger.ErrorContext(ctx, "Failed to log vector usage", "err", err)
-	}
+// 	// report vectors
+// 	tokenRecords := make([]*tokens.UsageRecord, 0)
+// 	for item := range tokenRecsChannel {
+// 		tokenRecords = append(tokenRecords, item)
+// 	}
+// 	if err := utils.ReportUsage(ctx, logger, txn, c.ID, tokenRecords, nil); err != nil {
+// 		logger.ErrorContext(ctx, "Failed to log vector usage", "err", err)
+// 	}
 
-	logger.InfoContext(ctx, "Successfully processed all documents")
+// 	logger.InfoContext(ctx, "Successfully processed all documents")
 
-	// check for errors. If one exists in the channel, something went wrong
-	for err := range errCh {
-		return fmt.Errorf("error vectorizing the data: %s", err)
-	}
+// 	// check for errors. If one exists in the channel, something went wrong
+// 	for err := range errCh {
+// 		return fmt.Errorf("error vectorizing the data: %s", err)
+// 	}
 
-	// loop over the results and insert the vectors into the database
-	logger.InfoContext(ctx, "Inserting all documents into the database")
-	for _, item := range vectors {
-		// skip errors, though this should not be hit
-		if item == nil {
-			continue
-		}
+// 	// loop over the results and insert the vectors into the database
+// 	logger.InfoContext(ctx, "Inserting all documents into the database")
+// 	for _, item := range vectors {
+// 		// skip errors, though this should not be hit
+// 		if item == nil {
+// 			continue
+// 		}
 
-		l := logger.With("filename", item.doc.Filename, "documentId", item.doc.ID)
+// 		l := logger.With("filename", item.doc.Filename, "documentId", item.doc.ID)
 
-		l.InfoContext(ctx, "Inserting document vectors ...")
+// 		l.InfoContext(ctx, "Inserting document vectors ...")
 
-		// loop over all vector results
-		for index, vec := range item.vectors {
-			l.DebugContext(ctx, "Processing index", "index", index)
-			// create raw vector object
-			vecId, err := model.CreateVector(ctx, &queries.CreateVectorParams{
-				Raw:        vec.Raw,
-				Embeddings: &vec.Embedding,
-				CustomerID: c.ID,
-			})
-			if err != nil {
-				return fmt.Errorf("error inserting the vector object: %s", err)
-			}
+// 		// loop over all vector results
+// 		for index, vec := range item.vectors {
+// 			l.DebugContext(ctx, "Processing index", "index", index)
+// 			// create raw vector object
+// 			vecId, err := model.CreateVector(ctx, &queries.CreateVectorParams{
+// 				Raw:        vec.Raw,
+// 				Embeddings: &vec.Embedding,
+// 				CustomerID: c.ID,
+// 			})
+// 			if err != nil {
+// 				return fmt.Errorf("error inserting the vector object: %s", err)
+// 			}
 
-			// create a reference to the vector onto the document
-			_, err = model.CreateDocumentVector(ctx, &queries.CreateDocumentVectorParams{
-				DocumentID:    item.doc.ID,
-				VectorStoreID: vecId,
-				CustomerID:    c.ID,
-				Index:         int32(index),
-			})
-			if err != nil {
-				return fmt.Errorf("error creating document vector relationship: %s", err)
-			}
-		}
-		l.InfoContext(ctx, "Finished.")
-	}
+// 			// create a reference to the vector onto the document
+// 			_, err = model.CreateDocumentVector(ctx, &queries.CreateDocumentVectorParams{
+// 				DocumentID:    item.doc.ID,
+// 				VectorStoreID: vecId,
+// 				CustomerID:    c.ID,
+// 				Index:         int32(index),
+// 			})
+// 			if err != nil {
+// 				return fmt.Errorf("error creating document vector relationship: %s", err)
+// 			}
+// 		}
+// 		l.InfoContext(ctx, "Finished.")
+// 	}
 
-	logger.InfoContext(ctx, "Successfully vectorized the datastore")
+// 	logger.InfoContext(ctx, "Successfully vectorized the datastore")
 
-	return nil
-}
+// 	return nil
+// }
 
 // Deletes ALL objects from the remote datastore. This is more for use in tests
 // to quickly delete all objects from the datastore

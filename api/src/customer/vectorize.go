@@ -2,7 +2,6 @@ package customer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
@@ -15,7 +14,6 @@ import (
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
-	"github.com/sapphirenw/ai-content-creation-api/src/webparse"
 )
 
 func (c *Customer) VectorizeDatastore(
@@ -168,11 +166,11 @@ func (c *Customer) handleDocumentVectorization(
 		return nil, slogger.Error(ctx, logger, "failed to parse the database doc", err)
 	}
 
-	// get the cleaned data from the document and a parser
+	// chunked data from the document
 	logger.InfoContext(ctx, "Fetching document from datastore ...")
-	cleaned, err := doc.GetCleaned(ctx)
+	chunks, err := doc.GetChunks(ctx)
 	if err != nil {
-		return nil, slogger.Error(ctx, logger, "there was an issue getting the cleaned document", err)
+		return nil, slogger.Error(ctx, logger, "there was an issue getting the document chunks", err)
 	}
 
 	// see if the document changed
@@ -198,7 +196,9 @@ func (c *Customer) handleDocumentVectorization(
 
 	// embed the content
 	logger.InfoContext(ctx, "Embedding the document ...")
-	res, err := emb.Embed(ctx, cleaned.String())
+	res, err := emb.Embed(ctx, logger, &gollm.EmbedArgs{
+		InputChunks: chunks,
+	})
 	if err != nil {
 		return nil, slogger.Error(ctx, logger, "error embedding the content", err)
 	}
@@ -316,21 +316,24 @@ func (c *Customer) handleWebsitePageVectorization(
 	db queries.DBTX,
 	l *slog.Logger,
 	emb gollm.Embeddings,
-	page *queries.WebsitePage,
+	p *queries.WebsitePage,
 ) (*tokens.UsageRecord, error) {
-	logger := l.With("page", page.Url)
+	logger := l.With("page", p.Url)
 	dmodel := queries.New(db)
 
 	logger.InfoContext(ctx, "Scraping the page ...")
 
-	// scrape the webpage
-	scrapeResponse, err := webparse.ScrapeSingle(ctx, logger, page)
+	// create a new page type (never returns an error)
+	page, _ := datastore.NewWebsitePageFromWebsitePage(ctx, logger, p)
+
+	// get the raw content
+	raw, err := page.GetRaw(ctx)
 	if err != nil {
-		return nil, slogger.Error(ctx, logger, "failed to scrape the page", err)
+		return nil, fmt.Errorf("failed to get the raw content: %s", err)
 	}
 
-	// create a signature to compare the old vs new
-	newSha256 := utils.GenerateFingerprint([]byte(scrapeResponse.Content))
+	// get the sig
+	newSha256 := utils.GenerateFingerprint(raw.Bytes())
 	if page.VectorSha256 == newSha256 {
 		logger.InfoContext(ctx, "this page has not changed", "vectorSHA256", page.VectorSha256, "newSHA256", newSha256)
 		// touch the page to ensure it gets updated properly
@@ -344,15 +347,24 @@ func (c *Customer) handleWebsitePageVectorization(
 
 	logger.InfoContext(ctx, "Vecorizing the content ...")
 
+	// get the chunks
+	chunks, err := page.GetChunks(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to chunk the data")
+	}
+
 	// embed the content
-	res, err := emb.Embed(ctx, scrapeResponse.Content)
+	res, err := emb.Embed(ctx, logger, &gollm.EmbedArgs{
+		InputChunks: chunks,
+	})
 	if err != nil {
 		return nil, slogger.Error(ctx, logger, "failed to embed the content", err)
 	}
 
-	encodedHeaders, err := json.Marshal(scrapeResponse.Header)
+	// get the metadata for the page
+	metadata, err := page.GetMetadata(ctx)
 	if err != nil {
-		return nil, slogger.Error(ctx, logger, "failed to encode the page headers", err)
+		return nil, fmt.Errorf("failed to get the metadata: %s", err)
 	}
 
 	// lastly upload the vectors to the datastore
@@ -364,7 +376,7 @@ func (c *Customer) handleWebsitePageVectorization(
 			ObjectID:    page.ID,
 			ContentType: "website_page",
 			CustomerID:  c.ID,
-			Metadata:    encodedHeaders,
+			Metadata:    metadata.Bytes(),
 		})
 		if err != nil {
 			return nil, slogger.Error(ctx, logger, "failed to insert the embeddings", err)
@@ -376,7 +388,7 @@ func (c *Customer) handleWebsitePageVectorization(
 			VectorStoreID: vecId,
 			CustomerID:    c.ID,
 			Index:         int32(index),
-			Metadata:      encodedHeaders,
+			Metadata:      metadata.Bytes(),
 		})
 		if err != nil {
 			return nil, slogger.Error(ctx, logger, "failed to create the vector relationship", err)

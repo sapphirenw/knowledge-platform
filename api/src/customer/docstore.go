@@ -12,6 +12,7 @@ import (
 	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/request"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 )
 
 func parseFolderFromRequest(
@@ -211,4 +212,67 @@ func deleteRemoteDatastore(
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func getDocumentRaw(
+	w http.ResponseWriter,
+	r *http.Request,
+	_ *pgxpool.Pool,
+	c *Customer,
+	doc *datastore.Document,
+) {
+	logger := c.logger.With("handler", "getDocumentRaw")
+
+	content, err := doc.GetRaw(r.Context())
+	if err != nil {
+		slogger.ServerError(w, logger, 500, "failed to get the document", err)
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, map[string]any{
+		"document": doc,
+		"raw":      content.Bytes(),
+	})
+}
+
+func getDocumentCleaned(
+	w http.ResponseWriter,
+	r *http.Request,
+	_ *pgxpool.Pool,
+	c *Customer,
+	doc *datastore.Document,
+) {
+	logger := c.logger.With("handler", "getDocumentCleaned")
+
+	content, err := doc.GetCleaned(r.Context())
+	if err != nil {
+		slogger.ServerError(w, logger, 500, "failed to get the document", err)
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, map[string]any{
+		"document": doc,
+		"cleaned":  content.Bytes(),
+	})
+}
+
+func getDocumentChunked(
+	w http.ResponseWriter,
+	r *http.Request,
+	_ *pgxpool.Pool,
+	c *Customer,
+	doc *datastore.Document,
+) {
+	logger := c.logger.With("handler", "getDocumentChunked")
+
+	chunks, err := doc.GetChunks(r.Context())
+	if err != nil {
+		slogger.ServerError(w, logger, 500, "failed to chunk the document", err)
+		return
+	}
+
+	request.Encode(w, r, c.logger, http.StatusOK, map[string]any{
+		"document": doc,
+		"chunks":   chunks,
+	})
 }

@@ -3,10 +3,12 @@ package datastore
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/textsplitter"
 	"github.com/sapphirenw/ai-content-creation-api/src/webparse"
 )
 
@@ -14,9 +16,10 @@ type WebsitePage struct {
 	*queries.WebsitePage
 
 	// cached data to reduce compute if needed
-	raw     *bytes.Buffer // raw data
-	cleaned *bytes.Buffer // data but cleaned
-	logger  *slog.Logger
+	raw      *bytes.Buffer // raw data
+	metadata *bytes.Buffer // for holding the headers
+	cleaned  *bytes.Buffer // data but cleaned
+	logger   *slog.Logger
 }
 
 func NewWebsitePageFromWebsitePage(
@@ -42,7 +45,14 @@ func (p *WebsitePage) GetRaw(ctx context.Context) (*bytes.Buffer, error) {
 			return nil, fmt.Errorf("failed to write to the buffer: %s", err)
 		}
 
+		met := new(bytes.Buffer)
+		enc, _ := json.Marshal(response.Header)
+		if _, err := buf.Write(enc); err != nil {
+			return nil, fmt.Errorf("failed to write the header: %s", err)
+		}
+
 		p.raw = buf
+		p.metadata = met
 	}
 
 	return p.raw, nil
@@ -74,6 +84,42 @@ func (p *WebsitePage) GetCleaned(ctx context.Context) (*bytes.Buffer, error) {
 	p.cleaned = buf
 
 	return p.cleaned, nil
+}
+
+func (p *WebsitePage) GetChunks(ctx context.Context) ([]string, error) {
+
+	content, err := p.GetCleaned(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the cleaned content")
+	}
+
+	// chunk the content as a markdown doc
+	splitter := textsplitter.NewMarkdownTextSplitter(
+		textsplitter.WithChunkSize(4000),
+		textsplitter.WithChunkOverlap(200),
+	)
+	chunks, err := splitter.SplitText(content.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to split the text")
+	}
+
+	return chunks, nil
+}
+
+func (p *WebsitePage) GetMetadata(ctx context.Context) (*bytes.Buffer, error) {
+	if p.metadata != nil {
+		return p.metadata, nil
+	}
+
+	if _, err := p.GetRaw(ctx); err != nil {
+		return nil, fmt.Errorf("failed to get the raw data to fetch the headers: %s", err)
+	}
+
+	if p.metadata == nil {
+		return nil, fmt.Errorf("unknown error getting the metadata")
+	}
+
+	return p.metadata, nil
 }
 
 func (p *WebsitePage) GetSha256() (string, error) {

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sapphirenw/ai-content-creation-api/src/docstore"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/textsplitter"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
@@ -17,9 +18,10 @@ type Document struct {
 	*queries.Document
 
 	// cached data to reduce compute if needed
-	raw     *bytes.Buffer // raw data
-	cleaned *bytes.Buffer // data but cleaned
-	logger  *slog.Logger
+	raw      *bytes.Buffer // raw data
+	metadata *bytes.Buffer // optional metadata
+	cleaned  *bytes.Buffer // data but cleaned
+	logger   *slog.Logger
 }
 
 func GetDocument(
@@ -166,6 +168,48 @@ func (d *Document) GetCleaned(ctx context.Context) (*bytes.Buffer, error) {
 	d.cleaned = buf
 
 	return d.cleaned, nil
+}
+
+func (d *Document) GetChunks(ctx context.Context) ([]string, error) {
+
+	filetype, err := ParseFileType(d.Filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the filetype: %s", err)
+	}
+
+	content, err := d.GetCleaned(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the cleaned content")
+	}
+
+	// chunk the content based on what type of file
+	var chunks []string
+	switch filetype {
+	case FT_html:
+	case FT_md:
+		splitter := textsplitter.NewMarkdownTextSplitter(
+			textsplitter.WithChunkSize(4000),
+			textsplitter.WithChunkOverlap(200),
+		)
+		chunks, err = splitter.SplitText(content.String())
+	default:
+		splitter := textsplitter.NewRecursiveCharacter(
+			textsplitter.WithChunkSize(4000),
+			textsplitter.WithChunkOverlap(200),
+		)
+		chunks, err = splitter.SplitText(content.String())
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to split the text")
+	}
+
+	return chunks, nil
+}
+
+// TODO -- implement
+func (d *Document) GetMetadata(ctx context.Context) (*bytes.Buffer, error) {
+	return new(bytes.Buffer), nil
 }
 
 func (d *Document) GetSha256() (string, error) {

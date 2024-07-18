@@ -8,9 +8,9 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/tokens"
 	"github.com/sapphirenw/ai-content-creation-api/src/prompts"
+	"github.com/sapphirenw/ai-content-creation-api/src/textsplitter"
 )
 
 type SummarizeResponse struct {
@@ -34,8 +34,16 @@ func (llm *LLM) Summarize(
 
 	chunks := make([]string, 0)
 	if estimatedTokens > llm.AvailableModel.InputTokenLimit {
+		splitter := textsplitter.NewRecursiveCharacter(
+			textsplitter.WithChunkSize(int(llm.AvailableModel.InputTokenLimit)),
+			textsplitter.WithChunkOverlap(100),
+		)
+
 		logger.InfoContext(ctx, "Chunking input ...", "tokens", estimatedTokens)
-		chunks = gollm.ChunkStringEqualUntilN(input, int(llm.AvailableModel.InputTokenLimit))
+		chunks, err = splitter.SplitText(input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to split the text")
+		}
 	} else {
 		chunks = append(chunks, input)
 	}

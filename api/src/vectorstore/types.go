@@ -9,6 +9,7 @@ import (
 	"github.com/jake-landersweb/gollm/v2/src/gollm"
 	"github.com/jake-landersweb/gollm/v2/src/ltypes"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/textsplitter"
 )
 
 type QueryInput struct {
@@ -55,7 +56,17 @@ func (input *QueryInput) Validate() error {
 func (input *QueryInput) GetVectors(ctx context.Context, logger *slog.Logger) (*ltypes.EmbeddingsData, error) {
 	if input.Vector == nil {
 		logger.InfoContext(ctx, "Vectors not present, creating new vectors from the input")
-		response, err := input.Embeddings.Embed(ctx, input.Query)
+
+		// get a text splitter
+		splitter := textsplitter.NewRecursiveCharacter(
+			textsplitter.WithChunkSize(8191),
+			textsplitter.WithChunkOverlap(0),
+		)
+
+		response, err := input.Embeddings.Embed(ctx, logger, &gollm.EmbedArgs{
+			Input:            input.Query,
+			ChunkingFunction: splitter.SplitText,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("error sending the embedding request: %s", err)
 		}

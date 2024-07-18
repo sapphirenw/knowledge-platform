@@ -8,6 +8,6 @@ import (
 )
 
 func GetEmbeddings(logger *slog.Logger, c *queries.Customer) gollm.Embeddings {
-	emb := gollm.NewOpenAIEmbeddings(c.ID.String(), logger, nil)
+	emb := gollm.NewOpenAIEmbeddings(c.ID.String(), nil)
 	return emb
 }

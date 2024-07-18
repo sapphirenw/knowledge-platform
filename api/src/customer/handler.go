@@ -41,9 +41,12 @@ func Handler(mux chi.Router) {
 
 	// documents
 	mux.Post("/generatePresignedUrl", customerHandler(generatePresignedUrl))
-	mux.Route("/documents", func(r chi.Router) {
-		r.Get("/{documentId}", documentHandler(getDocument))
-		r.Put("/{documentId}/validate", documentHandler(notifyOfSuccessfulUpload))
+	mux.Route("/documents/{documentId}", func(r chi.Router) {
+		r.Get("/", documentHandler(getDocument))
+		r.Put("/validate", documentHandler(notifyOfSuccessfulUpload))
+		r.Get("/raw", documentHandler(getDocumentRaw))
+		r.Get("/cleaned", documentHandler(getDocumentCleaned))
+		r.Get("/chunked", documentHandler(getDocumentChunked))
 	})
 
 	// folders
@@ -62,7 +65,7 @@ func Handler(mux chi.Router) {
 		r.Route("/{websiteId}", func(r chi.Router) {
 			r.Get("/", websiteHandler(getWebsite))
 			r.Get("/pages", websiteHandler(getWebsitePages))
-			r.Put("/vectorize", websiteHandler(vectorizeWebsite))
+			// r.Put("/vectorize", websiteHandler(vectorizeWebsite))
 		})
 	})
 

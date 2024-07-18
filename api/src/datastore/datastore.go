@@ -8,6 +8,8 @@ import (
 type Object interface {
 	GetRaw(ctx context.Context) (*bytes.Buffer, error)
 	GetCleaned(ctx context.Context) (*bytes.Buffer, error)
+	GetChunks(ctx context.Context) ([]string, error)
+	GetMetadata(ctx context.Context) (*bytes.Buffer, error)
 	GetSha256() (string, error)
 
 	getSummary() string

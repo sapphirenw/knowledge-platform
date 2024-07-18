@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lmittmann/tint"
 	"github.com/sapphirenw/ai-content-creation-api/src/datastore"
-	"github.com/sapphirenw/ai-content-creation-api/src/queries"
 	"github.com/sapphirenw/ai-content-creation-api/src/testingutils"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 	"github.com/stretchr/testify/require"
@@ -64,78 +63,78 @@ func TestCustomerDocumentStore(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCustomerWebsites(t *testing.T) {
-	ctx, _, pool, c := testInit(t)
+// func TestCustomerWebsites(t *testing.T) {
+// 	ctx, _, pool, c := testInit(t)
 
-	// parse some rules
-	noRules, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
-		Domain:    "https://crosschecksports.com",
-		Blacklist: []string{},
-		Whitelist: []string{},
-	})
-	require.NoError(t, err)
-	whitelist, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
-		Domain:    "https://crosschecksports.com",
-		Blacklist: []string{},
-		Whitelist: []string{"docs"},
-	})
-	require.NoError(t, err)
-	blacklist, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
-		Domain:    "https://crosschecksports.com",
-		Blacklist: []string{"docs"},
-		Whitelist: []string{},
-	})
-	require.NoError(t, err)
+// 	// parse some rules
+// 	noRules, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
+// 		Domain:    "https://crosschecksports.com",
+// 		Blacklist: []string{},
+// 		Whitelist: []string{},
+// 	})
+// 	require.NoError(t, err)
+// 	whitelist, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
+// 		Domain:    "https://crosschecksports.com",
+// 		Blacklist: []string{},
+// 		Whitelist: []string{"docs"},
+// 	})
+// 	require.NoError(t, err)
+// 	blacklist, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
+// 		Domain:    "https://crosschecksports.com",
+// 		Blacklist: []string{"docs"},
+// 		Whitelist: []string{},
+// 	})
+// 	require.NoError(t, err)
 
-	// assertions
-	require.Less(t, len(whitelist.Pages), len(noRules.Pages))
-	require.Less(t, len(blacklist.Pages), len(noRules.Pages))
-	require.Less(t, len(whitelist.Pages), len(blacklist.Pages))
+// 	// assertions
+// 	require.Less(t, len(whitelist.Pages), len(noRules.Pages))
+// 	require.Less(t, len(blacklist.Pages), len(noRules.Pages))
+// 	require.Less(t, len(whitelist.Pages), len(blacklist.Pages))
 
-	// insert a website
-	site, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
-		Domain:    "https://crosschecksports.com",
-		Blacklist: []string{},
-		Whitelist: []string{"docs"},
-	})
-	require.NoError(t, err)
+// 	// insert a website
+// 	site, err := c.SearchWebsite(ctx, &handleWebsiteRequest{
+// 		Domain:    "https://crosschecksports.com",
+// 		Blacklist: []string{},
+// 		Whitelist: []string{"docs"},
+// 	})
+// 	require.NoError(t, err)
 
-	// vectorize the website
-	err = c.VectorizeAllWebsites(ctx, pool)
-	require.NoError(t, err)
+// 	// vectorize the website
+// 	err = c.VectorizeAllWebsites(ctx, pool)
+// 	require.NoError(t, err)
 
-	// query the vectors
-	model := queries.New(pool)
-	vectors, err := model.ListWebsitePageVectors(ctx, c.ID)
-	require.NoError(t, err)
+// 	// query the vectors
+// 	model := queries.New(pool)
+// 	vectors, err := model.ListWebsitePageVectors(ctx, c.ID)
+// 	require.NoError(t, err)
 
-	// ensure the correct number of vectors was inserted
-	rootVectors := 0
-	for _, item := range vectors {
-		if item.Index == 0 {
-			rootVectors += 1
-		}
-	}
-	require.Equal(t, len(site.Pages), rootVectors)
+// 	// ensure the correct number of vectors was inserted
+// 	rootVectors := 0
+// 	for _, item := range vectors {
+// 		if item.Index == 0 {
+// 			rootVectors += 1
+// 		}
+// 	}
+// 	require.Equal(t, len(site.Pages), rootVectors)
 
-	// TODO -- run a query against the vector store
-	vecQueryResponse, err := c.QueryVectorStore(ctx, pool, &queryVectorStoreRequest{
-		Query: "How to create a team",
-		K:     3,
-	})
-	require.NoError(t, err)
+// 	// TODO -- run a query against the vector store
+// 	vecQueryResponse, err := c.QueryVectorStore(ctx, pool, &queryVectorStoreRequest{
+// 		Query: "How to create a team",
+// 		K:     3,
+// 	})
+// 	require.NoError(t, err)
 
-	fmt.Println("\n\n++++ DOCS:")
-	for _, item := range vecQueryResponse.Documents {
-		fmt.Println("- " + item.Filename)
-	}
+// 	fmt.Println("\n\n++++ DOCS:")
+// 	for _, item := range vecQueryResponse.Documents {
+// 		fmt.Println("- " + item.Filename)
+// 	}
 
-	fmt.Println("\n\n++++ PAGES:")
-	for _, item := range vecQueryResponse.WebsitePages {
-		fmt.Println("- " + item.Url)
-	}
+// 	fmt.Println("\n\n++++ PAGES:")
+// 	for _, item := range vecQueryResponse.WebsitePages {
+// 		fmt.Println("- " + item.Url)
+// 	}
 
-}
+// }
 
 func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, directory string, db *pgxpool.Pool) error {
 	// get all files in dir
