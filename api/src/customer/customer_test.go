@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -231,35 +230,35 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, dir
 	return nil
 }
 
-func remotels(ctx context.Context, c *Customer, parentId *uuid.UUID, indent int, db *pgxpool.Pool) error {
-	pid := utils.GoogleUUIDPtrToPGXUUID(parentId)
-	response, err := c.ListFolderContents(ctx, db, pid)
-	if err != nil {
-		return err
-	}
+// func remotels(ctx context.Context, c *Customer, parentId *uuid.UUID, indent int, db *pgxpool.Pool) error {
+// 	pid := utils.GoogleUUIDPtrToPGXUUID(parentId)
+// 	response, err := c.ListFolderContents(ctx, db, pid)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// print parent
-	spacing := strings.Repeat(" ", indent)
-	if response.Self == nil {
-		fmt.Printf("%s - root/\n", spacing)
-	} else {
-		fmt.Printf("%s - %s/\n", spacing, response.Self.Title)
-	}
+// 	// print parent
+// 	spacing := strings.Repeat(" ", indent)
+// 	if response.Self == nil {
+// 		fmt.Printf("%s - root/\n", spacing)
+// 	} else {
+// 		fmt.Printf("%s - %s/\n", spacing, response.Self.Title)
+// 	}
 
-	// print docs
-	for _, item := range response.Documents {
-		fmt.Printf("%s  - %s\n", spacing, item.Filename)
-	}
+// 	// print docs
+// 	for _, item := range response.Documents {
+// 		fmt.Printf("%s  - %s\n", spacing, item.Filename)
+// 	}
 
-	// print folders
-	for _, item := range response.Folders {
-		if err := remotels(ctx, c, &item.ID, indent+2, db); err != nil {
-			return err
-		}
-	}
+// 	// print folders
+// 	for _, item := range response.Folders {
+// 		if err := remotels(ctx, c, &item.ID, indent+2, db); err != nil {
+// 			return err
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // sets up the required structure for a test to run properly
 func testInit(t *testing.T) (context.Context, *slog.Logger, *pgxpool.Pool, *Customer) {
