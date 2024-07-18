@@ -252,7 +252,7 @@ func getDocumentCleaned(
 
 	request.Encode(w, r, c.logger, http.StatusOK, map[string]any{
 		"document": doc,
-		"cleaned":  content.Bytes(),
+		"cleaned":  content.String(),
 	})
 }
 

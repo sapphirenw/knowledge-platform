@@ -1,7 +1,7 @@
-FROM golang:alpine as go-builder
+FROM golang:1.22.5-bookworm as go-builder
 
 # grab the needed certs
-RUN apk --no-cache add ca-certificates
+RUN apt-get update && apt-get install -y ca-certificates
 
 WORKDIR /app
 
@@ -11,11 +11,14 @@ RUN go mod download
 COPY src ./src
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./src/*.go
 
-FROM scratch
+FROM alpine:latest
 
 # copy the certs and the binary
 COPY --from=go-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=go-builder /app/main .
+
+# install dependencies
+RUN apk add --no-cache poppler-utils wv unrtf tidyhtml
 
 EXPOSE 8080
 

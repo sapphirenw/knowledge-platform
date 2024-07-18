@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/breadcrumb"
 import { humanFileSize } from "@/utils/humanFileSize"
 import DefaultLoader from "@/components/default_loader"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 
 export default function UserFiles() {
@@ -46,7 +48,9 @@ export default function UserFiles() {
         const items = []
         for (let i = 0; i < data.documents.length; i++) {
             items.push(<TableRow key={`doc-${i}`}>
-                <TableCell className="font-medium">{data.documents[i].filename}</TableCell>
+                <TableCell className="font-medium">
+                    <Link className="text-primary hover:opacity-50 underline" href={`/datastore/documents/${data.documents[i].id}`}>{data.documents[i].filename}</Link>
+                </TableCell>
                 <TableCell>{humanFileSize(data.documents[i].sizeBytes)}</TableCell>
                 <TableCell className="text-right">{new Date(data.documents[i].createdAt).toLocaleString()}</TableCell>
             </TableRow>)

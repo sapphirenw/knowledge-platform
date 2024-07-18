@@ -188,13 +188,13 @@ func (d *Document) GetChunks(ctx context.Context) ([]string, error) {
 	case FT_html:
 	case FT_md:
 		splitter := textsplitter.NewMarkdownTextSplitter(
-			textsplitter.WithChunkSize(4000),
+			textsplitter.WithChunkSize(2000),
 			textsplitter.WithChunkOverlap(200),
 		)
 		chunks, err = splitter.SplitText(content.String())
 	default:
 		splitter := textsplitter.NewRecursiveCharacter(
-			textsplitter.WithChunkSize(4000),
+			textsplitter.WithChunkSize(2000),
 			textsplitter.WithChunkOverlap(200),
 		)
 		chunks, err = splitter.SplitText(content.String())

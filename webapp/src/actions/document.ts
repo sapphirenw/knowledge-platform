@@ -1,6 +1,6 @@
 "use server"
 
-import { FileValidationResponse, ListFolderResponse, PresignedUrlResponse } from "@/types/document"
+import { Document, DocumentChunkedResponse, DocumentCleanedResponse, FileValidationResponse, ListFolderResponse, PresignedUrlResponse } from "@/types/document"
 import { humanFileSize } from "@/utils/humanFileSize"
 import { generateSHA256 } from "@/utils/sha"
 import { cookies } from "next/headers"
@@ -101,4 +101,25 @@ export async function uploadDocuments(form: FormData): Promise<boolean> {
         if (e instanceof Error) console.log(e)
         return false
     }
+}
+
+export async function getDocument(documentId: string) {
+    const cid = await getCID()
+    return await sendRequestV1<Document>({
+        route: `customers/${cid}/documents/${documentId}`
+    })
+}
+
+export async function getDocumentCleaned(documentId: string) {
+    const cid = await getCID()
+    return await sendRequestV1<DocumentCleanedResponse>({
+        route: `customers/${cid}/documents/${documentId}/cleaned`
+    })
+}
+
+export async function getDocumentChunked(documentId: string) {
+    const cid = await getCID()
+    return await sendRequestV1<DocumentChunkedResponse>({
+        route: `customers/${cid}/documents/${documentId}/chunked`
+    })
 }
