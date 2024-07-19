@@ -39,11 +39,13 @@ export default function MessageToolCallResult({
 
 function DocumentItem({ doc }: { doc: Document }) {
     return <Link href={`/datastore/documents/${doc.id}`} className="bg-secondary hover:opacity-75 transition-opacity rounded-lg grid place-items-center">
-        <div className="flex items-center truncate w-full text-left">
-            <div className="w-[20px] mr-2">
-                <FileText size={20} />
+        <div className="w-full p-2">
+            <div className="flex items-center space-x-2 px-2">
+                <div className="min-w-[30px] min-h-[30px]">
+                    <FileText size={30} />
+                </div>
+                <p className="text-wrap text-left">{doc.filename}</p>
             </div>
-            <p className="truncate">{doc.filename}</p>
         </div>
     </Link>
 }

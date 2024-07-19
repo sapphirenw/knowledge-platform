@@ -91,7 +91,7 @@ export default function DocumentViewClient({
             <p className="prose break-all">{getCleanedView()}</p>
         </div>
         <div className="">
-            <h4 className="font-medium">Chunked Content:</h4>
+            <h4 className="font-medium">Chunks:</h4>
             <Separator />
             <p className="prose break-all">{getChunkedView()}</p>
         </div>

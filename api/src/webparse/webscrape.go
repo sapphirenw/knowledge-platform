@@ -10,6 +10,7 @@ import (
 	"github.com/gocolly/colly/v2"
 	"github.com/gocolly/colly/v2/extensions"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
+	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
 	"github.com/sapphirenw/ai-content-creation-api/src/utils"
 )
 
@@ -121,7 +122,7 @@ func ScrapeHrefs(
 	return result, nil
 }
 
-func ScrapeSingle(
+func ScrapeSingleOLD(
 	ctx context.Context,
 	logger *slog.Logger,
 	page *queries.WebsitePage,
@@ -181,4 +182,88 @@ func ScrapeSingle(
 		Header:  &header,
 		Content: res,
 	}, err
+}
+
+func ScrapeSingle(
+	ctx context.Context,
+	logger *slog.Logger,
+	page *queries.WebsitePage,
+) (*ScrapeResponse, error) {
+	var res string
+	header := ScrapeHeader{}
+
+	// converter and scraper
+	converter := md.NewConverter("", true, nil)
+	scraper := colly.NewCollector()
+
+	var main string
+	var body string
+
+	// parse both main and body in-case website does not use main
+	scraper.OnHTML("main", func(e *colly.HTMLElement) {
+		// parse the response
+		raw, err := e.DOM.Html()
+		if err != nil {
+			logger.ErrorContext(ctx, "Error parsing the html", "error", err)
+			return
+		}
+		main = raw
+	})
+	scraper.OnHTML("body", func(e *colly.HTMLElement) {
+		// parse the response
+		raw, err := e.DOM.Html()
+		if err != nil {
+			logger.ErrorContext(ctx, "Error parsing the html", "error", err)
+			return
+		}
+		body = raw
+	})
+
+	// parse the header
+	scraper.OnHTML("head", func(e *colly.HTMLElement) {
+		header.Title = e.ChildText("title")
+		header.Description = e.ChildAttr(`meta[name="description"]`, "content")
+
+		// get the keywords
+		keywordsRaw := e.ChildAttr(`meta[name="keywords"]`, "content")
+		keywords := make([]string, 0)
+		keywords = append(keywords, strings.Split(keywordsRaw, ",")...)
+		header.Tags = keywords
+	})
+
+	// error handler
+	scraper.OnError(func(r *colly.Response, err error) {
+		logger.ErrorContext(ctx, "There was an issue scraping the url", "url", r.Request.URL, "statusCode", r.StatusCode)
+	})
+
+	scraper.OnRequest(func(r *colly.Request) {
+		logger.DebugContext(ctx, "Visiting url", "url", r.URL)
+	})
+
+	scraper.Visit(page.Url)
+
+	// parse from the main element
+	markdown, err := converter.ConvertString(main)
+	if err != nil {
+		return nil, slogger.Error(ctx, logger, "failed to parse the markdown from main", err)
+	} else {
+		res = markdown
+	}
+
+	// check if any content was found and if not use the body
+	if res == "" {
+		logger.Info("No content found in main, using body")
+		markdown, err := converter.ConvertString(body)
+		if err != nil {
+			return nil, slogger.Error(ctx, logger, "failed to parse the markdown from body", err)
+		} else {
+			// add to response
+			res = markdown
+		}
+	}
+
+	return &ScrapeResponse{
+		Header:  &header,
+		Content: res,
+	}, nil
 }

@@ -64,8 +64,9 @@ func Handler(mux chi.Router) {
 		r.Post("/", customerHandler(insertWebsite))
 		r.Route("/{websiteId}", func(r chi.Router) {
 			r.Get("/", websiteHandler(getWebsite))
+			r.Delete("/", websiteHandler(deleteWebsite))
 			r.Get("/pages", websiteHandler(getWebsitePages))
-			// r.Put("/vectorize", websiteHandler(vectorizeWebsite))
+			r.Get("/pages/{pageId}/content", websiteHandler(getWebsitePageContent))
 		})
 	})
 

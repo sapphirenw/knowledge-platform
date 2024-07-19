@@ -1138,6 +1138,18 @@ func (q *Queries) DeleteFoldersOlderThan(ctx context.Context, arg *DeleteFolders
 	return err
 }
 
+const deleteWebsite = `-- name: DeleteWebsite :exec
+DELETE FROM website WHERE id = $1
+`
+
+// DeleteWebsite
+//
+//	DELETE FROM website WHERE id = $1
+func (q *Queries) DeleteWebsite(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteWebsite, id)
+	return err
+}
+
 const deleteWebsiteEmpty = `-- name: DeleteWebsiteEmpty :exec
 DELETE FROM website w
 WHERE w.customer_id = $1
@@ -3487,6 +3499,35 @@ func (q *Queries) GetWebsite(ctx context.Context, id uuid.UUID) (*Website, error
 		&i.Path,
 		&i.Blacklist,
 		&i.Whitelist,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getWebsitePage = `-- name: GetWebsitePage :one
+SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM website_page
+WHERE id = $1
+`
+
+// GetWebsitePage
+//
+//	SELECT id, customer_id, website_id, url, sha_256, is_valid, metadata, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM website_page
+//	WHERE id = $1
+func (q *Queries) GetWebsitePage(ctx context.Context, id uuid.UUID) (*WebsitePage, error) {
+	row := q.db.QueryRow(ctx, getWebsitePage, id)
+	var i WebsitePage
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.WebsiteID,
+		&i.Url,
+		&i.Sha256,
+		&i.IsValid,
+		&i.Metadata,
+		&i.Summary,
+		&i.SummarySha256,
+		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

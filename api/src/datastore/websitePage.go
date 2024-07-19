@@ -95,7 +95,7 @@ func (p *WebsitePage) GetChunks(ctx context.Context) ([]string, error) {
 
 	// chunk the content as a markdown doc
 	splitter := textsplitter.NewMarkdownTextSplitter(
-		textsplitter.WithChunkSize(4000),
+		textsplitter.WithChunkSize(2000),
 		textsplitter.WithChunkOverlap(200),
 	)
 	chunks, err := splitter.SplitText(content.String())

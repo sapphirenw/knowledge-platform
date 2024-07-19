@@ -38,3 +38,9 @@ export type HandleWebsiteResponse = {
     site: Website
     pages: WebsitePage[]
 }
+
+export type WebsitePageContentResponse = {
+    page: WebsitePage;
+    cleaned?: string;
+    chunks?: string[];
+}

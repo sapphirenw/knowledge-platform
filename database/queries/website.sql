@@ -34,6 +34,9 @@ AND NOT EXISTS (
     WHERE wp.website_id = w.id
 );
 
+-- name: DeleteWebsite :exec
+DELETE FROM website WHERE id = $1;
+
 -- name: CreateWebsitePage :one
 INSERT INTO website_page (
     customer_id, website_id, url, sha_256, metadata
@@ -45,6 +48,10 @@ DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP,
     is_valid = TRUE
 RETURNING *;
+
+-- name: GetWebsitePage :one
+SELECT * FROM website_page
+WHERE id = $1;
 
 -- name: UpdateWebsitePageSignature :one
 UPDATE website_page SET
