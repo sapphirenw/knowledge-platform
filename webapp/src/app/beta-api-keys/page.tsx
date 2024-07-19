@@ -31,11 +31,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AuthError } from "@/types/errors"
 import { createApiKey } from "@/actions/beta_auth"
 import { BetaApiKey } from "@/types/beta_auth"
+import { Switch } from "@/components/ui/switch"
 
 const FormSchema = z.object({
     name: z.string().min(2, {
         message: "Username must be at least 2 characters.",
     }),
+    isAdmin: z.boolean(),
     authToken: z.string().min(1, {
         message: "Auth token cannot be empty",
     }),
@@ -50,6 +52,7 @@ export default function CreateBetaApiKey() {
         resolver: zodResolver(FormSchema),
         defaultValues: {
             name: "",
+            isAdmin: false,
         },
     })
 
@@ -57,7 +60,7 @@ export default function CreateBetaApiKey() {
         // send the request
         setIsLoading(true)
         try {
-            const response = await createApiKey(data.name, data.authToken)
+            const response = await createApiKey(data.name, data.isAdmin, data.authToken)
             setData(response)
             setOpenDialog(true)
             form.reset()
@@ -124,6 +127,26 @@ export default function CreateBetaApiKey() {
                                             This name will be tied to the API Key, so this is the name you will give them.
                                         </FormDescription>
                                         <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="isAdmin"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base">Is Admin</FormLabel>
+                                            <FormDescription>
+                                                Grants the ability to view admin screens like debug chats.
+                                            </FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
                                     </FormItem>
                                 )}
                             />

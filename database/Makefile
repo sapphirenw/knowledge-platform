@@ -1,18 +1,7 @@
-# combines all schema files together and creates the master schema document
-db-schema:
-	# grab all the base schema objects
-	awk 'FNR==1{print ""}1' ./schema/*.sql > ./schema.sql
-
-	# only include the up statements in the schema
-	sed -n '/-- +goose Up/,/-- +goose Down/ { /-- +goose Down/d; p; }' ./migrations/*.sql | sed -n '/-- +goose StatementBegin/,/-- +goose StatementEnd/p' >> ./schema.sql
-
 sql:
 	awk 'FNR==1{print ""}1' ./queries/* > ./queries.sql
 	sqlc generate
 	rm ./queries.sql
-
-mig: sql
-	goose postgres "postgresql://aicontent:aicontent@localhost:5432/aicontent" up
 
 clean:
 	rm -rf ./data
@@ -22,14 +11,14 @@ clean:
 		docker rmi $$IMAGES; \
 	fi
 
-run: db-schema
+run:
 	docker compose up -d --remove-orphans
 
-rebuild: db-schema
+rebuild:
 	$(MAKE) clean
 	$(MAKE) run
 
-test: db-schema
+test:
 	$(MAKE) clean
 	docker compose up --build
 	$(MAKE) clean

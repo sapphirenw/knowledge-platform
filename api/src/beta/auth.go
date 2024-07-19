@@ -41,6 +41,7 @@ func createBetaApiKey(
 		slogger.ServerError(w, &logger, 400, "'name' is a required url parameter", nil)
 		return
 	}
+	isAdmin := r.URL.Query().Get("isAdmin") == "true"
 
 	// get a connection
 	pool, err := db.GetPool()
@@ -51,7 +52,10 @@ func createBetaApiKey(
 
 	// send the create request
 	dmodel := queries.New(pool)
-	key, err := dmodel.CreateBetaApiKey(r.Context(), name)
+	key, err := dmodel.CreateBetaApiKey(r.Context(), &queries.CreateBetaApiKeyParams{
+		Name:    name,
+		IsAdmin: isAdmin,
+	})
 	if err != nil {
 		slogger.ServerError(w, &logger, 500, "failed to create the api key", err)
 		return

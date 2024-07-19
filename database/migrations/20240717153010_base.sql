@@ -1192,6 +1192,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO schema_spy;
 -- +goose StatementBegin
 DELETE EXTENSION IF EXISTS vector;
 DELETE EXTENSION IF EXISTS "uuid-ossp";
+DROP ROLE schema_spy;
 DROP SCHEMA public CASCADE;
 CREATE SCHEMA public;
 GRANT ALL ON SCHEMA public TO public;

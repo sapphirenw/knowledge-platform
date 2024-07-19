@@ -28,18 +28,23 @@ func (q *Queries) ClearConversation(ctx context.Context, conversationID uuid.UUI
 }
 
 const createBetaApiKey = `-- name: CreateBetaApiKey :one
-INSERT INTO beta_api_key ( name )
-VALUES ( $1 )
-RETURNING id, name, expired, created_at, updated_at
+INSERT INTO beta_api_key ( name, is_admin )
+VALUES ( $1, $2 )
+RETURNING id, name, expired, created_at, updated_at, is_admin
 `
+
+type CreateBetaApiKeyParams struct {
+	Name    string `db:"name" json:"name"`
+	IsAdmin bool   `db:"is_admin" json:"isAdmin"`
+}
 
 // CreateBetaApiKey
 //
-//	INSERT INTO beta_api_key ( name )
-//	VALUES ( $1 )
-//	RETURNING id, name, expired, created_at, updated_at
-func (q *Queries) CreateBetaApiKey(ctx context.Context, name string) (*BetaApiKey, error) {
-	row := q.db.QueryRow(ctx, createBetaApiKey, name)
+//	INSERT INTO beta_api_key ( name, is_admin )
+//	VALUES ( $1, $2 )
+//	RETURNING id, name, expired, created_at, updated_at, is_admin
+func (q *Queries) CreateBetaApiKey(ctx context.Context, arg *CreateBetaApiKeyParams) (*BetaApiKey, error) {
+	row := q.db.QueryRow(ctx, createBetaApiKey, arg.Name, arg.IsAdmin)
 	var i BetaApiKey
 	err := row.Scan(
 		&i.ID,
@@ -47,6 +52,7 @@ func (q *Queries) CreateBetaApiKey(ctx context.Context, name string) (*BetaApiKe
 		&i.Expired,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAdmin,
 	)
 	return &i, err
 }
@@ -1332,13 +1338,13 @@ func (q *Queries) GetAvailableModelsScoped(ctx context.Context, provider string)
 }
 
 const getBetaApiKey = `-- name: GetBetaApiKey :one
-SELECT id, name, expired, created_at, updated_at FROM beta_api_key
+SELECT id, name, expired, created_at, updated_at, is_admin FROM beta_api_key
 WHERE id = $1
 `
 
 // GetBetaApiKey
 //
-//	SELECT id, name, expired, created_at, updated_at FROM beta_api_key
+//	SELECT id, name, expired, created_at, updated_at, is_admin FROM beta_api_key
 //	WHERE id = $1
 func (q *Queries) GetBetaApiKey(ctx context.Context, id uuid.UUID) (*BetaApiKey, error) {
 	row := q.db.QueryRow(ctx, getBetaApiKey, id)
@@ -1349,6 +1355,7 @@ func (q *Queries) GetBetaApiKey(ctx context.Context, id uuid.UUID) (*BetaApiKey,
 		&i.Expired,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAdmin,
 	)
 	return &i, err
 }

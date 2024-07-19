@@ -94,6 +94,7 @@ type BetaApiKey struct {
 	Expired   bool               `db:"expired" json:"expired"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	IsAdmin   bool               `db:"is_admin" json:"isAdmin"`
 }
 
 type BlogCategory struct {

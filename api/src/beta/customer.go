@@ -26,7 +26,6 @@ func getCustomer(
 		http.Error(w, "'name' is a required url parameter", http.StatusInternalServerError)
 		return
 	}
-	isAdmin := r.URL.Query().Get("isAdmin") == "true"
 
 	// parse the authToken for this user
 	authToken, err := utils.GoogleUUIDFromString(r.URL.Query().Get("authToken"))
@@ -80,7 +79,7 @@ func getCustomer(
 		// create a new customer
 		customer, err = dmodel.CreateCustomer(r.Context(), &queries.CreateCustomerParams{
 			Name:    name,
-			IsAdmin: isAdmin,
+			IsAdmin: key.IsAdmin,
 		})
 		if err == nil {
 			request.Encode(w, r, &logger, http.StatusOK, customer)

@@ -1,6 +1,6 @@
 -- name: CreateBetaApiKey :one
-INSERT INTO beta_api_key ( name )
-VALUES ( $1 )
+INSERT INTO beta_api_key ( name, is_admin )
+VALUES ( $1, $2 )
 RETURNING *;
 
 -- name: GetBetaApiKey :one
