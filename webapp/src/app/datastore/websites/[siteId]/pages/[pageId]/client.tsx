@@ -28,7 +28,7 @@ export default function WebsitePageViewClient({
             <h4 className="font-medium">Chunks <span className="text-sm opacity-50">- {resp.chunks.length}</span></h4>
             <Separator />
             <div className="space-y-2">
-                {resp.chunks.map((item, i) => <p key={`chunk-${i}`}>{item}</p>)}
+                {resp.chunks.map((item, i) => <p key={`chunk-${i}`} className="break-all">{item}</p>)}
             </div>
         </div>
     }

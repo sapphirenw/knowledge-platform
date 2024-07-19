@@ -7,7 +7,7 @@ export default function RagLayout({
     children: React.ReactNode;
 }>) {
     return <div className="flex flex-col flex-grow h-screen">
-        <Header />
+        {/* <Header /> */}
         <div className="flex flex-row flex-grow h-full overflow-hidden">
             <div className="w-[300px]">
                 <Sidebar />

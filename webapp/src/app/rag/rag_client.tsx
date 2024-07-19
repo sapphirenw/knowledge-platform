@@ -1,6 +1,5 @@
 "use client"
 
-import { handleRAG } from '@/actions/rag';
 import { ConversationMessage } from '@/types/conversation';
 import { RagMessagePayload } from '@/types/rag';
 import React, { KeyboardEvent, useEffect, useRef, useState } from 'react';
@@ -11,9 +10,11 @@ import Cookies from "js-cookie"
 import { getConversation } from '@/actions/conversation';
 import RagEmpty from './rag_empty';
 import { toast } from '@/components/ui/use-toast';
-import useWebSocket, { ReadyState } from 'react-use-websocket';
+import useWebSocket from 'react-use-websocket';
 import RagLLMSelector from './rag_llm_selector';
 import { ModelRow } from '@/types/llm';
+import { House } from 'lucide-react';
+import Link from 'next/link';
 
 export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
     const queryClient = useQueryClient()
@@ -193,9 +194,16 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
     };
 
     return <div className="flex flex-col flex-grow h-full overflow-hidden">
-        <div ref={scrollableDivRef} className="bg-bg flex-grow overflow-scroll p-4">
-            <div className="sticky top-0">
-                <RagLLMSelector currLLM={currentChatLLM} onSelect={changeChatLLM} />
+        <div ref={scrollableDivRef} className="bg-bg flex-grow overflow-scroll">
+            <div className="sticky top-0 p-2 bg-background">
+                <div className="flex items-center justify-between">
+                    <RagLLMSelector currLLM={currentChatLLM} onSelect={changeChatLLM} />
+                    <Link href="/datastore">
+                        <div className="p-2 rounded-md border border-border hover:bg-border">
+                            <House strokeWidth={2} className='opacity-75' />
+                        </div>
+                    </Link>
+                </div>
             </div>
             <div className="flex h-full justify-center items-start w-full">
                 <div className="flex flex-col max-w-[800px] w-full h-full">
