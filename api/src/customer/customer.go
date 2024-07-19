@@ -36,7 +36,9 @@ func CreateCustomer(ctx context.Context, logger *slog.Logger, db queries.DBTX, r
 	l.InfoContext(ctx, "Creating a new customer ...")
 
 	model := queries.New(db)
-	customer, err := model.CreateCustomer(ctx, request.Name)
+	customer, err := model.CreateCustomer(ctx, &queries.CreateCustomerParams{
+		Name: request.Name,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating the customer")
 	}

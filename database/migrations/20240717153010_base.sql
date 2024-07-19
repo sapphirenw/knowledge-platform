@@ -1,3 +1,5 @@
+-- +goose Up
+-- +goose StatementBegin
 
 /*
  * MIT License
@@ -1184,22 +1186,14 @@ CREATE ROLE schema_spy LOGIN PASSWORD 'schema_spy';
 GRANT CONNECT ON DATABASE aicontent TO schema_spy;
 GRANT USAGE ON SCHEMA public TO schema_spy;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO schema_spy;
--- +goose StatementBegin
-ALTER TABLE available_model ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT true;
-INSERT INTO available_model (
-    id, provider, display_name, description, input_token_limit, output_token_limit, input_cost_per_million_tokens, output_cost_per_million_tokens, is_visible
-) VALUES (
-    'text-embedding-3-small',
-    'openai',
-    'Text Embeddings 3 Small',
-    '',
-    8191,
-    8191,
-    0.02,
-    0,
-    false
-);
 -- +goose StatementEnd
+
+-- +goose Down
 -- +goose StatementBegin
-ALTER TABLE customer ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT false;
+DELETE EXTENSION IF EXISTS vector;
+DELETE EXTENSION IF EXISTS "uuid-ossp";
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO public;
+GRANT ALL ON SCHEMA public TO aicontent;
 -- +goose StatementEnd

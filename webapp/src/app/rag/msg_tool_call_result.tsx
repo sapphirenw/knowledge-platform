@@ -3,6 +3,8 @@ import { ConversationMessage } from "@/types/conversation"
 import { Document } from "@/types/document"
 import { WebsitePage } from "@/types/websites";
 import { File, FileText } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function MessageToolCallResult({
     message,
@@ -36,21 +38,21 @@ export default function MessageToolCallResult({
 }
 
 function DocumentItem({ doc }: { doc: Document }) {
-    return <Button variant="secondary">
+    return <Link href={`/datastore/documents/${doc.id}`} className="bg-secondary hover:opacity-75 transition-opacity rounded-lg grid place-items-center">
         <div className="flex items-center truncate w-full text-left">
             <div className="w-[20px] mr-2">
                 <FileText size={20} />
             </div>
             <p className="truncate">{doc.filename}</p>
         </div>
-    </Button>
+    </Link>
 }
 
 function WebsitePageItem({ page }: { page: WebsitePage }) {
     const urlObj = new URL(page.url);
 
     return <a href={page.url} target="_blank" rel="" className="bg-secondary hover:opacity-75 transition-opacity rounded-lg grid place-items-center">
-        <div className="w-full">
+        <div className="w-full p-2">
             <div className="flex items-center space-x-2 px-2">
                 <div className="min-w-[30px] min-h-[30px]">
                     <img className="w-[30px] h-[30px]" src={`${urlObj.origin}/favicon.ico`} />

@@ -12,9 +12,9 @@ ORDER BY name;
 
 -- name: CreateCustomer :one
 INSERT INTO customer (
-    name
+    name, is_admin
 ) VALUES (
-    $1
+    $1, $2
 )
 RETURNING *;
 

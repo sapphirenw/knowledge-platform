@@ -190,23 +190,28 @@ func (q *Queries) CreateConversationMessage(ctx context.Context, arg *CreateConv
 
 const createCustomer = `-- name: CreateCustomer :one
 INSERT INTO customer (
-    name
+    name, is_admin
 ) VALUES (
-    $1
+    $1, $2
 )
-RETURNING id, name, datastore, created_at, updated_at
+RETURNING id, name, datastore, created_at, updated_at, is_admin
 `
+
+type CreateCustomerParams struct {
+	Name    string `db:"name" json:"name"`
+	IsAdmin bool   `db:"is_admin" json:"isAdmin"`
+}
 
 // CreateCustomer
 //
 //	INSERT INTO customer (
-//	    name
+//	    name, is_admin
 //	) VALUES (
-//	    $1
+//	    $1, $2
 //	)
-//	RETURNING id, name, datastore, created_at, updated_at
-func (q *Queries) CreateCustomer(ctx context.Context, name string) (*Customer, error) {
-	row := q.db.QueryRow(ctx, createCustomer, name)
+//	RETURNING id, name, datastore, created_at, updated_at, is_admin
+func (q *Queries) CreateCustomer(ctx context.Context, arg *CreateCustomerParams) (*Customer, error) {
+	row := q.db.QueryRow(ctx, createCustomer, arg.Name, arg.IsAdmin)
 	var i Customer
 	err := row.Scan(
 		&i.ID,
@@ -214,6 +219,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, name string) (*Customer, e
 		&i.Datastore,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAdmin,
 	)
 	return &i, err
 }
@@ -1209,13 +1215,13 @@ func (q *Queries) DeleteWebsitePagesOlderThan(ctx context.Context, arg *DeleteWe
 }
 
 const getAvailableModel = `-- name: GetAvailableModel :one
-SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at, is_visible FROM available_model
 WHERE id = $1
 `
 
 // GetAvailableModel
 //
-//	SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+//	SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at, is_visible FROM available_model
 //	WHERE id = $1
 func (q *Queries) GetAvailableModel(ctx context.Context, id string) (*AvailableModel, error) {
 	row := q.db.QueryRow(ctx, getAvailableModel, id)
@@ -1234,17 +1240,18 @@ func (q *Queries) GetAvailableModel(ctx context.Context, id string) (*AvailableM
 		&i.IsDepreciated,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsVisible,
 	)
 	return &i, err
 }
 
 const getAvailableModels = `-- name: GetAvailableModels :many
-SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at, is_visible FROM available_model
 `
 
 // GetAvailableModels
 //
-//	SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+//	SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at, is_visible FROM available_model
 func (q *Queries) GetAvailableModels(ctx context.Context) ([]*AvailableModel, error) {
 	rows, err := q.db.Query(ctx, getAvailableModels)
 	if err != nil {
@@ -1268,6 +1275,7 @@ func (q *Queries) GetAvailableModels(ctx context.Context) ([]*AvailableModel, er
 			&i.IsDepreciated,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsVisible,
 		); err != nil {
 			return nil, err
 		}
@@ -1280,13 +1288,13 @@ func (q *Queries) GetAvailableModels(ctx context.Context) ([]*AvailableModel, er
 }
 
 const getAvailableModelsScoped = `-- name: GetAvailableModelsScoped :many
-SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at, is_visible FROM available_model
 WHERE provider = $1
 `
 
 // GetAvailableModelsScoped
 //
-//	SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at FROM available_model
+//	SELECT id, provider, display_name, description, input_token_limit, output_token_limit, currency, input_cost_per_million_tokens, output_cost_per_million_tokens, depreciated_warning, is_depreciated, created_at, updated_at, is_visible FROM available_model
 //	WHERE provider = $1
 func (q *Queries) GetAvailableModelsScoped(ctx context.Context, provider string) ([]*AvailableModel, error) {
 	rows, err := q.db.Query(ctx, getAvailableModelsScoped, provider)
@@ -1311,6 +1319,7 @@ func (q *Queries) GetAvailableModelsScoped(ctx context.Context, provider string)
 			&i.IsDepreciated,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsVisible,
 		); err != nil {
 			return nil, err
 		}
@@ -1526,13 +1535,13 @@ func (q *Queries) GetConversationsWithCount(ctx context.Context, customerID uuid
 }
 
 const getCustomer = `-- name: GetCustomer :one
-SELECT id, name, datastore, created_at, updated_at FROM customer
+SELECT id, name, datastore, created_at, updated_at, is_admin FROM customer
 WHERE id = $1 LIMIT 1
 `
 
 // GetCustomer
 //
-//	SELECT id, name, datastore, created_at, updated_at FROM customer
+//	SELECT id, name, datastore, created_at, updated_at, is_admin FROM customer
 //	WHERE id = $1 LIMIT 1
 func (q *Queries) GetCustomer(ctx context.Context, id uuid.UUID) (*Customer, error) {
 	row := q.db.QueryRow(ctx, getCustomer, id)
@@ -1543,18 +1552,19 @@ func (q *Queries) GetCustomer(ctx context.Context, id uuid.UUID) (*Customer, err
 		&i.Datastore,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAdmin,
 	)
 	return &i, err
 }
 
 const getCustomerByName = `-- name: GetCustomerByName :one
-SELECT id, name, datastore, created_at, updated_at FROM customer
+SELECT id, name, datastore, created_at, updated_at, is_admin FROM customer
 WHERE name = $1 LIMIT 1
 `
 
 // GetCustomerByName
 //
-//	SELECT id, name, datastore, created_at, updated_at FROM customer
+//	SELECT id, name, datastore, created_at, updated_at, is_admin FROM customer
 //	WHERE name = $1 LIMIT 1
 func (q *Queries) GetCustomerByName(ctx context.Context, name string) (*Customer, error) {
 	row := q.db.QueryRow(ctx, getCustomerByName, name)
@@ -1565,6 +1575,7 @@ func (q *Queries) GetCustomerByName(ctx context.Context, name string) (*Customer
 		&i.Datastore,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAdmin,
 	)
 	return &i, err
 }
@@ -1588,7 +1599,7 @@ WITH RequiredLLM AS (
         WHERE clc.customer_id = $1
     )
 )
-SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 FROM RequiredLLM llm
 INNER JOIN available_model am ON am.id = llm.model
 LIMIT 1
@@ -1619,7 +1630,7 @@ type GetCustomerChatLLMRow struct {
 //	        WHERE clc.customer_id = $1
 //	    )
 //	)
-//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 //	FROM RequiredLLM llm
 //	INNER JOIN available_model am ON am.id = llm.model
 //	LIMIT 1
@@ -1651,6 +1662,7 @@ func (q *Queries) GetCustomerChatLLM(ctx context.Context, customerID uuid.UUID) 
 		&i.AvailableModel.IsDepreciated,
 		&i.AvailableModel.CreatedAt,
 		&i.AvailableModel.UpdatedAt,
+		&i.AvailableModel.IsVisible,
 	)
 	return &i, err
 }
@@ -1696,7 +1708,7 @@ WITH RequiredLLM AS (
         WHERE clc.customer_id = $1
     )
 )
-SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 FROM RequiredLLM llm
 INNER JOIN available_model am ON am.id = llm.model
 LIMIT 1
@@ -1727,7 +1739,7 @@ type GetCustomerSummaryLLMRow struct {
 //	        WHERE clc.customer_id = $1
 //	    )
 //	)
-//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 //	FROM RequiredLLM llm
 //	INNER JOIN available_model am ON am.id = llm.model
 //	LIMIT 1
@@ -1759,6 +1771,7 @@ func (q *Queries) GetCustomerSummaryLLM(ctx context.Context, customerID uuid.UUI
 		&i.AvailableModel.IsDepreciated,
 		&i.AvailableModel.CreatedAt,
 		&i.AvailableModel.UpdatedAt,
+		&i.AvailableModel.IsVisible,
 	)
 	return &i, err
 }
@@ -2018,7 +2031,7 @@ WITH RequiredLLM AS (
         WHERE llm.customer_id = $1 AND llm.is_default = true
     )
 )
-SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 FROM RequiredLLM llm
 INNER JOIN available_model am ON am.id = llm.model
 LIMIT 1
@@ -2047,7 +2060,7 @@ type GetDefaultLLMRow struct {
 //	        WHERE llm.customer_id = $1 AND llm.is_default = true
 //	    )
 //	)
-//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 //	FROM RequiredLLM llm
 //	INNER JOIN available_model am ON am.id = llm.model
 //	LIMIT 1
@@ -2079,6 +2092,7 @@ func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*G
 		&i.AvailableModel.IsDepreciated,
 		&i.AvailableModel.CreatedAt,
 		&i.AvailableModel.UpdatedAt,
+		&i.AvailableModel.IsVisible,
 	)
 	return &i, err
 }
@@ -2481,7 +2495,7 @@ func (q *Queries) GetFoldersOlderThan(ctx context.Context, arg *GetFoldersOlderT
 }
 
 const getInteralLLM = `-- name: GetInteralLLM :one
-SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible FROM llm
 INNER JOIN available_model am ON am.id = llm.model
 WHERE title = $1 AND public = false
 LIMIT 1
@@ -2494,7 +2508,7 @@ type GetInteralLLMRow struct {
 
 // GetInteralLLM
 //
-//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible FROM llm
 //	INNER JOIN available_model am ON am.id = llm.model
 //	WHERE title = $1 AND public = false
 //	LIMIT 1
@@ -2526,12 +2540,13 @@ func (q *Queries) GetInteralLLM(ctx context.Context, title string) (*GetInteralL
 		&i.AvailableModel.IsDepreciated,
 		&i.AvailableModel.CreatedAt,
 		&i.AvailableModel.UpdatedAt,
+		&i.AvailableModel.IsVisible,
 	)
 	return &i, err
 }
 
 const getLLM = `-- name: GetLLM :one
-SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible FROM llm
 INNER JOIN available_model am ON am.id = llm.model
 WHERE llm.id = $1
 `
@@ -2543,7 +2558,7 @@ type GetLLMRow struct {
 
 // GetLLM
 //
-//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible FROM llm
 //	INNER JOIN available_model am ON am.id = llm.model
 //	WHERE llm.id = $1
 func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*GetLLMRow, error) {
@@ -2574,12 +2589,13 @@ func (q *Queries) GetLLM(ctx context.Context, id uuid.UUID) (*GetLLMRow, error) 
 		&i.AvailableModel.IsDepreciated,
 		&i.AvailableModel.CreatedAt,
 		&i.AvailableModel.UpdatedAt,
+		&i.AvailableModel.IsVisible,
 	)
 	return &i, err
 }
 
 const getLLMsByCustomer = `-- name: GetLLMsByCustomer :many
-SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 FROM llm
 INNER JOIN available_model am ON am.id = llm.model
 WHERE llm.customer_id = $1
@@ -2592,7 +2608,7 @@ type GetLLMsByCustomerRow struct {
 
 // GetLLMsByCustomer
 //
-//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 //	FROM llm
 //	INNER JOIN available_model am ON am.id = llm.model
 //	WHERE llm.customer_id = $1
@@ -2630,6 +2646,7 @@ func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID)
 			&i.AvailableModel.IsDepreciated,
 			&i.AvailableModel.CreatedAt,
 			&i.AvailableModel.UpdatedAt,
+			&i.AvailableModel.IsVisible,
 		); err != nil {
 			return nil, err
 		}
@@ -2642,7 +2659,7 @@ func (q *Queries) GetLLMsByCustomer(ctx context.Context, customerID pgtype.UUID)
 }
 
 const getLLMsByCustomerAvailable = `-- name: GetLLMsByCustomerAvailable :many
-SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 FROM llm
 INNER JOIN available_model am ON am.id = llm.model
 WHERE (llm.customer_id IS NULL OR llm.customer_id = $1)
@@ -2656,7 +2673,7 @@ type GetLLMsByCustomerAvailableRow struct {
 
 // GetLLMsByCustomerAvailable
 //
-//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
 //	FROM llm
 //	INNER JOIN available_model am ON am.id = llm.model
 //	WHERE (llm.customer_id IS NULL OR llm.customer_id = $1)
@@ -2695,6 +2712,7 @@ func (q *Queries) GetLLMsByCustomerAvailable(ctx context.Context, customerID pgt
 			&i.AvailableModel.IsDepreciated,
 			&i.AvailableModel.CreatedAt,
 			&i.AvailableModel.UpdatedAt,
+			&i.AvailableModel.IsVisible,
 		); err != nil {
 			return nil, err
 		}
@@ -3082,7 +3100,7 @@ func (q *Queries) GetProjects(ctx context.Context, customerID uuid.UUID) ([]*Pro
 }
 
 const getPublicLLMs = `-- name: GetPublicLLMs :many
-SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible FROM llm
 INNER JOIN available_model am ON am.id = llm.model
 where customer_id IS NULL AND public = true
 `
@@ -3094,7 +3112,7 @@ type GetPublicLLMsRow struct {
 
 // GetPublicLLMs
 //
-//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at FROM llm
+//	SELECT llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at, am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible FROM llm
 //	INNER JOIN available_model am ON am.id = llm.model
 //	where customer_id IS NULL AND public = true
 func (q *Queries) GetPublicLLMs(ctx context.Context) ([]*GetPublicLLMsRow, error) {
@@ -3131,6 +3149,7 @@ func (q *Queries) GetPublicLLMs(ctx context.Context) ([]*GetPublicLLMsRow, error
 			&i.AvailableModel.IsDepreciated,
 			&i.AvailableModel.CreatedAt,
 			&i.AvailableModel.UpdatedAt,
+			&i.AvailableModel.IsVisible,
 		); err != nil {
 			return nil, err
 		}
@@ -3606,13 +3625,13 @@ func (q *Queries) GetWebsitesByCustomerWithCount(ctx context.Context, customerID
 }
 
 const listCustomers = `-- name: ListCustomers :many
-SELECT id, name, datastore, created_at, updated_at FROM customer
+SELECT id, name, datastore, created_at, updated_at, is_admin FROM customer
 ORDER BY name
 `
 
 // ListCustomers
 //
-//	SELECT id, name, datastore, created_at, updated_at FROM customer
+//	SELECT id, name, datastore, created_at, updated_at, is_admin FROM customer
 //	ORDER BY name
 func (q *Queries) ListCustomers(ctx context.Context) ([]*Customer, error) {
 	rows, err := q.db.Query(ctx, listCustomers)
@@ -3629,6 +3648,7 @@ func (q *Queries) ListCustomers(ctx context.Context) ([]*Customer, error) {
 			&i.Datastore,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsAdmin,
 		); err != nil {
 			return nil, err
 		}
@@ -4298,7 +4318,7 @@ const updateCustomer = `-- name: UpdateCustomer :exec
 UPDATE customer
     set name = $2
 WHERE id = $1
-RETURNING id, name, datastore, created_at, updated_at
+RETURNING id, name, datastore, created_at, updated_at, is_admin
 `
 
 type UpdateCustomerParams struct {
@@ -4311,7 +4331,7 @@ type UpdateCustomerParams struct {
 //	UPDATE customer
 //	    set name = $2
 //	WHERE id = $1
-//	RETURNING id, name, datastore, created_at, updated_at
+//	RETURNING id, name, datastore, created_at, updated_at, is_admin
 func (q *Queries) UpdateCustomer(ctx context.Context, arg *UpdateCustomerParams) error {
 	_, err := q.db.Exec(ctx, updateCustomer, arg.ID, arg.Name)
 	return err

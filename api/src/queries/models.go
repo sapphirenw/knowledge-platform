@@ -85,6 +85,7 @@ type AvailableModel struct {
 	IsDepreciated              bool               `db:"is_depreciated" json:"isDepreciated"`
 	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	IsVisible                  bool               `db:"is_visible" json:"isVisible"`
 }
 
 type BetaApiKey struct {
@@ -233,6 +234,7 @@ type Customer struct {
 	Datastore string             `db:"datastore" json:"datastore"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	IsAdmin   bool               `db:"is_admin" json:"isAdmin"`
 }
 
 type CustomerLlmConfiguration struct {

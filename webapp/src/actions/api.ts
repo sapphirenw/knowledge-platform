@@ -111,6 +111,7 @@ export async function sendRequestV1<T>({
             console.log("Authentication error, removing all cookies:", e);
             cookies().delete("cid");
             cookies().delete("apiKey");
+            redirect("/login")
             throw new AuthError("Not Allowed.");
         } else if (e instanceof Error) {
             console.error(e);

@@ -1,10 +1,13 @@
 # combines all schema files together and creates the master schema document
 db-schema:
+	# grab all the base schema objects
 	awk 'FNR==1{print ""}1' ./schema/*.sql > ./schema.sql
 
-sql: db-schema
+	# only include the up statements in the schema
+	sed -n '/-- +goose Up/,/-- +goose Down/ { /-- +goose Down/d; p; }' ./migrations/*.sql | sed -n '/-- +goose StatementBegin/,/-- +goose StatementEnd/p' >> ./schema.sql
+
+sql:
 	awk 'FNR==1{print ""}1' ./queries/* > ./queries.sql
-	awk 'FNR==1{print ""}1' ./migrations/* >> ./queries.sql
 	sqlc generate
 	rm ./queries.sql
 

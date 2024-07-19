@@ -7,7 +7,7 @@ version: "2"
 sql:
   - engine: "postgresql"
     queries: "./queries.sql"
-    schema: "./schema.sql"
+    schema: "./migrations"
     # codegen:
     # - out: "../webapp/src/queries"
     #   plugin: "ts"
