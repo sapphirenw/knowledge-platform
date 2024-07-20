@@ -8,7 +8,6 @@ services:
       - "5432:5432" # Map PostgreSQL default port to host
     volumes:
       - ./data:/var/lib/postgresql/data # Mount host data directory to the container
-      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql # Mount init script
       - ./postgresql.conf:/etc/postgresql.conf # postgres conf file
     environment:
       POSTGRES_PASSWORD: aicontent

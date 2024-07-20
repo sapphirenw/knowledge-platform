@@ -1,2 +1,4 @@
 data/
 schemaspy/output
+.env
+.env.make

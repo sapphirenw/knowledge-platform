@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	db "github.com/sapphirenw/ai-content-creation-api/src/database"
 	"github.com/sapphirenw/ai-content-creation-api/src/slogger"
@@ -35,7 +36,20 @@ func run(
 
 	// ensure the database can be reached
 	if _, err := db.GetPool(); err != nil {
-		panic(fmt.Sprintf("Could not connect to the database! %s", err))
+		logger.Warn("Failed to connect to database on first pass, waiting ...")
+		retries := 0
+		for {
+			if retries > 3 {
+				panic("Could not connect to the database!")
+			}
+			time.Sleep(time.Second * 10)
+			if _, err := db.GetPool(); err == nil {
+				logger.Info("Successfully connected to database")
+				break
+			}
+			retries += 1
+			logger.Warn("Failed attempt to connect to database", "attempt", retries)
+		}
 	}
 
 	httpServer := &http.Server{
