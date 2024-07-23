@@ -2,10 +2,13 @@ package main
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httplog/v2"
+	"github.com/go-chi/httprate"
 )
 
 func NewServer(
@@ -16,6 +19,10 @@ func NewServer(
 
 	// add all middleware
 	mux.Use(httplog.RequestLogger(logger))
+	mux.Use(middleware.Recoverer)
+	mux.Use(middleware.RedirectSlashes)
+	mux.Use(middleware.ThrottleBacklog(50, 300, time.Second*10)) // adjust
+	mux.Use(httprate.LimitByIP(100, 1*time.Minute))
 
 	mux.Use(cors.Handler(cors.Options{
 		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts

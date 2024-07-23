@@ -12,4 +12,4 @@ build-db:
 build-webapp:
 	docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/sapphirenw/aicontent-webapp:latest --push ./webapp
 
-build: build-api build-db build-webapp
+build: build-api build-webapp
