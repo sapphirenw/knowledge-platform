@@ -13,7 +13,7 @@ import { toast } from '@/components/ui/use-toast';
 import useWebSocket from 'react-use-websocket';
 import RagLLMSelector from './rag_llm_selector';
 import { ModelRow } from '@/types/llm';
-import { House } from 'lucide-react';
+import { House, Settings } from 'lucide-react';
 import Link from 'next/link';
 
 export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
@@ -198,9 +198,9 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
             <div className="sticky top-0 p-2 bg-background">
                 <div className="flex items-center justify-between">
                     <RagLLMSelector currLLM={currentChatLLM} onSelect={changeChatLLM} />
-                    <Link href="/datastore">
+                    <Link href="/settings">
                         <div className="p-2 rounded-md border border-border hover:bg-border">
-                            <House strokeWidth={2} className='opacity-75' />
+                            <Settings strokeWidth={2} className='opacity-75' />
                         </div>
                     </Link>
                 </div>

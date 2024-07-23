@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { getCustomer } from '@/actions/customer'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
 import {
     Form,
     FormControl,
@@ -21,8 +20,8 @@ import { useState } from "react"
 import Cookies from "js-cookie"
 import DefaultLoader from "@/components/default_loader"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { AuthError } from "@/types/errors"
+import { navigate } from "@/actions/redirect"
 
 const FormSchema = z.object({
     name: z.string().min(2, {
@@ -51,6 +50,8 @@ export default function LoginClient({ cid }: { cid?: string }) {
             toast({
                 title: "Successfully autheticated!",
             })
+            // redirect to settings
+            navigate(`/settings`)
         } catch (e) {
             if (e instanceof AuthError) {
                 toast({
