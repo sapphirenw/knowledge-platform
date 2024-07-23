@@ -49,7 +49,7 @@ export default function UserFiles() {
         for (let i = 0; i < data.documents.length; i++) {
             items.push(<TableRow key={`doc-${i}`}>
                 <TableCell className="font-medium">
-                    <Link className="text-primary hover:opacity-50 underline" href={`/datastore/documents/${data.documents[i].id}`}>{data.documents[i].filename}</Link>
+                    <Link className="text-primary hover:opacity-50 underline" href={`/settings/datastore/documents/${data.documents[i].id}`}>{data.documents[i].filename}</Link>
                 </TableCell>
                 <TableCell>{humanFileSize(data.documents[i].sizeBytes)}</TableCell>
                 <TableCell className="text-right">{new Date(data.documents[i].createdAt).toLocaleString()}</TableCell>

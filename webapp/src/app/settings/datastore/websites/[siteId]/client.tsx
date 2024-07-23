@@ -57,7 +57,7 @@ export default function WebsiteViewClient({
             <TableBody>
                 {pages.map((item, i) => <TableRow key={`page-${i}`}>
                     <TableCell className="font-medium">
-                        <Link className="text-primary hover:opacity-50 underline" href={`/datastore/websites/${site.id}/pages/${item.id}`}>{item.url}</Link>
+                        <Link className="text-primary hover:opacity-50 underline" href={`/settings/datastore/websites/${site.id}/pages/${item.id}`}>{item.url}</Link>
                     </TableCell>
                 </TableRow>)}
             </TableBody>

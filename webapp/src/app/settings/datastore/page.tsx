@@ -31,7 +31,7 @@ export default async function Datastore() {
 
     return <div className="space-y-4 w-full">
         <div className="grid place-items-center">
-            <p className="text-center text-sm text-muted-foreground max-w-lg">When you add documents or websites, you must manually ensure your vectorized data is in-sync. You can manage and queue requests <Button className="p-0 h-fit" variant="link" asChild><Link href="/datastore/vector-requests">here</Link></Button>.</p>
+            <p className="text-center text-sm text-muted-foreground max-w-lg">When you add documents or websites, you must manually ensure your vectorized data is in-sync. You can manage and queue requests <Button className="p-0 h-fit" variant="link" asChild><Link href="/settings/datastore/vector-requests">here</Link></Button>.</p>
         </div>
         <Separator className="my-4" />
         <div className="w-full space-y-2">
@@ -43,7 +43,7 @@ export default async function Datastore() {
                                 <h3 className="text-lg font-bold">Files</h3>
                             </Label>
                             <Button asChild>
-                                <Link href="/datastore/upload-file">Upload Files</Link>
+                                <Link href="/settings/datastore/upload-file">Upload Files</Link>
                             </Button>
                         </div>
                         <div id="user_files">
@@ -58,7 +58,7 @@ export default async function Datastore() {
                             <div className="flex items-center space-x-2">
                                 <InsertSingleWebsitePageButton />
                                 <Button asChild>
-                                    <Link href="/datastore/ingest-site">Ingest Website</Link>
+                                    <Link href="/settings/datastore/ingest-site">Ingest Website</Link>
                                 </Button>
                             </div>
                         </div>
