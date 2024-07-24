@@ -29,7 +29,7 @@ export default function RagMessage({
             case 2:
                 // ai
                 return <div className="flex content-start space-x-4">
-                    <div className="w-12 h-12 bg-blue-900 rounded-full flex-shrink-0 font-bold text-white grid place-items-center">
+                    <div className="w-12 h-12 bg-primary rounded-full flex-shrink-0 font-bold text-white grid place-items-center">
                         <p>AI</p>
                     </div>
                     <div className={`${proseClass} prose-lg`}>{message.message}</div>

@@ -51,13 +51,17 @@ export default function WebsiteViewClient({
         return <Table containerClassname="">
             <TableHeader className="sticky w-full top-0">
                 <TableRow>
+                    <TableHead className="">In Vector-Store</TableHead>
                     <TableHead className="">URL</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {pages.map((item, i) => <TableRow key={`page-${i}`}>
+                    <TableCell className="w-[150px] text-sm font-semibold opacity-60">
+                        {item.vectorSha256.trim() == "" ? "False" : "True"}
+                    </TableCell>
                     <TableCell className="font-medium">
-                        <Link className="text-primary hover:opacity-50 underline" href={`/settings/datastore/websites/${site.id}/pages/${item.id}`}>{item.url}</Link>
+                        <Link className="text-primary hover:opacity-50 underline" href={`/settings/websites/${site.id}/pages/${item.id}`}>{item.url}</Link>
                     </TableCell>
                 </TableRow>)}
             </TableBody>

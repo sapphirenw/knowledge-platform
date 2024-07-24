@@ -8,6 +8,7 @@ import { SquarePlus } from "lucide-react";
 import { getAllConversations } from "@/actions/conversation";
 import DefaultLoader from "@/components/default_loader";
 import ErrorPage from "@/components/error_page";
+import { Button } from "@/components/ui/button";
 
 export default function RagSidebarClient({
     activeConvId,
@@ -41,23 +42,32 @@ export default function RagSidebarClient({
         return <ErrorPage msg="" />
     }
 
-    return <div className="">
-        <div className="pb-2">
-            <button onClick={() => handleClick("")} className="w-full">
-                <div className="py-2 pl-4 w-full rounded-xl hover:bg-secondary">
-                    <div className="flex items-center space-x-4">
-                        <SquarePlus />
-                        <p>New</p>
-                    </div>
+    return <div className="space-y-2">
+        <div className="">
+            <Button
+                className="w-full text-left"
+                variant="outline"
+                onClick={() => handleClick("")}
+            >
+                <div className="flex items-center w-full text-left">
+                    <SquarePlus size={16} />
+                    <p className="ml-2">New</p>
                 </div>
-            </button>
+            </Button>
         </div>
-        {data.map((c, index) => (
-            <div key={`conv-${index}`}>
-                <button className="w-full" onClick={() => handleClick(c.id)}>
-                    <p className={`py-2 pl-4 text-left w-full rounded-xl hover:bg-secondary ${selected === c.id ? "bg-secondary" : ""}`}>{c.title}</p>
-                </button>
-            </div>
-        ))}
+        <p className={`font-medium text-sm opacity-75 pt-4`}>History</p>
+        <div className="">
+            {data.map((c, index) => (
+                <div key={`conv-${index}`}>
+                    <Button
+                        variant={selected ? "secondary" : "ghost"}
+                        className="w-full text-left"
+                        onClick={() => handleClick(c.id)}
+                    >
+                        <p className="w-full overflow-clip overflow-ellipsis">{c.title}</p>
+                    </Button>
+                </div>
+            ))}
+        </div>
     </div>
 }

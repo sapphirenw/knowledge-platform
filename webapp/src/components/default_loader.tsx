@@ -1,5 +1,5 @@
-import { Loader2 } from "lucide-react";
+import { Loader } from "lucide-react";
 
 export default function DefaultLoader() {
-    return <Loader2 className="h-6 w-6 animate-spin" />
+    return <Loader className="h-6 w-6 animate-spin" />
 }

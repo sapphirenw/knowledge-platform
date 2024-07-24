@@ -9,7 +9,7 @@ export default function RagLayout({
     return <div className="flex flex-col flex-grow h-screen">
         {/* <Header /> */}
         <div className="flex flex-row flex-grow h-full overflow-hidden">
-            <div className="w-[300px]">
+            <div className="w-[250px]">
                 <Sidebar />
             </div>
             <div className="flex-grow flex flex-col overflow-hidden w-full">

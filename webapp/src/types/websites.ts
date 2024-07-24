@@ -30,6 +30,7 @@ export type WebsitePage = {
     metadata?: any
     summary: string
     summarySha256: string
+    vectorSha256: string
     createdAt?: string
     updatedAt?: string
 }

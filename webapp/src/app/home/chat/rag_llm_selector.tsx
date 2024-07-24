@@ -44,8 +44,8 @@ export default function RagLLMSelector({ currLLM, onSelect }: { currLLM?: ModelR
         <PopoverTrigger asChild>
             <Button variant="outline">
                 <div className="flex items-center space-x-2">
+                    <ChevronDown size={16} />
                     <p>{currLLM?.llm?.title ?? "Model"}</p>
-                    <ChevronDown />
                 </div>
             </Button>
         </PopoverTrigger>

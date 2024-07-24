@@ -195,15 +195,8 @@ export default function RagClient({ wsBaseUrl }: { wsBaseUrl: string }) {
 
     return <div className="flex flex-col flex-grow h-full overflow-hidden">
         <div ref={scrollableDivRef} className="bg-bg flex-grow overflow-scroll">
-            <div className="sticky top-0 p-2 bg-background">
-                <div className="flex items-center justify-between">
-                    <RagLLMSelector currLLM={currentChatLLM} onSelect={changeChatLLM} />
-                    <Link href="/settings">
-                        <div className="p-2 rounded-md border border-border hover:bg-border">
-                            <Settings strokeWidth={2} className='opacity-75' />
-                        </div>
-                    </Link>
-                </div>
+            <div className="sticky top-0 p-4">
+                <RagLLMSelector currLLM={currentChatLLM} onSelect={changeChatLLM} />
             </div>
             <div className="flex h-full justify-center items-start w-full">
                 <div className="flex flex-col max-w-[800px] w-full h-full">

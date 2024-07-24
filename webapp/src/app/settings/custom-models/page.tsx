@@ -1,6 +1,6 @@
 import { getAvailableModels, getCustomerLLMs } from "@/actions/llm"
 import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query"
-import CustomerModelsClient from "./models_client"
+import CustomerModelsClient from "./client"
 import CreateCustomerLLM from "./create_model"
 
 export default async function CustomerModels() {
@@ -19,9 +19,11 @@ export default async function CustomerModels() {
         queryFn: () => getCustomerLLMs(false)
     })
 
-    return <HydrationBoundary state={dehydrate(queryClient)}>
+    return <div className="w-full space-y-4">
         <CreateCustomerLLM />
-        <CustomerModelsClient />
-    </HydrationBoundary>
+        <HydrationBoundary state={dehydrate(queryClient)}>
+            <CustomerModelsClient />
+        </HydrationBoundary>
+    </div>
 
 }

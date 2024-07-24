@@ -13,8 +13,6 @@ import { z } from "zod";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQueryClient } from "@tanstack/react-query";
 import { insertWebsite, searchWebsite } from "@/actions/websites";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 
 const FormSchema = z.object({
@@ -235,7 +233,7 @@ export default function WebsiteIngest() {
                         control={form.control}
                         name="useSitemap"
                         render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-4">
                                 <div className="space-y-0.5">
                                     <FormLabel className="text-base">
                                         Use the sitemap to parse the website pages.
@@ -259,7 +257,7 @@ export default function WebsiteIngest() {
                             control={form.control}
                             name="allowOtherDomains"
                             render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-4">
                                     <div className="space-y-0.5">
                                         <FormLabel className="text-base">
                                             Allow other domains in scrape.

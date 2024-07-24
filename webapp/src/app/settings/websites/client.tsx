@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
 
-export default function UserWebsites() {
+export default function WebsitesViewClient() {
     // fetch the websites
     const siteResponse = useQuery({
         queryKey: ['websites'],
@@ -34,7 +34,7 @@ export default function UserWebsites() {
             <TableBody>
                 {siteResponse.data!.map((item, i) => <TableRow key={`site-${i}`}>
                     <TableCell className="font-medium">
-                        <Link className="text-primary hover:opacity-50 underline" href={`/settings/datastore/websites/${item.id}`}>{`${item.domain}${item.path}`}</Link>
+                        <Link className="text-primary hover:opacity-50 underline" href={`/settings/websites/${item.id}`}>{`${item.domain}${item.path}`}</Link>
                     </TableCell>
                     <TableCell className="">{item.pageCount}</TableCell>
                     <TableCell className="text-right">{new Date(item.createdAt!).toLocaleString()}</TableCell>

@@ -38,7 +38,7 @@ export default function MessageToolCallResult({
 }
 
 function DocumentItem({ doc }: { doc: Document }) {
-    return <Link href={`/settings/datastore/documents/${doc.id}`} className="bg-secondary hover:opacity-75 transition-opacity rounded-lg grid place-items-center">
+    return <Link href={`/settings/documents/${doc.id}`} className="bg-secondary hover:opacity-75 transition-opacity rounded-lg grid place-items-center">
         <div className="w-full p-2">
             <div className="flex items-center space-x-2 px-2">
                 <div className="min-w-[30px] min-h-[30px]">

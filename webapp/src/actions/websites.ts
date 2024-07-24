@@ -69,5 +69,5 @@ export async function deleteWebsite(siteId: string) {
     })
 
     // if here then the delete call worked, so redirect
-    redirect("/settings/datastore")
+    redirect("/settings/websites")
 }

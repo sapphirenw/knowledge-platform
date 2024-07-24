@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
-import SettingsSidebarClient from "./sidebar_client";
+import HomeSidebarClient from "./sidebar_client";
 
-export default function SettingsSidebar() {
+export default function HomeSidebar() {
     const cookieStore = cookies()
     const customerId = cookieStore.get("cid")?.value
     const isOpen = cookieStore.get("isSideMenuOpen")?.value ?? "true"
 
-    return <SettingsSidebarClient customerId={customerId} initIsOpen={isOpen} />
+    return <HomeSidebarClient customerId={customerId} initIsOpen={isOpen} />
 }
