@@ -209,6 +209,7 @@ type Conversation struct {
 	ErrorMessage     *string            `db:"error_message" json:"errorMessage"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	CurrLlmID        pgtype.UUID        `db:"curr_llm_id" json:"currLlmId"`
 }
 
 type ConversationMessage struct {

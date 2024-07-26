@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
@@ -119,11 +120,55 @@ func handleRag2(
 	// hold the conversation in memory for the request
 	var conv *conversation.Conversation
 
-	// hold the current chat llm in memory as well
-	chatLLM, err := c.GetChatLLM(r.Context(), logger, pool)
-	if err != nil {
-		writeRagResponse(r.Context(), logger, conn, newRmError("failed to get the llm", err))
-		return
+	dmodel := queries.New(pool)
+
+	var chatLLM *llm.LLM
+
+	// check if a conversation id was passed, and attempt to fetch the conversation
+	convId, err := utils.GoogleUUIDFromString(r.URL.Query().Get("id"))
+	if err == nil {
+		// get the conversation
+		conv, err = conversation.AutoConversation(
+			r.Context(),
+			logger,
+			pool,
+			c.ID,
+			r.URL.Query().Get("id"),
+			prompts.RAG_COMPLETE_SYSTEM_PROMPT,
+			"Information Chat",
+			"rag",
+		)
+		if err != nil {
+			logger.Error("failed to get the conversation", "error", err)
+		} else {
+			// get the chat llm as well
+			currLLM, err := dmodel.GetChatLLM(r.Context(), &queries.GetChatLLMParams{
+				CustomerID: c.ID,
+				ID:         convId,
+			})
+			if err == nil {
+				// set the current chat llm
+				logger.Debug("the conversation has a saved llm, using this", "llm.ID", currLLM.Llm.ID)
+				chatLLM = llm.FromObjects(&currLLM.Llm, &currLLM.AvailableModel)
+			} else {
+				if strings.Contains(err.Error(), "no rows in result set") {
+					logger.Info("No saved llm exists")
+				} else {
+					logger.Warn("unknow error getting the chatllm", "error", err)
+				}
+			}
+		}
+	} else {
+		logger.Debug("invalid conversation id", "conv.ID", r.URL.Query().Get("id"))
+	}
+
+	// fetch a default llm to use if no conversation llm was found
+	if chatLLM == nil {
+		chatLLM, err = c.GetChatLLM(r.Context(), logger, pool)
+		if err != nil {
+			writeRagResponse(r.Context(), logger, conn, newRmError("failed to get the llm", err))
+			return
+		}
 	}
 
 	// send a message to the user populating the chatllm object
@@ -176,6 +221,14 @@ func handleRag2(
 						MessageType: ragChangeChatLLM,
 						ChatLLM:     chatLLM,
 					})
+
+					// save the chatllm to the conversation (THIS CAN TRANSIENTLY FAIL)
+					if err := dmodel.SetChatLLM(r.Context(), &queries.SetChatLLMParams{
+						ID:        conv.ID,
+						CurrLlmID: utils.GoogleUUIDToPGXUUID(chatLLM.Llm.ID),
+					}); err != nil {
+						logger.Error("failed to set the chatllm", "error", err)
+					}
 				}
 			}
 		}

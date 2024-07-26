@@ -61,7 +61,7 @@ const createConversation = `-- name: CreateConversation :one
 INSERT INTO conversation (
     customer_id, title, conversation_type, system_message, metadata
 ) VALUES ( $1, $2, $3, $4, $5 )
-RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id
 `
 
 type CreateConversationParams struct {
@@ -77,7 +77,7 @@ type CreateConversationParams struct {
 //	INSERT INTO conversation (
 //	    customer_id, title, conversation_type, system_message, metadata
 //	) VALUES ( $1, $2, $3, $4, $5 )
-//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id
 func (q *Queries) CreateConversation(ctx context.Context, arg *CreateConversationParams) (*Conversation, error) {
 	row := q.db.QueryRow(ctx, createConversation,
 		arg.CustomerID,
@@ -98,6 +98,7 @@ func (q *Queries) CreateConversation(ctx context.Context, arg *CreateConversatio
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CurrLlmID,
 	)
 	return &i, err
 }
@@ -1372,14 +1373,78 @@ func (q *Queries) GetBetaApiKey(ctx context.Context, id uuid.UUID) (*BetaApiKey,
 	return &i, err
 }
 
+const getChatLLM = `-- name: GetChatLLM :one
+SELECT 
+    llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at,
+    am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
+FROM conversation c
+JOIN llm ON llm.id = c.curr_llm_id
+JOIN available_model am ON llm.model = am.id
+WHERE c.customer_id = $1
+AND c.id = $2
+`
+
+type GetChatLLMParams struct {
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	ID         uuid.UUID `db:"id" json:"id"`
+}
+
+type GetChatLLMRow struct {
+	Llm            Llm            `db:"llm" json:"llm"`
+	AvailableModel AvailableModel `db:"available_model" json:"availableModel"`
+}
+
+// GetChatLLM
+//
+//	SELECT
+//	    llm.id, llm.customer_id, llm.title, llm.color, llm.model, llm.temperature, llm.instructions, llm.is_default, llm.public, llm.created_at, llm.updated_at,
+//	    am.id, am.provider, am.display_name, am.description, am.input_token_limit, am.output_token_limit, am.currency, am.input_cost_per_million_tokens, am.output_cost_per_million_tokens, am.depreciated_warning, am.is_depreciated, am.created_at, am.updated_at, am.is_visible
+//	FROM conversation c
+//	JOIN llm ON llm.id = c.curr_llm_id
+//	JOIN available_model am ON llm.model = am.id
+//	WHERE c.customer_id = $1
+//	AND c.id = $2
+func (q *Queries) GetChatLLM(ctx context.Context, arg *GetChatLLMParams) (*GetChatLLMRow, error) {
+	row := q.db.QueryRow(ctx, getChatLLM, arg.CustomerID, arg.ID)
+	var i GetChatLLMRow
+	err := row.Scan(
+		&i.Llm.ID,
+		&i.Llm.CustomerID,
+		&i.Llm.Title,
+		&i.Llm.Color,
+		&i.Llm.Model,
+		&i.Llm.Temperature,
+		&i.Llm.Instructions,
+		&i.Llm.IsDefault,
+		&i.Llm.Public,
+		&i.Llm.CreatedAt,
+		&i.Llm.UpdatedAt,
+		&i.AvailableModel.ID,
+		&i.AvailableModel.Provider,
+		&i.AvailableModel.DisplayName,
+		&i.AvailableModel.Description,
+		&i.AvailableModel.InputTokenLimit,
+		&i.AvailableModel.OutputTokenLimit,
+		&i.AvailableModel.Currency,
+		&i.AvailableModel.InputCostPerMillionTokens,
+		&i.AvailableModel.OutputCostPerMillionTokens,
+		&i.AvailableModel.DepreciatedWarning,
+		&i.AvailableModel.IsDepreciated,
+		&i.AvailableModel.CreatedAt,
+		&i.AvailableModel.UpdatedAt,
+		&i.AvailableModel.IsVisible,
+	)
+	return &i, err
+}
+
 const getConversation = `-- name: GetConversation :one
-SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at FROM conversation
+SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id FROM conversation
 WHERE id = $1
 `
 
 // GetConversation
 //
-//	SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at FROM conversation
+//	SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id FROM conversation
 //	WHERE id = $1
 func (q *Queries) GetConversation(ctx context.Context, id uuid.UUID) (*Conversation, error) {
 	row := q.db.QueryRow(ctx, getConversation, id)
@@ -1395,6 +1460,7 @@ func (q *Queries) GetConversation(ctx context.Context, id uuid.UUID) (*Conversat
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CurrLlmID,
 	)
 	return &i, err
 }
@@ -1447,14 +1513,14 @@ func (q *Queries) GetConversationMessages(ctx context.Context, conversationID uu
 }
 
 const getConversations = `-- name: GetConversations :many
-SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at FROM conversation
+SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id FROM conversation
 WHERE customer_id = $1
 ORDER BY updated_at DESC
 `
 
 // GetConversations
 //
-//	SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at FROM conversation
+//	SELECT id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id FROM conversation
 //	WHERE customer_id = $1
 //	ORDER BY updated_at DESC
 func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([]*Conversation, error) {
@@ -1477,6 +1543,7 @@ func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([
 			&i.ErrorMessage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CurrLlmID,
 		); err != nil {
 			return nil, err
 		}
@@ -1489,7 +1556,7 @@ func (q *Queries) GetConversations(ctx context.Context, customerID uuid.UUID) ([
 }
 
 const getConversationsWithCount = `-- name: GetConversationsWithCount :many
-SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.has_error, c.error_message, c.created_at, c.updated_at, COUNT(cm.id) AS message_count
+SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.has_error, c.error_message, c.created_at, c.updated_at, c.curr_llm_id, COUNT(cm.id) AS message_count
 FROM conversation c
 JOIN conversation_message cm
 ON c.id = cm.conversation_id
@@ -1509,12 +1576,13 @@ type GetConversationsWithCountRow struct {
 	ErrorMessage     *string            `db:"error_message" json:"errorMessage"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	CurrLlmID        pgtype.UUID        `db:"curr_llm_id" json:"currLlmId"`
 	MessageCount     int64              `db:"message_count" json:"messageCount"`
 }
 
 // GetConversationsWithCount
 //
-//	SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.has_error, c.error_message, c.created_at, c.updated_at, COUNT(cm.id) AS message_count
+//	SELECT c.id, c.customer_id, c.title, c.conversation_type, c.system_message, c.metadata, c.has_error, c.error_message, c.created_at, c.updated_at, c.curr_llm_id, COUNT(cm.id) AS message_count
 //	FROM conversation c
 //	JOIN conversation_message cm
 //	ON c.id = cm.conversation_id
@@ -1541,6 +1609,7 @@ func (q *Queries) GetConversationsWithCount(ctx context.Context, customerID uuid
 			&i.ErrorMessage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CurrLlmID,
 			&i.MessageCount,
 		); err != nil {
 			return nil, err
@@ -4203,12 +4272,33 @@ func (q *Queries) QueryVectorStoreWebsitePagesScoped(ctx context.Context, arg *Q
 	return items, nil
 }
 
+const setChatLLM = `-- name: SetChatLLM :exec
+UPDATE conversation SET
+    curr_llm_id = $2
+WHERE id = $1
+`
+
+type SetChatLLMParams struct {
+	ID        uuid.UUID   `db:"id" json:"id"`
+	CurrLlmID pgtype.UUID `db:"curr_llm_id" json:"currLlmId"`
+}
+
+// SetChatLLM
+//
+//	UPDATE conversation SET
+//	    curr_llm_id = $2
+//	WHERE id = $1
+func (q *Queries) SetChatLLM(ctx context.Context, arg *SetChatLLMParams) error {
+	_, err := q.db.Exec(ctx, setChatLLM, arg.ID, arg.CurrLlmID)
+	return err
+}
+
 const setConversationError = `-- name: SetConversationError :one
 UPDATE conversation SET
     has_error = true,
     error_message = $2
 WHERE id = $1
-RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id
 `
 
 type SetConversationErrorParams struct {
@@ -4222,7 +4312,7 @@ type SetConversationErrorParams struct {
 //	    has_error = true,
 //	    error_message = $2
 //	WHERE id = $1
-//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id
 func (q *Queries) SetConversationError(ctx context.Context, arg *SetConversationErrorParams) (*Conversation, error) {
 	row := q.db.QueryRow(ctx, setConversationError, arg.ID, arg.ErrorMessage)
 	var i Conversation
@@ -4237,6 +4327,7 @@ func (q *Queries) SetConversationError(ctx context.Context, arg *SetConversation
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CurrLlmID,
 	)
 	return &i, err
 }
@@ -4330,7 +4421,7 @@ const updateConversationTitle = `-- name: UpdateConversationTitle :one
 UPDATE conversation SET
     title = $2
 WHERE id = $1
-RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id
 `
 
 type UpdateConversationTitleParams struct {
@@ -4343,7 +4434,7 @@ type UpdateConversationTitleParams struct {
 //	UPDATE conversation SET
 //	    title = $2
 //	WHERE id = $1
-//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at
+//	RETURNING id, customer_id, title, conversation_type, system_message, metadata, has_error, error_message, created_at, updated_at, curr_llm_id
 func (q *Queries) UpdateConversationTitle(ctx context.Context, arg *UpdateConversationTitleParams) (*Conversation, error) {
 	row := q.db.QueryRow(ctx, updateConversationTitle, arg.ID, arg.Title)
 	var i Conversation
@@ -4358,6 +4449,7 @@ func (q *Queries) UpdateConversationTitle(ctx context.Context, arg *UpdateConver
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CurrLlmID,
 	)
 	return &i, err
 }

@@ -63,3 +63,18 @@ UPDATE conversation SET
     title = $2
 WHERE id = $1
 RETURNING *;
+
+-- name: SetChatLLM :exec
+UPDATE conversation SET
+    curr_llm_id = $2
+WHERE id = $1;
+
+-- name: GetChatLLM :one
+SELECT 
+    sqlc.embed(llm),
+    sqlc.embed(am)
+FROM conversation c
+JOIN llm ON llm.id = c.curr_llm_id
+JOIN available_model am ON llm.model = am.id
+WHERE c.customer_id = $1
+AND c.id = $2;

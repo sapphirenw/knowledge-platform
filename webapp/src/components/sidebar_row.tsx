@@ -14,12 +14,14 @@ export default function SidebarRowView({
     isOpen,
     className,
     variant,
+    iconClass,
 }: {
     item: SidebarRow,
     path: string,
     isOpen: boolean,
     className?: string,
     variant?: "link" | "default" | "destructive" | "outline" | "secondary" | "ghost",
+    iconClass?: string,
 }) {
     return <TooltipProvider>
         <Tooltip>
@@ -32,7 +34,7 @@ export default function SidebarRowView({
                 >
                     <a href={item.href}>
                         <div className={cn(`flex items-center ${isOpen ? "w-full text-left" : ""}`, className)}>
-                            {item.icon} {isOpen ? <p className="ml-2">{item.title}</p> : null}
+                            <div className={`${iconClass}`}>{item.icon}</div> {isOpen ? <p className="ml-2">{item.title}</p> : null}
                         </div>
                     </a>
                 </Button>
