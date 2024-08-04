@@ -33,7 +33,7 @@ func GetDatabase(t *testing.T, ctx context.Context) *pgxpool.Pool {
 	// ensure the function is cleaned
 	t.Cleanup(func() {
 		if err := pgContainer.Terminate(ctx); err != nil {
-			t.Fatalf("failed to terminate pgContainer: %s", err)
+			t.Fatalf("failed to terminate pgContainer: %w", err)
 		}
 	})
 

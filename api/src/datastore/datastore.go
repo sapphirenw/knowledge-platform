@@ -36,16 +36,16 @@ type Object interface {
 // 		// get the cleaned data
 // 		cleaned, err := obj.GetCleaned(ctx)
 // 		if err != nil {
-// 			return nil, fmt.Errorf("failed to get the cleaned data: %s", err)
+// 			return nil, fmt.Errorf("failed to get the cleaned data: %w", err)
 // 		}
 
 // 		// generate a new summary
 // 		s, err := model.Summarize(ctx, logger, customerId, cleaned.String())
 // 		if err != nil {
-// 			return nil, fmt.Errorf("failed to create the summary: %s", err)
+// 			return nil, fmt.Errorf("failed to create the summary: %w", err)
 // 		}
 // 		if err := obj.setSummary(s); err != nil {
-// 			return nil, fmt.Errorf("failed to set the summary: %s", err)
+// 			return nil, fmt.Errorf("failed to set the summary: %w", err)
 // 		}
 // 		summary = s
 // 	}

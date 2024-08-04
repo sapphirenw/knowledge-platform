@@ -18,7 +18,8 @@ export async function getCustomer(name: string, authToken: string): Promise<Cust
         ignoreApiKey: true,
     })
 
-    cookies().set('cid', customer.id, { secure: true, sameSite: "strict", expires: new Date(Date.now() + 30 * 86400) })
-    cookies().set('apiKey', authToken, { secure: true, sameSite: "strict", expires: new Date(Date.now() + 30 * 86400) })
+    // set cookies to expire after a month
+    cookies().set('cid', customer.id, { secure: true, sameSite: "strict", expires: new Date(Date.now() + (30 * 86400 * 1000)) })
+    cookies().set('apiKey', authToken, { secure: true, sameSite: "strict", expires: new Date(Date.now() + (30 * 86400 * 1000)) })
     return customer
 }

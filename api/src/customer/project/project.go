@@ -57,7 +57,7 @@ func CreateProject(
 		IdeaGenerationModelID: modelId,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error creating the project: %s", err)
+		return nil, fmt.Errorf("error creating the project: %w", err)
 	}
 
 	l.InfoContext(ctx, "Successfully created new project", "project", *project)
@@ -81,7 +81,7 @@ func GetProject(
 	dmodel := queries.New(db)
 	project, err := dmodel.GetProject(ctx, projectId)
 	if err != nil {
-		return nil, fmt.Errorf("error getting project: %s", err)
+		return nil, fmt.Errorf("error getting project: %w", err)
 	}
 
 	l.DebugContext(ctx, "Successfully got project")
@@ -98,7 +98,7 @@ func (p *Project) GetGenerationModel(ctx context.Context, db queries.DBTX) (*llm
 	}
 	model, err := llm.GetLLM(ctx, db, p.CustomerID, p.IdeaGenerationModelID)
 	if err != nil {
-		return nil, fmt.Errorf("error getting llm: %s", err)
+		return nil, fmt.Errorf("error getting llm: %w", err)
 	}
 	p.ideaGererationModel = model
 	p.logger = p.logger.With("model.ID", p.ideaGererationModel.Llm.ID.String(), "model.Title", p.ideaGererationModel.Llm.Title)
@@ -123,7 +123,7 @@ func (p *Project) GenerateIdeas(
 	// check if uuid can be parsed
 	if args.ConversationId != "" {
 		if _, err := uuid.Parse(args.ConversationId); err != nil {
-			return nil, fmt.Errorf("failed to parse conversationId: %s", err)
+			return nil, fmt.Errorf("failed to parse conversationId: %w", err)
 		}
 	}
 
@@ -132,7 +132,7 @@ func (p *Project) GenerateIdeas(
 	// get the generation model
 	model, err := p.GetGenerationModel(ctx, db)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the model: %s", err)
+		return nil, fmt.Errorf("failed to get the model: %w", err)
 	}
 
 	// determine where to get the conversation from
@@ -148,7 +148,7 @@ func (p *Project) GenerateIdeas(
 		"idea-generation",
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the conversation: %s", err)
+		return nil, fmt.Errorf("failed to get the conversation: %w", err)
 	}
 
 	var prompt string
@@ -168,7 +168,7 @@ func (p *Project) GenerateIdeas(
 		`{"ideas": [{"title", string}]}`,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("the completion failed: %s", err)
+		return nil, fmt.Errorf("the completion failed: %w", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully parsed the ideas")
@@ -190,7 +190,7 @@ func (p *Project) AddIdeas(
 	var pid pgtype.UUID
 	err := pid.Scan(args.ConversationId)
 	if err != nil && args.ConversationId != "" {
-		return nil, fmt.Errorf("failed to parse the conversationId: %s", err)
+		return nil, fmt.Errorf("failed to parse the conversationId: %w", err)
 	}
 
 	// create all records
@@ -205,7 +205,7 @@ func (p *Project) AddIdeas(
 			Title:          item.Title,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to create the project idea: %s", err)
+			return nil, fmt.Errorf("failed to create the project idea: %w", err)
 		}
 		ideas = append(ideas, idea)
 	}
@@ -219,7 +219,7 @@ func (p *Project) GetIdeas(ctx context.Context, db queries.DBTX) ([]*queries.Pro
 	dmodel := queries.New(db)
 	ideas, err := dmodel.GetProjectIdeas(ctx, p.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the project ideas: %s", err)
+		return nil, fmt.Errorf("failed to get the project ideas: %w", err)
 	}
 	return ideas, nil
 }

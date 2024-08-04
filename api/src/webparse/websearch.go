@@ -19,14 +19,14 @@ func WebSearch(query string) (*SearchResponse, error) {
 	u := fmt.Sprintf("%s/search?q=%s&format=json", endpoint, url.QueryEscape(query))
 	resp, err := http.Get(u)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send the search request: %s", err)
+		return nil, fmt.Errorf("failed to send the search request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// parse the body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the body: %s", err)
+		return nil, fmt.Errorf("failed to read the body: %w", err)
 	}
 
 	if resp.StatusCode != 200 {
@@ -36,7 +36,7 @@ func WebSearch(query string) (*SearchResponse, error) {
 	// parse the json
 	var response SearchResponse
 	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse the json: %s", err)
+		return nil, fmt.Errorf("failed to parse the json: %w", err)
 	}
 
 	return &response, err

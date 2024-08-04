@@ -231,6 +231,38 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg *CreateCustomerParams)
 	return &i, err
 }
 
+const createCustomerResume = `-- name: CreateCustomerResume :one
+INSERT INTO resume (
+    id, customer_id, title
+) VALUES ( $1, $2, $3 )
+RETURNING id, customer_id, title, created_at, updated_at
+`
+
+type CreateCustomerResumeParams struct {
+	ID         uuid.UUID `db:"id" json:"id"`
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	Title      string    `db:"title" json:"title"`
+}
+
+// CreateCustomerResume
+//
+//	INSERT INTO resume (
+//	    id, customer_id, title
+//	) VALUES ( $1, $2, $3 )
+//	RETURNING id, customer_id, title, created_at, updated_at
+func (q *Queries) CreateCustomerResume(ctx context.Context, arg *CreateCustomerResumeParams) (*Resume, error) {
+	row := q.db.QueryRow(ctx, createCustomerResume, arg.ID, arg.CustomerID, arg.Title)
+	var i Resume
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const createDocument = `-- name: CreateDocument :one
 INSERT INTO document (
     parent_id, customer_id, filename, type, size_bytes, sha_256, datastore_type, datastore_id
@@ -239,7 +271,7 @@ INSERT INTO document (
 )
 ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 SET updated_at = CURRENT_TIMESTAMP
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize
 `
 
 type CreateDocumentParams struct {
@@ -262,7 +294,7 @@ type CreateDocumentParams struct {
 //	)
 //	ON CONFLICT (customer_id, parent_id, filename) DO UPDATE
 //	SET updated_at = CURRENT_TIMESTAMP
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize
 func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, createDocument,
 		arg.ParentID,
@@ -291,6 +323,8 @@ func (q *Queries) CreateDocument(ctx context.Context, arg *CreateDocumentParams)
 		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAsset,
+		&i.Vectorize,
 	)
 	return &i, err
 }
@@ -722,6 +756,475 @@ func (q *Queries) CreateProjectLibraryRecord(ctx context.Context, arg *CreatePro
 	return &i, err
 }
 
+const createResume = `-- name: CreateResume :one
+INSERT INTO resume (
+    customer_id, title
+) VALUES ( $1, $2 )
+RETURNING id, customer_id, title, created_at, updated_at
+`
+
+type CreateResumeParams struct {
+	CustomerID uuid.UUID `db:"customer_id" json:"customerId"`
+	Title      string    `db:"title" json:"title"`
+}
+
+// CreateResume
+//
+//	INSERT INTO resume (
+//	    customer_id, title
+//	) VALUES ( $1, $2 )
+//	RETURNING id, customer_id, title, created_at, updated_at
+func (q *Queries) CreateResume(ctx context.Context, arg *CreateResumeParams) (*Resume, error) {
+	row := q.db.QueryRow(ctx, createResume, arg.CustomerID, arg.Title)
+	var i Resume
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createResumeAbout = `-- name: CreateResumeAbout :one
+INSERT INTO resume_about (
+    resume_id, name, email, phone,
+    title, location, github, linkedin
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+ON CONFLICT (resume_id)
+DO UPDATE SET
+    name = EXCLUDED.name,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
+    title = EXCLUDED.title,
+    location = EXCLUDED.location,
+    github = EXCLUDED.github,
+    linkedin = EXCLUDED.linkedin,
+    updated_at = CURRENT_TIMESTAMP
+RETURNING resume_id, name, email, phone, title, location, github, linkedin, created_at, updated_at
+`
+
+type CreateResumeAboutParams struct {
+	ResumeID uuid.UUID `db:"resume_id" json:"resumeId"`
+	Name     string    `db:"name" json:"name"`
+	Email    string    `db:"email" json:"email"`
+	Phone    string    `db:"phone" json:"phone"`
+	Title    string    `db:"title" json:"title"`
+	Location string    `db:"location" json:"location"`
+	Github   string    `db:"github" json:"github"`
+	Linkedin string    `db:"linkedin" json:"linkedin"`
+}
+
+// CreateResumeAbout
+//
+//	INSERT INTO resume_about (
+//	    resume_id, name, email, phone,
+//	    title, location, github, linkedin
+//	) VALUES (
+//	    $1, $2, $3, $4, $5, $6, $7, $8
+//	)
+//	ON CONFLICT (resume_id)
+//	DO UPDATE SET
+//	    name = EXCLUDED.name,
+//	    email = EXCLUDED.email,
+//	    phone = EXCLUDED.phone,
+//	    title = EXCLUDED.title,
+//	    location = EXCLUDED.location,
+//	    github = EXCLUDED.github,
+//	    linkedin = EXCLUDED.linkedin,
+//	    updated_at = CURRENT_TIMESTAMP
+//	RETURNING resume_id, name, email, phone, title, location, github, linkedin, created_at, updated_at
+func (q *Queries) CreateResumeAbout(ctx context.Context, arg *CreateResumeAboutParams) (*ResumeAbout, error) {
+	row := q.db.QueryRow(ctx, createResumeAbout,
+		arg.ResumeID,
+		arg.Name,
+		arg.Email,
+		arg.Phone,
+		arg.Title,
+		arg.Location,
+		arg.Github,
+		arg.Linkedin,
+	)
+	var i ResumeAbout
+	err := row.Scan(
+		&i.ResumeID,
+		&i.Name,
+		&i.Email,
+		&i.Phone,
+		&i.Title,
+		&i.Location,
+		&i.Github,
+		&i.Linkedin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createResumeApplication = `-- name: CreateResumeApplication :one
+INSERT INTO resume_application (
+    resume_id, title, link, company_site, raw_text
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, resume_id, title, link, company_site, raw_text, status, created_at, updated_at
+`
+
+type CreateResumeApplicationParams struct {
+	ResumeID    uuid.UUID `db:"resume_id" json:"resumeId"`
+	Title       string    `db:"title" json:"title"`
+	Link        string    `db:"link" json:"link"`
+	CompanySite string    `db:"company_site" json:"companySite"`
+	RawText     string    `db:"raw_text" json:"rawText"`
+}
+
+// CreateResumeApplication
+//
+//	INSERT INTO resume_application (
+//	    resume_id, title, link, company_site, raw_text
+//	) VALUES (
+//	    $1, $2, $3, $4, $5
+//	)
+//	RETURNING id, resume_id, title, link, company_site, raw_text, status, created_at, updated_at
+func (q *Queries) CreateResumeApplication(ctx context.Context, arg *CreateResumeApplicationParams) (*ResumeApplication, error) {
+	row := q.db.QueryRow(ctx, createResumeApplication,
+		arg.ResumeID,
+		arg.Title,
+		arg.Link,
+		arg.CompanySite,
+		arg.RawText,
+	)
+	var i ResumeApplication
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.Title,
+		&i.Link,
+		&i.CompanySite,
+		&i.RawText,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createResumeDocument = `-- name: CreateResumeDocument :one
+INSERT INTO resume_document (
+    resume_id, document_id, is_resume
+) VALUES ( $1, $2, $3 )
+RETURNING id, resume_id, document_id, is_resume, created_at
+`
+
+type CreateResumeDocumentParams struct {
+	ResumeID   uuid.UUID `db:"resume_id" json:"resumeId"`
+	DocumentID uuid.UUID `db:"document_id" json:"documentId"`
+	IsResume   bool      `db:"is_resume" json:"isResume"`
+}
+
+// CreateResumeDocument
+//
+//	INSERT INTO resume_document (
+//	    resume_id, document_id, is_resume
+//	) VALUES ( $1, $2, $3 )
+//	RETURNING id, resume_id, document_id, is_resume, created_at
+func (q *Queries) CreateResumeDocument(ctx context.Context, arg *CreateResumeDocumentParams) (*ResumeDocument, error) {
+	row := q.db.QueryRow(ctx, createResumeDocument, arg.ResumeID, arg.DocumentID, arg.IsResume)
+	var i ResumeDocument
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.DocumentID,
+		&i.IsResume,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const createResumeEducation = `-- name: CreateResumeEducation :one
+INSERT INTO resume_education (
+    resume_id, institution, major, level, gpa,
+    location, start_date, end_date, is_current,
+    information
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+)
+RETURNING id, resume_id, institution, major, level, gpa, location, start_date, end_date, is_current, information, created_at, updated_at
+`
+
+type CreateResumeEducationParams struct {
+	ResumeID    uuid.UUID        `db:"resume_id" json:"resumeId"`
+	Institution string           `db:"institution" json:"institution"`
+	Major       string           `db:"major" json:"major"`
+	Level       string           `db:"level" json:"level"`
+	Gpa         pgtype.Numeric   `db:"gpa" json:"gpa"`
+	Location    string           `db:"location" json:"location"`
+	StartDate   pgtype.Timestamp `db:"start_date" json:"startDate"`
+	EndDate     pgtype.Timestamp `db:"end_date" json:"endDate"`
+	IsCurrent   bool             `db:"is_current" json:"isCurrent"`
+	Information string           `db:"information" json:"information"`
+}
+
+// CreateResumeEducation
+//
+//	INSERT INTO resume_education (
+//	    resume_id, institution, major, level, gpa,
+//	    location, start_date, end_date, is_current,
+//	    information
+//	) VALUES (
+//	    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+//	)
+//	RETURNING id, resume_id, institution, major, level, gpa, location, start_date, end_date, is_current, information, created_at, updated_at
+func (q *Queries) CreateResumeEducation(ctx context.Context, arg *CreateResumeEducationParams) (*ResumeEducation, error) {
+	row := q.db.QueryRow(ctx, createResumeEducation,
+		arg.ResumeID,
+		arg.Institution,
+		arg.Major,
+		arg.Level,
+		arg.Gpa,
+		arg.Location,
+		arg.StartDate,
+		arg.EndDate,
+		arg.IsCurrent,
+		arg.Information,
+	)
+	var i ResumeEducation
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.Institution,
+		&i.Major,
+		&i.Level,
+		&i.Gpa,
+		&i.Location,
+		&i.StartDate,
+		&i.EndDate,
+		&i.IsCurrent,
+		&i.Information,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createResumeProject = `-- name: CreateResumeProject :one
+INSERT INTO resume_project (
+    resume_id, title, subtitle, link,
+    start_date, end_date, information
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+)
+RETURNING id, resume_id, title, subtitle, link, start_date, end_date, information, created_at, updated_at
+`
+
+type CreateResumeProjectParams struct {
+	ResumeID    uuid.UUID        `db:"resume_id" json:"resumeId"`
+	Title       string           `db:"title" json:"title"`
+	Subtitle    string           `db:"subtitle" json:"subtitle"`
+	Link        string           `db:"link" json:"link"`
+	StartDate   pgtype.Timestamp `db:"start_date" json:"startDate"`
+	EndDate     pgtype.Timestamp `db:"end_date" json:"endDate"`
+	Information string           `db:"information" json:"information"`
+}
+
+// CreateResumeProject
+//
+//	INSERT INTO resume_project (
+//	    resume_id, title, subtitle, link,
+//	    start_date, end_date, information
+//	) VALUES (
+//	    $1, $2, $3, $4, $5, $6, $7
+//	)
+//	RETURNING id, resume_id, title, subtitle, link, start_date, end_date, information, created_at, updated_at
+func (q *Queries) CreateResumeProject(ctx context.Context, arg *CreateResumeProjectParams) (*ResumeProject, error) {
+	row := q.db.QueryRow(ctx, createResumeProject,
+		arg.ResumeID,
+		arg.Title,
+		arg.Subtitle,
+		arg.Link,
+		arg.StartDate,
+		arg.EndDate,
+		arg.Information,
+	)
+	var i ResumeProject
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.Title,
+		&i.Subtitle,
+		&i.Link,
+		&i.StartDate,
+		&i.EndDate,
+		&i.Information,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createResumeSkill = `-- name: CreateResumeSkill :one
+INSERT INTO resume_skill (
+    resume_id, title, items
+) VALUES (
+    $1, $2, $3
+)
+RETURNING id, resume_id, title, items, created_at, updated_at
+`
+
+type CreateResumeSkillParams struct {
+	ResumeID uuid.UUID `db:"resume_id" json:"resumeId"`
+	Title    string    `db:"title" json:"title"`
+	Items    []string  `db:"items" json:"items"`
+}
+
+// CreateResumeSkill
+//
+//	INSERT INTO resume_skill (
+//	    resume_id, title, items
+//	) VALUES (
+//	    $1, $2, $3
+//	)
+//	RETURNING id, resume_id, title, items, created_at, updated_at
+func (q *Queries) CreateResumeSkill(ctx context.Context, arg *CreateResumeSkillParams) (*ResumeSkill, error) {
+	row := q.db.QueryRow(ctx, createResumeSkill, arg.ResumeID, arg.Title, arg.Items)
+	var i ResumeSkill
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.Title,
+		&i.Items,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createResumeWebsite = `-- name: CreateResumeWebsite :one
+INSERT INTO resume_website (
+    resume_id, website_id
+) VALUES ( $1, $2 )
+RETURNING id, resume_id, website_id, created_at
+`
+
+type CreateResumeWebsiteParams struct {
+	ResumeID  uuid.UUID `db:"resume_id" json:"resumeId"`
+	WebsiteID uuid.UUID `db:"website_id" json:"websiteId"`
+}
+
+// CreateResumeWebsite
+//
+//	INSERT INTO resume_website (
+//	    resume_id, website_id
+//	) VALUES ( $1, $2 )
+//	RETURNING id, resume_id, website_id, created_at
+func (q *Queries) CreateResumeWebsite(ctx context.Context, arg *CreateResumeWebsiteParams) (*ResumeWebsite, error) {
+	row := q.db.QueryRow(ctx, createResumeWebsite, arg.ResumeID, arg.WebsiteID)
+	var i ResumeWebsite
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.WebsiteID,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const createResumeWebsitePage = `-- name: CreateResumeWebsitePage :one
+INSERT INTO resume_website_page (
+    resume_id, website_page_id
+) VALUES ( $1, $2 )
+RETURNING id, resume_id, website_page_id, created_at
+`
+
+type CreateResumeWebsitePageParams struct {
+	ResumeID      uuid.UUID `db:"resume_id" json:"resumeId"`
+	WebsitePageID uuid.UUID `db:"website_page_id" json:"websitePageId"`
+}
+
+// CreateResumeWebsitePage
+//
+//	INSERT INTO resume_website_page (
+//	    resume_id, website_page_id
+//	) VALUES ( $1, $2 )
+//	RETURNING id, resume_id, website_page_id, created_at
+func (q *Queries) CreateResumeWebsitePage(ctx context.Context, arg *CreateResumeWebsitePageParams) (*ResumeWebsitePage, error) {
+	row := q.db.QueryRow(ctx, createResumeWebsitePage, arg.ResumeID, arg.WebsitePageID)
+	var i ResumeWebsitePage
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.WebsitePageID,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const createResumeWorkExperience = `-- name: CreateResumeWorkExperience :one
+INSERT INTO resume_work_experience (
+    resume_id, company, position, location,
+    start_date, end_date, is_current, index,
+    information
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+)
+RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
+`
+
+type CreateResumeWorkExperienceParams struct {
+	ResumeID    uuid.UUID        `db:"resume_id" json:"resumeId"`
+	Company     string           `db:"company" json:"company"`
+	Position    string           `db:"position" json:"position"`
+	Location    string           `db:"location" json:"location"`
+	StartDate   pgtype.Timestamp `db:"start_date" json:"startDate"`
+	EndDate     pgtype.Timestamp `db:"end_date" json:"endDate"`
+	IsCurrent   bool             `db:"is_current" json:"isCurrent"`
+	Index       int32            `db:"index" json:"index"`
+	Information string           `db:"information" json:"information"`
+}
+
+// CreateResumeWorkExperience
+//
+//	INSERT INTO resume_work_experience (
+//	    resume_id, company, position, location,
+//	    start_date, end_date, is_current, index,
+//	    information
+//	) VALUES (
+//	    $1, $2, $3, $4, $5, $6, $7, $8, $9
+//	)
+//	RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
+func (q *Queries) CreateResumeWorkExperience(ctx context.Context, arg *CreateResumeWorkExperienceParams) (*ResumeWorkExperience, error) {
+	row := q.db.QueryRow(ctx, createResumeWorkExperience,
+		arg.ResumeID,
+		arg.Company,
+		arg.Position,
+		arg.Location,
+		arg.StartDate,
+		arg.EndDate,
+		arg.IsCurrent,
+		arg.Index,
+		arg.Information,
+	)
+	var i ResumeWorkExperience
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.Company,
+		&i.Position,
+		&i.Location,
+		&i.StartDate,
+		&i.EndDate,
+		&i.IsCurrent,
+		&i.Index,
+		&i.Information,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const createTokenUsage = `-- name: CreateTokenUsage :one
 INSERT INTO token_usage (
     id, customer_id, conversation_id, model, input_tokens, output_tokens, total_tokens
@@ -1136,6 +1639,20 @@ type DeleteFoldersOlderThanParams struct {
 //	AND updated_at < $2
 func (q *Queries) DeleteFoldersOlderThan(ctx context.Context, arg *DeleteFoldersOlderThanParams) error {
 	_, err := q.db.Exec(ctx, deleteFoldersOlderThan, arg.CustomerID, arg.UpdatedAt)
+	return err
+}
+
+const deleteResumeWorkExperience = `-- name: DeleteResumeWorkExperience :exec
+DELETE FROM resume_work_experience
+WHERE id = $1
+`
+
+// DeleteResumeWorkExperience
+//
+//	DELETE FROM resume_work_experience
+//	WHERE id = $1
+func (q *Queries) DeleteResumeWorkExperience(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteResumeWorkExperience, id)
 	return err
 }
 
@@ -2186,13 +2703,13 @@ func (q *Queries) GetDefaultLLM(ctx context.Context, customerID pgtype.UUID) (*G
 }
 
 const getDocument = `-- name: GetDocument :one
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 WHERE id = $1 LIMIT 1
 `
 
 // GetDocument
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 //	WHERE id = $1 LIMIT 1
 func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, getDocument, id)
@@ -2213,18 +2730,20 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, err
 		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAsset,
+		&i.Vectorize,
 	)
 	return &i, err
 }
 
 const getDocumentsByCustomer = `-- name: GetDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 WHERE customer_id = $1 AND validated = true
 `
 
 // GetDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 //	WHERE customer_id = $1 AND validated = true
 func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsByCustomer, customerID)
@@ -2251,6 +2770,8 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UU
 			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsAsset,
+			&i.Vectorize,
 		); err != nil {
 			return nil, err
 		}
@@ -2263,7 +2784,7 @@ func (q *Queries) GetDocumentsByCustomer(ctx context.Context, customerID uuid.UU
 }
 
 const getDocumentsFromListIDs = `-- name: GetDocumentsFromListIDs :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at from document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize from document
 WHERE customer_id = $1
 AND id = ANY($2::uuid[])
 AND ($3::uuid[] IS NULL OR parent_id = ANY($3::uuid[]))
@@ -2277,7 +2798,7 @@ type GetDocumentsFromListIDsParams struct {
 
 // GetDocumentsFromListIDs
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at from document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize from document
 //	WHERE customer_id = $1
 //	AND id = ANY($2::uuid[])
 //	AND ($3::uuid[] IS NULL OR parent_id = ANY($3::uuid[]))
@@ -2306,6 +2827,8 @@ func (q *Queries) GetDocumentsFromListIDs(ctx context.Context, arg *GetDocuments
 			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsAsset,
+			&i.Vectorize,
 		); err != nil {
 			return nil, err
 		}
@@ -2318,13 +2841,13 @@ func (q *Queries) GetDocumentsFromListIDs(ctx context.Context, arg *GetDocuments
 }
 
 const getDocumentsFromParent = `-- name: GetDocumentsFromParent :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 WHERE parent_id = $1 AND validated = true
 `
 
 // GetDocumentsFromParent
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 //	WHERE parent_id = $1 AND validated = true
 func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getDocumentsFromParent, parentID)
@@ -2351,6 +2874,8 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UU
 			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsAsset,
+			&i.Vectorize,
 		); err != nil {
 			return nil, err
 		}
@@ -2363,7 +2888,7 @@ func (q *Queries) GetDocumentsFromParent(ctx context.Context, parentID pgtype.UU
 }
 
 const getDocumentsOlderThan = `-- name: GetDocumentsOlderThan :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 WHERE customer_id = $1
 AND updated_at < $2
 `
@@ -2375,7 +2900,7 @@ type GetDocumentsOlderThanParams struct {
 
 // GetDocumentsOlderThan
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 //	WHERE customer_id = $1
 //	AND updated_at < $2
 func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOlderThanParams) ([]*Document, error) {
@@ -2403,6 +2928,8 @@ func (q *Queries) GetDocumentsOlderThan(ctx context.Context, arg *GetDocumentsOl
 			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsAsset,
+			&i.Vectorize,
 		); err != nil {
 			return nil, err
 		}
@@ -3249,14 +3776,344 @@ func (q *Queries) GetPublicLLMs(ctx context.Context) ([]*GetPublicLLMsRow, error
 	return items, nil
 }
 
+const getResume = `-- name: GetResume :one
+SELECT id, customer_id, title, created_at, updated_at FROM resume
+WHERE id = $1
+`
+
+// GetResume
+//
+//	SELECT id, customer_id, title, created_at, updated_at FROM resume
+//	WHERE id = $1
+func (q *Queries) GetResume(ctx context.Context, id uuid.UUID) (*Resume, error) {
+	row := q.db.QueryRow(ctx, getResume, id)
+	var i Resume
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getResumeAbout = `-- name: GetResumeAbout :one
+SELECT resume_id, name, email, phone, title, location, github, linkedin, created_at, updated_at FROM resume_about
+WHERE resume_id = $1
+`
+
+// GetResumeAbout
+//
+//	SELECT resume_id, name, email, phone, title, location, github, linkedin, created_at, updated_at FROM resume_about
+//	WHERE resume_id = $1
+func (q *Queries) GetResumeAbout(ctx context.Context, resumeID uuid.UUID) (*ResumeAbout, error) {
+	row := q.db.QueryRow(ctx, getResumeAbout, resumeID)
+	var i ResumeAbout
+	err := row.Scan(
+		&i.ResumeID,
+		&i.Name,
+		&i.Email,
+		&i.Phone,
+		&i.Title,
+		&i.Location,
+		&i.Github,
+		&i.Linkedin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getResumeApplications = `-- name: GetResumeApplications :many
+SELECT id, resume_id, title, link, company_site, raw_text, status, created_at, updated_at FROM resume_application
+WHERE resume_id = $1
+ORDER BY status
+`
+
+// GetResumeApplications
+//
+//	SELECT id, resume_id, title, link, company_site, raw_text, status, created_at, updated_at FROM resume_application
+//	WHERE resume_id = $1
+//	ORDER BY status
+func (q *Queries) GetResumeApplications(ctx context.Context, resumeID uuid.UUID) ([]*ResumeApplication, error) {
+	rows, err := q.db.Query(ctx, getResumeApplications, resumeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ResumeApplication{}
+	for rows.Next() {
+		var i ResumeApplication
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResumeID,
+			&i.Title,
+			&i.Link,
+			&i.CompanySite,
+			&i.RawText,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getResumeDocuments = `-- name: GetResumeDocuments :many
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at, d.is_asset, d.vectorize FROM resume_document rd
+JOIN document d ON d.id = rd.document_id
+WHERE rd.resume_id = $1
+`
+
+// GetResumeDocuments
+//
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at, d.is_asset, d.vectorize FROM resume_document rd
+//	JOIN document d ON d.id = rd.document_id
+//	WHERE rd.resume_id = $1
+func (q *Queries) GetResumeDocuments(ctx context.Context, resumeID uuid.UUID) ([]*Document, error) {
+	rows, err := q.db.Query(ctx, getResumeDocuments, resumeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Document{}
+	for rows.Next() {
+		var i Document
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.CustomerID,
+			&i.Filename,
+			&i.Type,
+			&i.SizeBytes,
+			&i.Sha256,
+			&i.Validated,
+			&i.DatastoreType,
+			&i.DatastoreID,
+			&i.Summary,
+			&i.SummarySha256,
+			&i.VectorSha256,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsAsset,
+			&i.Vectorize,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getResumeWebsitePages = `-- name: GetResumeWebsitePages :many
+SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at FROM resume_website_page rwp
+JOIN website_page wp ON wp.id = rwp.website_page_id
+WHERE rwp.resume_id = $1
+`
+
+// GetResumeWebsitePages
+//
+//	SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at FROM resume_website_page rwp
+//	JOIN website_page wp ON wp.id = rwp.website_page_id
+//	WHERE rwp.resume_id = $1
+func (q *Queries) GetResumeWebsitePages(ctx context.Context, resumeID uuid.UUID) ([]*WebsitePage, error) {
+	rows, err := q.db.Query(ctx, getResumeWebsitePages, resumeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*WebsitePage{}
+	for rows.Next() {
+		var i WebsitePage
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.WebsiteID,
+			&i.Url,
+			&i.Sha256,
+			&i.IsValid,
+			&i.Metadata,
+			&i.Summary,
+			&i.SummarySha256,
+			&i.VectorSha256,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getResumeWebsites = `-- name: GetResumeWebsites :many
+SELECT w.id, w.customer_id, w.protocol, w.domain, w.path, w.blacklist, w.whitelist, w.created_at, w.updated_at FROM resume_website rw
+JOIN website w ON w.id = rw.website_id
+WHERE rw.resume_id = $1
+`
+
+// GetResumeWebsites
+//
+//	SELECT w.id, w.customer_id, w.protocol, w.domain, w.path, w.blacklist, w.whitelist, w.created_at, w.updated_at FROM resume_website rw
+//	JOIN website w ON w.id = rw.website_id
+//	WHERE rw.resume_id = $1
+func (q *Queries) GetResumeWebsites(ctx context.Context, resumeID uuid.UUID) ([]*Website, error) {
+	rows, err := q.db.Query(ctx, getResumeWebsites, resumeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Website{}
+	for rows.Next() {
+		var i Website
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Protocol,
+			&i.Domain,
+			&i.Path,
+			&i.Blacklist,
+			&i.Whitelist,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getResumeWorkExperience = `-- name: GetResumeWorkExperience :one
+SELECT id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at FROM resume_work_experience
+WHERE id = $1
+`
+
+// GetResumeWorkExperience
+//
+//	SELECT id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at FROM resume_work_experience
+//	WHERE id = $1
+func (q *Queries) GetResumeWorkExperience(ctx context.Context, id uuid.UUID) (*ResumeWorkExperience, error) {
+	row := q.db.QueryRow(ctx, getResumeWorkExperience, id)
+	var i ResumeWorkExperience
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.Company,
+		&i.Position,
+		&i.Location,
+		&i.StartDate,
+		&i.EndDate,
+		&i.IsCurrent,
+		&i.Index,
+		&i.Information,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getResumeWorkExperiences = `-- name: GetResumeWorkExperiences :many
+SELECT id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at FROM resume_work_experience
+WHERE resume_id = $1
+`
+
+// GetResumeWorkExperiences
+//
+//	SELECT id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at FROM resume_work_experience
+//	WHERE resume_id = $1
+func (q *Queries) GetResumeWorkExperiences(ctx context.Context, resumeID uuid.UUID) ([]*ResumeWorkExperience, error) {
+	rows, err := q.db.Query(ctx, getResumeWorkExperiences, resumeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ResumeWorkExperience{}
+	for rows.Next() {
+		var i ResumeWorkExperience
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResumeID,
+			&i.Company,
+			&i.Position,
+			&i.Location,
+			&i.StartDate,
+			&i.EndDate,
+			&i.IsCurrent,
+			&i.Index,
+			&i.Information,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getResumesCustomer = `-- name: GetResumesCustomer :many
+SELECT id, customer_id, title, created_at, updated_at FROM resume
+WHERE customer_id = $1
+`
+
+// GetResumesCustomer
+//
+//	SELECT id, customer_id, title, created_at, updated_at FROM resume
+//	WHERE customer_id = $1
+func (q *Queries) GetResumesCustomer(ctx context.Context, customerID uuid.UUID) ([]*Resume, error) {
+	rows, err := q.db.Query(ctx, getResumesCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Resume{}
+	for rows.Next() {
+		var i Resume
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.Title,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getRootDocumentsByCustomer = `-- name: GetRootDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 WHERE customer_id = $1 AND parent_id is NULL
 `
 
 // GetRootDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 //	WHERE customer_id = $1 AND parent_id is NULL
 func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getRootDocumentsByCustomer, customerID)
@@ -3283,6 +4140,8 @@ func (q *Queries) GetRootDocumentsByCustomer(ctx context.Context, customerID uui
 			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsAsset,
+			&i.Vectorize,
 		); err != nil {
 			return nil, err
 		}
@@ -3331,13 +4190,13 @@ func (q *Queries) GetRootFoldersByCustomer(ctx context.Context, customerID uuid.
 }
 
 const getUnvalidatedDocumentsByCustomer = `-- name: GetUnvalidatedDocumentsByCustomer :many
-SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 WHERE customer_id = $1 AND validated = false
 `
 
 // GetUnvalidatedDocumentsByCustomer
 //
-//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at FROM document
+//	SELECT id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize FROM document
 //	WHERE customer_id = $1 AND validated = false
 func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, customerID uuid.UUID) ([]*Document, error) {
 	rows, err := q.db.Query(ctx, getUnvalidatedDocumentsByCustomer, customerID)
@@ -3364,6 +4223,8 @@ func (q *Queries) GetUnvalidatedDocumentsByCustomer(ctx context.Context, custome
 			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsAsset,
+			&i.Vectorize,
 		); err != nil {
 			return nil, err
 		}
@@ -3855,7 +4716,7 @@ const markDocumentAsUploaded = `-- name: MarkDocumentAsUploaded :one
 UPDATE document
 SET validated = true
 WHERE id = $1
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize
 `
 
 // MarkDocumentAsUploaded
@@ -3863,7 +4724,7 @@ RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, valid
 //	UPDATE document
 //	SET validated = true
 //	WHERE id = $1
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize
 func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, markDocumentAsUploaded, id)
 	var i Document
@@ -3883,12 +4744,14 @@ func (q *Queries) MarkDocumentAsUploaded(ctx context.Context, id uuid.UUID) (*Do
 		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAsset,
+		&i.Vectorize,
 	)
 	return &i, err
 }
 
 const queryVectorStoreDocuments = `-- name: QueryVectorStoreDocuments :many
-SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at, d.is_asset, d.vectorize
 FROM vector_store vs
 JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
@@ -3905,7 +4768,7 @@ type QueryVectorStoreDocumentsParams struct {
 
 // QueryVectorStoreDocuments
 //
-//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at, d.is_asset, d.vectorize
 //	FROM vector_store vs
 //	JOIN document_vector dv ON vs.id = dv.vector_store_id
 //	JOIN document d ON d.id = dv.document_id
@@ -3937,6 +4800,8 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 			&i.VectorSha256,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsAsset,
+			&i.Vectorize,
 		); err != nil {
 			return nil, err
 		}
@@ -3951,7 +4816,7 @@ func (q *Queries) QueryVectorStoreDocuments(ctx context.Context, arg *QueryVecto
 const queryVectorStoreDocumentsScoped = `-- name: QueryVectorStoreDocumentsScoped :many
 SELECT
     vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
-    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
+    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at, d.is_asset, d.vectorize
 FROM vector_store vs
 JOIN document_vector dv ON vs.id = dv.vector_store_id
 JOIN document d ON d.id = dv.document_id
@@ -3985,7 +4850,7 @@ type QueryVectorStoreDocumentsScopedRow struct {
 //
 //	SELECT
 //	    vs.id, vs.customer_id, vs.raw, vs.embeddings, vs.content_type, vs.object_id, vs.object_parent_id, vs.metadata, vs.created_at,
-//	    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at
+//	    d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at, d.is_asset, d.vectorize
 //	FROM vector_store vs
 //	JOIN document_vector dv ON vs.id = dv.vector_store_id
 //	JOIN document d ON d.id = dv.document_id
@@ -4040,6 +4905,8 @@ func (q *Queries) QueryVectorStoreDocumentsScoped(ctx context.Context, arg *Quer
 			&i.Document.VectorSha256,
 			&i.Document.CreatedAt,
 			&i.Document.UpdatedAt,
+			&i.Document.IsAsset,
+			&i.Document.Vectorize,
 		); err != nil {
 			return nil, err
 		}
@@ -4360,6 +5227,75 @@ func (q *Queries) SetProjectIdeaUsed(ctx context.Context, id uuid.UUID) (*Projec
 	return &i, err
 }
 
+const setResumeTitle = `-- name: SetResumeTitle :one
+UPDATE resume SET
+    title = $2
+WHERE id = $1
+RETURNING id, customer_id, title, created_at, updated_at
+`
+
+type SetResumeTitleParams struct {
+	ID    uuid.UUID `db:"id" json:"id"`
+	Title string    `db:"title" json:"title"`
+}
+
+// SetResumeTitle
+//
+//	UPDATE resume SET
+//	    title = $2
+//	WHERE id = $1
+//	RETURNING id, customer_id, title, created_at, updated_at
+func (q *Queries) SetResumeTitle(ctx context.Context, arg *SetResumeTitleParams) (*Resume, error) {
+	row := q.db.QueryRow(ctx, setResumeTitle, arg.ID, arg.Title)
+	var i Resume
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const setResumeWorkExperienceInfo = `-- name: SetResumeWorkExperienceInfo :one
+UPDATE resume_work_experience SET
+    information = $2
+WHERE id = $1
+RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
+`
+
+type SetResumeWorkExperienceInfoParams struct {
+	ID          uuid.UUID `db:"id" json:"id"`
+	Information string    `db:"information" json:"information"`
+}
+
+// SetResumeWorkExperienceInfo
+//
+//	UPDATE resume_work_experience SET
+//	    information = $2
+//	WHERE id = $1
+//	RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
+func (q *Queries) SetResumeWorkExperienceInfo(ctx context.Context, arg *SetResumeWorkExperienceInfoParams) (*ResumeWorkExperience, error) {
+	row := q.db.QueryRow(ctx, setResumeWorkExperienceInfo, arg.ID, arg.Information)
+	var i ResumeWorkExperience
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.Company,
+		&i.Position,
+		&i.Location,
+		&i.StartDate,
+		&i.EndDate,
+		&i.IsCurrent,
+		&i.Index,
+		&i.Information,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const setWebsitePagesNotValid = `-- name: SetWebsitePagesNotValid :exec
 UPDATE website_page SET
     updated_at = CURRENT_TIMESTAMP,
@@ -4545,7 +5481,7 @@ UPDATE document SET
     summary = $2,
     summary_sha_256 = $3
 WHERE id = $1
-RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
+RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize
 `
 
 type UpdateDocumentSummaryParams struct {
@@ -4561,7 +5497,7 @@ type UpdateDocumentSummaryParams struct {
 //	    summary = $2,
 //	    summary_sha_256 = $3
 //	WHERE id = $1
-//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at
+//	RETURNING id, parent_id, customer_id, filename, type, size_bytes, sha_256, validated, datastore_type, datastore_id, summary, summary_sha_256, vector_sha_256, created_at, updated_at, is_asset, vectorize
 func (q *Queries) UpdateDocumentSummary(ctx context.Context, arg *UpdateDocumentSummaryParams) (*Document, error) {
 	row := q.db.QueryRow(ctx, updateDocumentSummary, arg.ID, arg.Summary, arg.SummarySha256)
 	var i Document
@@ -4581,6 +5517,8 @@ func (q *Queries) UpdateDocumentSummary(ctx context.Context, arg *UpdateDocument
 		&i.VectorSha256,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAsset,
+		&i.Vectorize,
 	)
 	return &i, err
 }
@@ -4654,6 +5592,71 @@ func (q *Queries) UpdateLLM(ctx context.Context, arg *UpdateLLMParams) (*Llm, er
 		&i.Instructions,
 		&i.IsDefault,
 		&i.Public,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const updateResumeWorkExperience = `-- name: UpdateResumeWorkExperience :one
+UPDATE resume_work_experience SET
+    company = $2,
+    position = $3,
+    location = $4,
+    start_date = $5,
+    end_date = $6,
+    is_current = $7,
+    index = $8
+WHERE id = $1
+RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
+`
+
+type UpdateResumeWorkExperienceParams struct {
+	ID        uuid.UUID        `db:"id" json:"id"`
+	Company   string           `db:"company" json:"company"`
+	Position  string           `db:"position" json:"position"`
+	Location  string           `db:"location" json:"location"`
+	StartDate pgtype.Timestamp `db:"start_date" json:"startDate"`
+	EndDate   pgtype.Timestamp `db:"end_date" json:"endDate"`
+	IsCurrent bool             `db:"is_current" json:"isCurrent"`
+	Index     int32            `db:"index" json:"index"`
+}
+
+// UpdateResumeWorkExperience
+//
+//	UPDATE resume_work_experience SET
+//	    company = $2,
+//	    position = $3,
+//	    location = $4,
+//	    start_date = $5,
+//	    end_date = $6,
+//	    is_current = $7,
+//	    index = $8
+//	WHERE id = $1
+//	RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
+func (q *Queries) UpdateResumeWorkExperience(ctx context.Context, arg *UpdateResumeWorkExperienceParams) (*ResumeWorkExperience, error) {
+	row := q.db.QueryRow(ctx, updateResumeWorkExperience,
+		arg.ID,
+		arg.Company,
+		arg.Position,
+		arg.Location,
+		arg.StartDate,
+		arg.EndDate,
+		arg.IsCurrent,
+		arg.Index,
+	)
+	var i ResumeWorkExperience
+	err := row.Scan(
+		&i.ID,
+		&i.ResumeID,
+		&i.Company,
+		&i.Position,
+		&i.Location,
+		&i.StartDate,
+		&i.EndDate,
+		&i.IsCurrent,
+		&i.Index,
+		&i.Information,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

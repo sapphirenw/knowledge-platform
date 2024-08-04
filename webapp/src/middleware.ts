@@ -19,7 +19,20 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    return NextResponse.next()
+    // set some origin headers
+    const url = new URL(request.url);
+    const origin = url.origin;
+    const pathname = url.pathname;
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-url', request.url);
+    requestHeaders.set('x-origin', origin);
+    requestHeaders.set('x-pathname', pathname);
+
+    return NextResponse.next({
+        request: {
+            headers: requestHeaders,
+        }
+    })
 }
 
 // See "Matching Paths" below to learn more

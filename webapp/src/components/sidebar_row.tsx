@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils"
 import { Button } from "./ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
+import Link from "next/link"
 
 export type SidebarRow = {
     href: string
@@ -27,16 +28,17 @@ export default function SidebarRowView({
         <Tooltip>
             <TooltipTrigger asChild>
                 <Button
-                    variant={variant ?? (path.match(item.href) ? "secondary" : "ghost")}
+                    variant={(path.match(item.href) ? "secondary" : variant ?? "ghost")}
                     className={`w-full ${path.match(item.href) ? "font-semibold" : ""}`}
-                    // size={isOpen ? "default" : "icon"}
+                    size={isOpen ? "default" : "icon"}
                     asChild
                 >
-                    <a href={item.href}>
-                        <div className={cn(`flex items-center ${isOpen ? "w-full text-left" : ""}`, className)}>
-                            <div className={`${iconClass}`}>{item.icon}</div> {isOpen ? <p className="ml-2">{item.title}</p> : null}
+                    <Link href={item.href}>
+                        <div className={cn(`flex items-center w-full ${isOpen ? "" : "grid place-items-center"}`, className)}>
+                            <div className={`${iconClass}`}>{item.icon}</div>
+                            {isOpen ? <p className="ml-2">{item.title}</p> : null}
                         </div>
-                    </a>
+                    </Link>
                 </Button>
             </TooltipTrigger>
             <TooltipContent>

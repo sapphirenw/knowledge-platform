@@ -33,11 +33,11 @@ func (post *LinkedInPost) GetConfig(
 		LinkedinPostID: utils.GoogleUUIDToPGXUUID(post.ID),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the configuration: %s", err)
+		return nil, fmt.Errorf("failed to get the configuration: %w", err)
 	}
 	config := utils.ReflectStructs[*queries.GetLinkedInPostConfigRow, *queries.LinkedinPostConfig](configRaw)
 	if config == nil {
-		return nil, fmt.Errorf("failed to convert the config record: %s", err)
+		return nil, fmt.Errorf("failed to convert the config record: %w", err)
 	}
 
 	return config, err
@@ -62,7 +62,7 @@ func (p *Project) NewLinkedInPost(
 		ContentType: string(ContentType_LinkedInPost),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create the project library record: %s", err)
+		return nil, fmt.Errorf("failed to create the project library record: %w", err)
 	}
 
 	// create the linkedin post
@@ -73,7 +73,7 @@ func (p *Project) NewLinkedInPost(
 		Title:            title,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create the post record: %s", err)
+		return nil, fmt.Errorf("failed to create the post record: %w", err)
 	}
 
 	return &LinkedInPost{post}, nil
@@ -132,7 +132,7 @@ func (p *Project) CreateLinkedInPostConfig(
 		LlmProofReadingID:         utils.PGXUUIDFromString(args.LlmProofReadingId),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create the linkedin post config: %s", err)
+		return nil, fmt.Errorf("failed to create the linkedin post config: %w", err)
 	}
 
 	return config, nil
@@ -163,7 +163,7 @@ func linkedInPostHandler(
 			post, err := dmodel.GetLinkedInPost(r.Context(), id)
 			if err != nil {
 				p.logger.Error("Error getting the linkedin post", "error", err)
-				http.Error(w, fmt.Sprintf("There was an internal issue: %s", err), http.StatusInternalServerError)
+				http.Error(w, fmt.Sprintf("There was an internal issue: %w", err), http.StatusInternalServerError)
 				return
 			}
 
@@ -219,13 +219,13 @@ func (p *Project) GenerateLinkedInPost(
 	// get the post config
 	config, err := post.GetConfig(ctx, logger, db)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get linkedin post config: %s", err)
+		return nil, fmt.Errorf("failed to get linkedin post config: %w", err)
 	}
 
 	// get the generation model
 	genModel, err := llm.GetLLM(ctx, db, p.CustomerID, config.LlmContentGenerationID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the generation llm: %s", err)
+		return nil, fmt.Errorf("failed to get the generation llm: %w", err)
 	}
 
 	logger.InfoContext(ctx, "Configuring the conversation ...")
@@ -237,7 +237,7 @@ func (p *Project) GenerateLinkedInPost(
 		"linkedin-post",
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the conversation: %s", err)
+		return nil, fmt.Errorf("failed to get the conversation: %w", err)
 	}
 
 	// create a prompt
@@ -255,7 +255,7 @@ func (p *Project) GenerateLinkedInPost(
 	// create the post
 	response, err := conv.Completion(ctx, db, genModel, gollm.NewUserMessage(prompt), nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send the completion: %s", err)
+		return nil, fmt.Errorf("failed to send the completion: %w", err)
 	}
 
 	return &generateLinkedInPostResponse{

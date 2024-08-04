@@ -80,7 +80,7 @@ func AutoConversation(
 		// create a new conversation
 		conv, err = CreateConversation(ctx, logger, db, customerId, systemMessage, title, conversationType)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create the conversation: %s", err)
+			return nil, fmt.Errorf("failed to create the conversation: %w", err)
 		}
 	} else {
 		if _, err := uuid.Parse(conversationId); err != nil {
@@ -90,7 +90,7 @@ func AutoConversation(
 		// get the existing conversation
 		conv, err = GetConversation(ctx, logger, db, uuid.MustParse(conversationId))
 		if err != nil {
-			return nil, fmt.Errorf("failed to get the conversation: %s", err)
+			return nil, fmt.Errorf("failed to get the conversation: %w", err)
 		}
 	}
 
@@ -118,7 +118,7 @@ func CreateConversation(
 		SystemMessage:    systemMessage,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create the conversation: %s", err)
+		return nil, fmt.Errorf("failed to create the conversation: %w", err)
 	}
 
 	// create the conversation record
@@ -131,7 +131,7 @@ func CreateConversation(
 
 	// Add the system message
 	if err := conv.SaveMessage(ctx, db, nil, gollm.NewSystemMessage(systemMessage)); err != nil {
-		return nil, fmt.Errorf("failed to sync the messages: %s", err)
+		return nil, fmt.Errorf("failed to sync the messages: %w", err)
 	}
 
 	return conv, nil
@@ -149,13 +149,13 @@ func GetConversation(
 	// get the conversation
 	conv, err := dmodel.GetConversation(ctx, conversationId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the conversation: %s", err)
+		return nil, fmt.Errorf("failed to get the conversation: %w", err)
 	}
 
 	// get the messages
 	msgs, err := dmodel.GetConversationMessages(ctx, conversationId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get conversation messages: %s", err)
+		return nil, fmt.Errorf("failed to get conversation messages: %w", err)
 	}
 
 	logger.DebugContext(ctx, "Fetched messages from database", "length", len(msgs))
@@ -211,7 +211,7 @@ func (c *Conversation) internalCompletion(
 		JsonSchema:   schema,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed conversation completion: %s", err)
+		return nil, fmt.Errorf("failed conversation completion: %w", err)
 	}
 
 	// report the usage
@@ -227,13 +227,13 @@ func (c *Conversation) internalCompletion(
 		logger.InfoContext(ctx, "Saving the input message ...")
 		if err := c.SaveMessage(ctx, db, model, message); err != nil {
 			c.messages = c.messages[:len(c.messages)-1]
-			return nil, fmt.Errorf("failed to save the input message to the conversation: %s", err)
+			return nil, fmt.Errorf("failed to save the input message to the conversation: %w", err)
 		}
 	}
 	logger.InfoContext(ctx, "Saving the output message ...")
 	if err := c.SaveMessage(ctx, db, model, response.Message); err != nil {
 		c.messages = c.messages[:len(c.messages)-1]
-		return nil, fmt.Errorf("failed to save the output message to the conversation: %s", err)
+		return nil, fmt.Errorf("failed to save the output message to the conversation: %w", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully saved conversation")
@@ -308,7 +308,7 @@ func jsonCompletion[T any](
 	// serialize the response
 	var resp T
 	if err := json.Unmarshal([]byte(response.Message.Message), &resp); err != nil {
-		return nil, fmt.Errorf("failed to serialize the JSON: %s", err)
+		return nil, fmt.Errorf("failed to serialize the JSON: %w", err)
 	}
 
 	return &resp, nil
@@ -341,7 +341,7 @@ func (c *Conversation) SaveMessage(
 	if message.Role == gollm.RoleToolCall {
 		enc, err := json.Marshal(message.ToolArguments)
 		if err != nil {
-			return fmt.Errorf("failed encode the tool arguments: %s", err)
+			return fmt.Errorf("failed encode the tool arguments: %w", err)
 		}
 		input.ToolArguments = enc
 	}
@@ -357,7 +357,7 @@ func (c *Conversation) SaveMessage(
 	dmodel := queries.New(db)
 	_, err := dmodel.CreateConversationMessage(ctx, input)
 	if err != nil {
-		return fmt.Errorf("failed to save the message: %s", err)
+		return fmt.Errorf("failed to save the message: %w", err)
 	}
 
 	// add the message to the internal array
@@ -383,7 +383,7 @@ func (c *Conversation) ReportError(
 		ErrorMessage: &msg,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to report the internal error to the database: %s", err)
+		return fmt.Errorf("failed to report the internal error to the database: %w", err)
 	}
 	return nil
 }

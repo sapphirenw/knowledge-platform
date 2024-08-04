@@ -1,6 +1,6 @@
 "use client"
 
-import { MessageSquareText, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react"
+import { FileSpreadsheet, MessageSquareText, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react"
 import { useState } from "react"
 import Cookies from "js-cookie"
 import { usePathname } from 'next/navigation'
@@ -15,10 +15,9 @@ export default function HomeSidebarClient({
 }) {
     const pathname = usePathname()
 
-    const [isOpen, setIsOpen] = useState(initIsOpen == "true")
+    const [isOpen, setIsOpen] = useState(false)
 
     const toggleIsOpen = () => {
-        Cookies.set("isSideMenuOpen", `${!isOpen}`)
         setIsOpen(!isOpen)
     }
 
@@ -28,23 +27,37 @@ export default function HomeSidebarClient({
         }
 
         return <div className="space-y-2">
-            <SidebarRowView item={{
-                href: "/home/chat",
-                title: "Chat",
-                icon: <MessageSquareText size={16} />
-            }} path={pathname} isOpen={isOpen} />
+            <div className="">
+                <SidebarRowView item={{
+                    href: "/home/chat",
+                    title: "Basic Chat",
+                    icon: <MessageSquareText size={16} />
+                }} path={pathname} isOpen={isOpen} variant="outline" />
+            </div>
+            <p className={`font-medium text-sm opacity-75 pt-4 pl-3`}>{isOpen ? "Integrations" : "Int"}</p>
+            <div className="">
+                <SidebarRowView item={{
+                    href: "/home/resume-builder",
+                    title: "Resume Builder",
+                    icon: <FileSpreadsheet size={16} />
+                }} path={pathname} isOpen={isOpen} variant="outline" />
+            </div>
         </div>
     }
 
-    return <nav className={`border-r border-r-border h-full ${isOpen ? "w-[200px]" : "w-[60px]"} transition-all duration-300`}>
+    // return <nav className={`border-r border-r-border h-full ${isOpen ? "w-[200px]" : "w-[60px]"} transition-all duration-300`}>
+    return <nav
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        className={`border-r border-r-border h-full hover:w-[200px] w-[60px] transition-all duration-300`}>
         <div className="w-full h-full p-2">
             <div className="flex flex-col justify-between h-full">
-                <div className="space-y-2">
-                    <div className="opacity-50 px-2 text-right">
+                <div className="space-y-2 pt-[50px]">
+                    {/* <div className="opacity-50 px-2 text-right">
                         <button onClick={() => toggleIsOpen()}>
                             {isOpen ? <PanelLeftClose strokeWidth={1.5} /> : <PanelLeftOpen strokeWidth={1.5} />}
                         </button>
-                    </div>
+                    </div> */}
                     {sidebar()}
                 </div>
                 <SidebarRowView

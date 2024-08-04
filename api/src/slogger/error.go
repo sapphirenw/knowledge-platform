@@ -23,7 +23,7 @@ func Error(
 		logger = slog.Default()
 	}
 	logger.ErrorContext(ctx, fmt.Sprintf("%s: %s", message, err), args...)
-	return fmt.Errorf(message)
+	return fmt.Errorf("%s: %w", message, err)
 }
 
 // Http writer error

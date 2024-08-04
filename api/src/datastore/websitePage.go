@@ -35,20 +35,20 @@ func (p *WebsitePage) GetRaw(ctx context.Context) (*bytes.Buffer, error) {
 		// scrape the page
 		response, err := webparse.ScrapeSingle(ctx, p.logger, p.WebsitePage)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scrape the page: %s", err)
+			return nil, fmt.Errorf("failed to scrape the page: %w", err)
 		}
 
 		// create a buffer
 		buf := new(bytes.Buffer)
 		_, err = buf.WriteString(response.Content)
 		if err != nil {
-			return nil, fmt.Errorf("failed to write to the buffer: %s", err)
+			return nil, fmt.Errorf("failed to write to the buffer: %w", err)
 		}
 
 		met := new(bytes.Buffer)
 		enc, _ := json.Marshal(response.Header)
 		if _, err := buf.Write(enc); err != nil {
-			return nil, fmt.Errorf("failed to write the header: %s", err)
+			return nil, fmt.Errorf("failed to write the header: %w", err)
 		}
 
 		p.raw = buf
@@ -66,7 +66,7 @@ func (p *WebsitePage) GetCleaned(ctx context.Context) (*bytes.Buffer, error) {
 	// read the raw data
 	raw, err := p.GetRaw(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the raw data: %s", err)
+		return nil, fmt.Errorf("failed to read the raw data: %w", err)
 	}
 
 	// clean the data
@@ -112,7 +112,7 @@ func (p *WebsitePage) GetMetadata(ctx context.Context) (*bytes.Buffer, error) {
 	}
 
 	if _, err := p.GetRaw(ctx); err != nil {
-		return nil, fmt.Errorf("failed to get the raw data to fetch the headers: %s", err)
+		return nil, fmt.Errorf("failed to get the raw data to fetch the headers: %w", err)
 	}
 
 	if p.metadata == nil {

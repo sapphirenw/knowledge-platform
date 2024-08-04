@@ -151,7 +151,7 @@ func (c *Customer) ListFolderContents(ctx context.Context, db queries.DBTX, fold
 		}
 		folder, err = model.GetFolder(ctx, *uid)
 		if err != nil {
-			return nil, fmt.Errorf("this folder does not exist: %s", err)
+			return nil, fmt.Errorf("this folder does not exist: %w", err)
 		}
 
 		// get the information using the folder
@@ -211,7 +211,7 @@ func (c *Customer) GeneratePresignedUrl(ctx context.Context, db queries.DBTX, bo
 	// create the document
 	doc, err := datastore.NewDocumentFromDocument(ctx, logger, d)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the database document: %s", err)
+		return nil, fmt.Errorf("failed to parse the database document: %w", err)
 	}
 
 	// generate the pre-signed url
@@ -369,7 +369,7 @@ func (c *Customer) InsertWebsite(
 		CustomerID: c.ID,
 		WebsiteID:  site.ID,
 	}); err != nil {
-		return nil, fmt.Errorf("err setting website pages to not valid: %s", err)
+		return nil, fmt.Errorf("err setting website pages to not valid: %w", err)
 	}
 
 	// insert the pages
@@ -391,7 +391,7 @@ func (c *Customer) InsertWebsite(
 		CustomerID: c.ID,
 		WebsiteID:  site.ID,
 	}); err != nil {
-		return nil, fmt.Errorf("error deleting stale records: %s", err)
+		return nil, fmt.Errorf("error deleting stale records: %w", err)
 	}
 
 	return &handleWebsiteResponse{
@@ -572,7 +572,7 @@ func (c *Customer) InsertSinglePage(
 // 		// encode the headers from the website page to store with the vectors
 // 		encodedHeaders, err := json.Marshal(item.headers)
 // 		if err != nil {
-// 			return fmt.Errorf("failed to serialize headers: %s", err)
+// 			return fmt.Errorf("failed to serialize headers: %w", err)
 // 		}
 
 // 		plogger.InfoContext(ctx, "Uploading page vectors ...")
@@ -587,7 +587,7 @@ func (c *Customer) InsertSinglePage(
 // 				Metadata:   encodedHeaders,
 // 			})
 // 			if err != nil {
-// 				return fmt.Errorf("error inserting the vector object: %s", err)
+// 				return fmt.Errorf("error inserting the vector object: %w", err)
 // 			}
 
 // 			// create a reference to the vector onto the document
@@ -599,7 +599,7 @@ func (c *Customer) InsertSinglePage(
 // 				Metadata:      encodedHeaders,
 // 			})
 // 			if err != nil {
-// 				return fmt.Errorf("error creating document vector relationship: %s", err)
+// 				return fmt.Errorf("error creating document vector relationship: %w", err)
 // 			}
 // 		}
 
@@ -617,7 +617,7 @@ func (c *Customer) InsertSinglePage(
 // 	model := queries.New(txn)
 // 	sites, err := model.GetWebsitesByCustomer(ctx, c.ID)
 // 	if err != nil {
-// 		return fmt.Errorf("failed to get websites: %s", err)
+// 		return fmt.Errorf("failed to get websites: %w", err)
 // 	}
 
 // 	c.logger.InfoContext(ctx, "Processing all sites ...")
@@ -625,7 +625,7 @@ func (c *Customer) InsertSinglePage(
 // 	// process all sites
 // 	for _, site := range sites {
 // 		if err := c.VectorizeWebsite(ctx, txn, site); err != nil {
-// 			return fmt.Errorf("error vectorizing site: %s", err)
+// 			return fmt.Errorf("error vectorizing site: %w", err)
 // 		}
 // 	}
 
@@ -645,7 +645,7 @@ func (c *Customer) PurgeDatastore(
 	// get the datastore
 	store, err := c.GetDocstore(ctx)
 	if err != nil {
-		return fmt.Errorf("error getting the docstore: %s", err)
+		return fmt.Errorf("error getting the docstore: %w", err)
 	}
 
 	// parse the request (default is )
@@ -654,7 +654,7 @@ func (c *Customer) PurgeDatastore(
 		// parse the time
 		time, err := time.Parse("2006-01-02 15:04:05", *request.Timestamp)
 		if err != nil {
-			return fmt.Errorf("error parsing the time: %s", err)
+			return fmt.Errorf("error parsing the time: %w", err)
 		}
 		timestamp = time
 		logger.InfoContext(ctx, "passed timestamp", "timestamp", time)
@@ -663,7 +663,7 @@ func (c *Customer) PurgeDatastore(
 	var pgtime pgtype.Timestamptz
 	err = pgtime.Scan(timestamp)
 	if err != nil {
-		return fmt.Errorf("error encoding the timestamp into an sql type: %s", err)
+		return fmt.Errorf("error encoding the timestamp into an sql type: %w", err)
 	}
 
 	logger = logger.With("timestamp", timestamp)
@@ -676,7 +676,7 @@ func (c *Customer) PurgeDatastore(
 		UpdatedAt:  pgtime,
 	})
 	if err != nil {
-		return fmt.Errorf("error getting documents: %s", err)
+		return fmt.Errorf("error getting documents: %w", err)
 	}
 
 	logger.InfoContext(ctx, "Attempting to delete all documents from remote datastore", "length", len(docs))
@@ -721,7 +721,7 @@ func (c *Customer) PurgeDatastore(
 		UpdatedAt:  pgtime,
 	})
 	if err != nil {
-		return fmt.Errorf("error getting folders: %s", err)
+		return fmt.Errorf("error getting folders: %w", err)
 	}
 
 	logger.InfoContext(ctx, "Attempting to delete all folders from remote datastore", "length", len(folders))
@@ -754,7 +754,7 @@ func (c *Customer) PurgeDatastore(
 		UpdatedAt:  pgtime,
 	})
 	if err != nil {
-		return fmt.Errorf("error deleting documents: %s", err)
+		return fmt.Errorf("error deleting documents: %w", err)
 	}
 
 	// purge all folders
@@ -764,7 +764,7 @@ func (c *Customer) PurgeDatastore(
 		UpdatedAt:  pgtime,
 	})
 	if err != nil {
-		return fmt.Errorf("error deleting folders: %s", err)
+		return fmt.Errorf("error deleting folders: %w", err)
 	}
 
 	// purge all website pages
@@ -804,7 +804,7 @@ func (c *Customer) PurgeDatastore(
 // 	// get all documents
 // 	docs, err := model.GetDocumentsByCustomer(ctx, c.ID)
 // 	if err != nil {
-// 		return fmt.Errorf("error getting all the documents: %s", err)
+// 		return fmt.Errorf("error getting all the documents: %w", err)
 // 	}
 
 // 	// create a type to store the embeddings data
@@ -893,7 +893,7 @@ func (c *Customer) PurgeDatastore(
 
 // 	// check for errors. If one exists in the channel, something went wrong
 // 	for err := range errCh {
-// 		return fmt.Errorf("error vectorizing the data: %s", err)
+// 		return fmt.Errorf("error vectorizing the data: %w", err)
 // 	}
 
 // 	// loop over the results and insert the vectors into the database
@@ -918,7 +918,7 @@ func (c *Customer) PurgeDatastore(
 // 				CustomerID: c.ID,
 // 			})
 // 			if err != nil {
-// 				return fmt.Errorf("error inserting the vector object: %s", err)
+// 				return fmt.Errorf("error inserting the vector object: %w", err)
 // 			}
 
 // 			// create a reference to the vector onto the document
@@ -929,7 +929,7 @@ func (c *Customer) PurgeDatastore(
 // 				Index:         int32(index),
 // 			})
 // 			if err != nil {
-// 				return fmt.Errorf("error creating document vector relationship: %s", err)
+// 				return fmt.Errorf("error creating document vector relationship: %w", err)
 // 			}
 // 		}
 // 		l.InfoContext(ctx, "Finished.")
@@ -948,7 +948,7 @@ func (c *Customer) DeleteRemoteDatastore(ctx context.Context) error {
 	// get the datastore
 	store, err := c.GetDocstore(ctx)
 	if err != nil {
-		return fmt.Errorf("error getting docstore: %s", err)
+		return fmt.Errorf("error getting docstore: %w", err)
 	}
 
 	// send request, all customers have a root folder with the id

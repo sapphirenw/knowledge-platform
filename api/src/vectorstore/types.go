@@ -68,7 +68,7 @@ func (input *QueryInput) GetVectors(ctx context.Context, logger *slog.Logger) (*
 			ChunkingFunction: splitter.SplitText,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("error sending the embedding request: %s", err)
+			return nil, fmt.Errorf("error sending the embedding request: %w", err)
 		}
 		if len(response.Embeddings) == 0 {
 			return nil, fmt.Errorf("there were no embeddings returned")

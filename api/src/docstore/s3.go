@@ -132,7 +132,7 @@ func (d *S3Docstore) DeleteRoot(ctx context.Context, prefix string) error {
 	// Iterate through the list of objects
 	objects, err := d.client.ListObjectsV2(context.TODO(), listInput)
 	if err != nil {
-		return fmt.Errorf("error listing all objects: %s", err)
+		return fmt.Errorf("error listing all objects: %w", err)
 	}
 
 	l.InfoContext(ctx, "Successfully found all objects", "length", len(objects.Contents))
@@ -145,7 +145,7 @@ func (d *S3Docstore) DeleteRoot(ctx context.Context, prefix string) error {
 		}
 		_, err := d.client.DeleteObject(context.TODO(), delInput)
 		if err != nil {
-			return fmt.Errorf("failed to delete object: %s", err)
+			return fmt.Errorf("failed to delete object: %w", err)
 		}
 	}
 

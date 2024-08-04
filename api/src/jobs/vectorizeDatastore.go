@@ -56,7 +56,7 @@ func VectorizeDatastoreRunner(
 				JobID:   job.ID,
 				Status:  queries.VectorizeJobStatusError,
 				Message: "Failed to run the job",
-				Error:   fmt.Sprintf("There was an issue running the vectorization request: %s", err),
+				Error:   fmt.Sprintf("There was an issue running the vectorization request: %w", err),
 			}); err != nil {
 				slogger.Error(ctx, logger, "failed to create the vector job item", err)
 				continue

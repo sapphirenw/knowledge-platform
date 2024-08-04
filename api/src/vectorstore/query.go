@@ -74,7 +74,7 @@ func QueryRaw(
 	// send the request
 	vector, err := input.GetVectors(ctx, logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vectors: %s", err)
+		return nil, fmt.Errorf("failed to get vectors: %w", err)
 	}
 
 	// send the request to the database
@@ -109,7 +109,7 @@ func QueryDocuments(
 		logger = slog.Default()
 	}
 	if err := input.Validate(); err != nil {
-		return nil, fmt.Errorf("the input was not valid: %s", err)
+		return nil, fmt.Errorf("the input was not valid: %w", err)
 	}
 
 	logger.InfoContext(ctx, "Querying vector store for related documents ...")
@@ -117,7 +117,7 @@ func QueryDocuments(
 	// send the request
 	vector, err := input.GetVectors(ctx, logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vectors: %s", err)
+		return nil, fmt.Errorf("failed to get vectors: %w", err)
 	}
 
 	// send the request to the database
@@ -134,7 +134,7 @@ func QueryDocuments(
 			logger.InfoContext(ctx, "The result was empty")
 			return &QueryDocumentsResponse{}, nil
 		}
-		return nil, fmt.Errorf("error querying the vector store: %s", err)
+		return nil, fmt.Errorf("error querying the vector store: %w", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully found documents", "length", len(response))
@@ -173,7 +173,7 @@ func QueryWebsitePages(
 	// send the request
 	vector, err := input.GetVectors(ctx, logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vectors: %s", err)
+		return nil, fmt.Errorf("failed to get vectors: %w", err)
 	}
 
 	// send the request to the database
@@ -195,7 +195,7 @@ func QueryWebsitePages(
 			logger.InfoContext(ctx, "The result was empty")
 			return &QueryWebsitePagesResponse{}, nil
 		}
-		return nil, fmt.Errorf("error querying the vector store: %s", err)
+		return nil, fmt.Errorf("error querying the vector store: %w", err)
 	}
 
 	logger.InfoContext(ctx, "Successfully found website pages", "length", len(response))

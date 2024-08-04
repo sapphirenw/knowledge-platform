@@ -1,11 +1,8 @@
 "use client"
 
-import { AreaChart, BetweenHorizontalStart, Brain, Database, Earth, FileText, Home, KeyRound, Package, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { AreaChart, BetweenHorizontalStart, Brain, Earth, FileText, Home, KeyRound, Package } from "lucide-react"
 import { useState } from "react"
-import Cookies from "js-cookie"
 import { usePathname } from 'next/navigation'
-import { Button } from "../ui/button"
-import Link from "next/link"
 import SidebarRowView from "../sidebar_row"
 import { ThemeToggle } from "../theme_toggle"
 
@@ -18,11 +15,12 @@ export default function SettingsSidebarClient({
 }) {
     const pathname = usePathname()
 
-    const [isOpen, setIsOpen] = useState(initIsOpen == "true")
+    // const [isOpen, setIsOpen] = useState(initIsOpen == "true")
+    const [isOpen, setIsOpen] = useState(true)
 
     const toggleIsOpen = () => {
-        Cookies.set("isSideMenuOpen", `${!isOpen}`)
-        setIsOpen(!isOpen)
+        // Cookies.set("isSideMenuOpen", `${!isOpen}`)
+        // setIsOpen(!isOpen)
     }
 
     const sidebar = () => {
@@ -74,11 +72,11 @@ export default function SettingsSidebarClient({
         <div className="w-full h-full p-2">
             <div className="flex flex-col justify-between h-full">
                 <div className="space-y-2">
-                    <div className="opacity-50 px-2 text-right">
+                    {/* <div className="opacity-50 px-2 text-right">
                         <button onClick={() => toggleIsOpen()}>
                             {isOpen ? <PanelLeftClose strokeWidth={1.5} /> : <PanelLeftOpen strokeWidth={1.5} />}
                         </button>
-                    </div>
+                    </div> */}
                     <SidebarRowView
                         item={{
                             href: "/home",
@@ -103,9 +101,9 @@ export default function SettingsSidebarClient({
                         isOpen={isOpen}
                         variant="outline"
                     />
-                    <div className="aspect-square">
+                    {isOpen ? <div className="aspect-square">
                         <ThemeToggle />
-                    </div>
+                    </div> : null}
                 </div>
             </div>
         </div>

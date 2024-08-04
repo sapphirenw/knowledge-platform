@@ -59,7 +59,7 @@ func GetPool() (*pgxpool.Pool, error) {
 			// re-init the pool
 			err := ReinitializePool()
 			if err != nil {
-				return nil, fmt.Errorf("failed to recover from an error in the pool: %s", err)
+				return nil, fmt.Errorf("failed to recover from an error in the pool: %w", err)
 			}
 		} else {
 			return nil, err

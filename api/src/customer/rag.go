@@ -99,7 +99,7 @@ func (c *Customer) RAG(
 	usageRecords := make([]*tokens.UsageRecord, 0)
 	reportUsage := func() error {
 		if err := utils.ReportUsage(ctx, logger, db, c.ID, usageRecords, nil); err != nil {
-			return fmt.Errorf("failed to report the usage: %s", err)
+			return fmt.Errorf("failed to report the usage: %w", err)
 		}
 		return nil
 	}
@@ -110,7 +110,7 @@ func (c *Customer) RAG(
 	chatLLMId.Scan(args.ChatModelId)
 	chatLLM, err := llm.GetLLM(ctx, db, c.ID, chatLLMId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the chat llm: %s", err)
+		return nil, fmt.Errorf("failed to get the chat llm: %w", err)
 	}
 
 	// // get the conversation
@@ -126,7 +126,7 @@ func (c *Customer) RAG(
 		"rag",
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the conversation: %s", err)
+		return nil, fmt.Errorf("failed to parse the conversation: %w", err)
 	}
 
 	// check the state of the conversation
@@ -135,7 +135,7 @@ func (c *Customer) RAG(
 		message := gollm.NewUserMessage(args.Input)
 		response, err := conv.Completion(ctx, db, chatLLM, message, tool.ToolsToGollm(ragTools), ragTools[0].GetSchema())
 		if err != nil {
-			return nil, fmt.Errorf("failed the completion: %s", err)
+			return nil, fmt.Errorf("failed the completion: %w", err)
 		}
 
 		// report the usage

@@ -1,0 +1,2 @@
+- https://medium.com/@thomasoca/create-a-cv-generator-using-latex-and-go-template-555ce5c1ba58
+- https://github.com/thomasoca/cv-generator

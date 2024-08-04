@@ -47,7 +47,7 @@ func (c *Customer) VectorizeDatastore(
 	// get all documents
 	docs, err := dmodel.GetDocumentsByCustomer(ctx, c.ID)
 	if err != nil {
-		return fmt.Errorf("error getting all the documents: %s", err)
+		return fmt.Errorf("error getting all the documents: %w", err)
 	}
 
 	// process the documents
@@ -329,7 +329,7 @@ func (c *Customer) handleWebsitePageVectorization(
 	// get the raw content
 	raw, err := page.GetRaw(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the raw content: %s", err)
+		return nil, fmt.Errorf("failed to get the raw content: %w", err)
 	}
 
 	// get the sig
@@ -364,7 +364,7 @@ func (c *Customer) handleWebsitePageVectorization(
 	// get the metadata for the page
 	metadata, err := page.GetMetadata(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the metadata: %s", err)
+		return nil, fmt.Errorf("failed to get the metadata: %w", err)
 	}
 
 	// lastly upload the vectors to the datastore

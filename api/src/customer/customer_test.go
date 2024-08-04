@@ -174,7 +174,7 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, dir
 
 			filetype, err := datastore.ParseFileType(file.Name())
 			if err != nil {
-				return fmt.Errorf("failed to parse filetype: %s", err)
+				return fmt.Errorf("failed to parse filetype: %w", err)
 			}
 
 			// create the pre-signed url
@@ -193,13 +193,13 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, dir
 			// decode the request url
 			url, err := base64.StdEncoding.DecodeString(preSignedResp.UploadUrl)
 			if err != nil {
-				return fmt.Errorf("failed to decode url: %s", err)
+				return fmt.Errorf("failed to decode url: %w", err)
 			}
 
 			// create the upload request
 			request, err := http.NewRequest(preSignedResp.Method, string(url), bytes.NewReader(data))
 			if err != nil {
-				return fmt.Errorf("failed to create the request: %s", err)
+				return fmt.Errorf("failed to create the request: %w", err)
 			}
 
 			// set the headers
@@ -209,7 +209,7 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, dir
 			// send the request
 			response, err := client.Do(request)
 			if err != nil {
-				return fmt.Errorf("failed to send the request: %s", err)
+				return fmt.Errorf("failed to send the request: %w", err)
 			}
 			defer response.Body.Close()
 
@@ -222,7 +222,7 @@ func uploadToDocstore(ctx context.Context, c *Customer, parentId *uuid.UUID, dir
 
 			// notify the server of the success
 			if err := c.NotifyOfSuccessfulUpload(ctx, db, preSignedResp.DocumentId); err != nil {
-				return fmt.Errorf("failed to notify of successful upload: %s", err)
+				return fmt.Errorf("failed to notify of successful upload: %w", err)
 			}
 		}
 	}

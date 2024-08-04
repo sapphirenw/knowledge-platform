@@ -60,10 +60,10 @@ func CreateLLM(
 	// get the available model
 	amodel, err := dmodel.GetAvailableModel(ctx, availableModelId)
 	if err != nil {
-		return nil, fmt.Errorf("there was not model found: %s", err)
+		return nil, fmt.Errorf("there was not model found: %w", err)
 	}
 	if amodel.IsDepreciated {
-		return nil, fmt.Errorf("this model has been depreciated: %s", err)
+		return nil, fmt.Errorf("this model has been depreciated: %w", err)
 	}
 
 	// create the llm object
@@ -76,13 +76,13 @@ func CreateLLM(
 		IsDefault:    isDefault,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create model: %s", err)
+		return nil, fmt.Errorf("failed to create model: %w", err)
 	}
 
 	// get the generated object
 	obj, err := dmodel.GetLLM(ctx, model.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the newly created object: %s", err)
+		return nil, fmt.Errorf("failed to get the newly created object: %w", err)
 	}
 
 	return &LLM{Llm: &obj.Llm, AvailableModel: &obj.AvailableModel}, nil
@@ -98,7 +98,7 @@ func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtyp
 		// get the llm with the passed value
 		llm, err := model.GetLLM(ctx, *gid)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch the llm with id: %s", err)
+			return nil, fmt.Errorf("failed to fetch the llm with id: %w", err)
 		}
 		return &LLM{Llm: &llm.Llm, AvailableModel: &llm.AvailableModel}, nil
 
@@ -106,7 +106,7 @@ func GetLLM(ctx context.Context, db queries.DBTX, customerId uuid.UUID, id pgtyp
 		// get the customer's default
 		llm, err := model.GetDefaultLLM(ctx, utils.GoogleUUIDToPGXUUID(customerId))
 		if err != nil {
-			return nil, fmt.Errorf("error fetching the default llm: %s", err)
+			return nil, fmt.Errorf("error fetching the default llm: %w", err)
 		}
 		return &LLM{Llm: &llm.Llm, AvailableModel: &llm.AvailableModel}, nil
 	}
@@ -125,7 +125,7 @@ func FromObjects(llm *queries.Llm, availableModel *queries.AvailableModel) *LLM 
 func (model *LLM) GetEstimatedTokens(input string) (int32, error) {
 	tokens, err := gollm.TokenEstimate(model.Llm.Model, input)
 	if err != nil {
-		return 0, fmt.Errorf("failed to estimate token usage: %s", err)
+		return 0, fmt.Errorf("failed to estimate token usage: %w", err)
 	}
 	return int32(tokens), nil
 }
@@ -184,7 +184,7 @@ func (model *LLM) Completion(
 	lm := gollm.NewLanguageModel(args.CustomerID, logger, nil)
 	response, err := lm.Completion(ctx, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed the dynamic completion: %s", err)
+		return nil, fmt.Errorf("failed the dynamic completion: %w", err)
 	}
 
 	l.InfoContext(ctx, "Successfully sent the request")

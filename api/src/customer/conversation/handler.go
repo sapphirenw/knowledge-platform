@@ -106,7 +106,7 @@ func conversationHandler(
 			conv, err := GetConversation(r.Context(), &logger, pool, convId)
 			if err != nil {
 				logger.Error("Error parsing as a docstore doc", "error", err)
-				http.Error(w, fmt.Sprintf("There was an internal issue: %s", err), http.StatusInternalServerError)
+				http.Error(w, fmt.Sprintf("There was an internal issue: %w", err), http.StatusInternalServerError)
 				return
 			}
 
@@ -154,7 +154,7 @@ func getConversations(
 			return
 		}
 		logger.Error("Error getting the conversations", "error", err)
-		http.Error(w, fmt.Sprintf("There was an internal issue: %s", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("There was an internal issue: %w", err), http.StatusInternalServerError)
 		return
 	}
 

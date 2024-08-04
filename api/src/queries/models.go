@@ -13,6 +13,54 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+type ResumeApplicationStatus string
+
+const (
+	ResumeApplicationStatusNotStarted   ResumeApplicationStatus = "not-started"
+	ResumeApplicationStatusInProgress   ResumeApplicationStatus = "in-progress"
+	ResumeApplicationStatusGenerated    ResumeApplicationStatus = "generated"
+	ResumeApplicationStatusApplied      ResumeApplicationStatus = "applied"
+	ResumeApplicationStatusHeardBack    ResumeApplicationStatus = "heard-back"
+	ResumeApplicationStatusInterviewing ResumeApplicationStatus = "interviewing"
+	ResumeApplicationStatusJobOffer     ResumeApplicationStatus = "job-offer"
+	ResumeApplicationStatusAccepted     ResumeApplicationStatus = "accepted"
+)
+
+func (e *ResumeApplicationStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ResumeApplicationStatus(s)
+	case string:
+		*e = ResumeApplicationStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ResumeApplicationStatus: %T", src)
+	}
+	return nil
+}
+
+type NullResumeApplicationStatus struct {
+	ResumeApplicationStatus ResumeApplicationStatus `json:"resumeApplicationStatus"`
+	Valid                   bool                    `json:"valid"` // Valid is true if ResumeApplicationStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullResumeApplicationStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ResumeApplicationStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ResumeApplicationStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullResumeApplicationStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ResumeApplicationStatus), nil
+}
+
 type VectorizeJobStatus string
 
 const (
@@ -263,6 +311,8 @@ type Document struct {
 	VectorSha256  string             `db:"vector_sha_256" json:"vectorSha256"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+	IsAsset       bool               `db:"is_asset" json:"isAsset"`
+	Vectorize     bool               `db:"vectorize" json:"vectorize"`
 }
 
 type DocumentVector struct {
@@ -381,6 +431,145 @@ type ProjectWebsite struct {
 	WebsiteID  uuid.UUID          `db:"website_id" json:"websiteId"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type Resume struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	CustomerID uuid.UUID          `db:"customer_id" json:"customerId"`
+	Title      string             `db:"title" json:"title"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ResumeAbout struct {
+	ResumeID  uuid.UUID          `db:"resume_id" json:"resumeId"`
+	Name      string             `db:"name" json:"name"`
+	Email     string             `db:"email" json:"email"`
+	Phone     string             `db:"phone" json:"phone"`
+	Title     string             `db:"title" json:"title"`
+	Location  string             `db:"location" json:"location"`
+	Github    string             `db:"github" json:"github"`
+	Linkedin  string             `db:"linkedin" json:"linkedin"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ResumeApplication struct {
+	ID          uuid.UUID               `db:"id" json:"id"`
+	ResumeID    uuid.UUID               `db:"resume_id" json:"resumeId"`
+	Title       string                  `db:"title" json:"title"`
+	Link        string                  `db:"link" json:"link"`
+	CompanySite string                  `db:"company_site" json:"companySite"`
+	RawText     string                  `db:"raw_text" json:"rawText"`
+	Status      ResumeApplicationStatus `db:"status" json:"status"`
+	CreatedAt   pgtype.Timestamptz      `db:"created_at" json:"createdAt"`
+	UpdatedAt   pgtype.Timestamptz      `db:"updated_at" json:"updatedAt"`
+}
+
+type ResumeApplicationConversation struct {
+	ID                  uuid.UUID          `db:"id" json:"id"`
+	ResumeID            uuid.UUID          `db:"resume_id" json:"resumeId"`
+	ResumeApplicationID uuid.UUID          `db:"resume_application_id" json:"resumeApplicationId"`
+	ConversationID      uuid.UUID          `db:"conversation_id" json:"conversationId"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+type ResumeApplicationCoverLetter struct {
+	ID                  uuid.UUID          `db:"id" json:"id"`
+	ResumeApplicationID uuid.UUID          `db:"resume_application_id" json:"resumeApplicationId"`
+	DocumentID          uuid.UUID          `db:"document_id" json:"documentId"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ResumeApplicationKeyWord struct {
+	ID                  uuid.UUID          `db:"id" json:"id"`
+	ResumeApplicationID uuid.UUID          `db:"resume_application_id" json:"resumeApplicationId"`
+	Title               string             `db:"title" json:"title"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+type ResumeApplicationResume struct {
+	ID                  uuid.UUID          `db:"id" json:"id"`
+	ResumeApplicationID uuid.UUID          `db:"resume_application_id" json:"resumeApplicationId"`
+	DocumentID          uuid.UUID          `db:"document_id" json:"documentId"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ResumeDocument struct {
+	ID         uuid.UUID          `db:"id" json:"id"`
+	ResumeID   uuid.UUID          `db:"resume_id" json:"resumeId"`
+	DocumentID uuid.UUID          `db:"document_id" json:"documentId"`
+	IsResume   bool               `db:"is_resume" json:"isResume"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+type ResumeEducation struct {
+	ID          uuid.UUID          `db:"id" json:"id"`
+	ResumeID    uuid.UUID          `db:"resume_id" json:"resumeId"`
+	Institution string             `db:"institution" json:"institution"`
+	Major       string             `db:"major" json:"major"`
+	Level       string             `db:"level" json:"level"`
+	Gpa         pgtype.Numeric     `db:"gpa" json:"gpa"`
+	Location    string             `db:"location" json:"location"`
+	StartDate   pgtype.Timestamp   `db:"start_date" json:"startDate"`
+	EndDate     pgtype.Timestamp   `db:"end_date" json:"endDate"`
+	IsCurrent   bool               `db:"is_current" json:"isCurrent"`
+	Information string             `db:"information" json:"information"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ResumeProject struct {
+	ID          uuid.UUID          `db:"id" json:"id"`
+	ResumeID    uuid.UUID          `db:"resume_id" json:"resumeId"`
+	Title       string             `db:"title" json:"title"`
+	Subtitle    string             `db:"subtitle" json:"subtitle"`
+	Link        string             `db:"link" json:"link"`
+	StartDate   pgtype.Timestamp   `db:"start_date" json:"startDate"`
+	EndDate     pgtype.Timestamp   `db:"end_date" json:"endDate"`
+	Information string             `db:"information" json:"information"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ResumeSkill struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	ResumeID  uuid.UUID          `db:"resume_id" json:"resumeId"`
+	Title     string             `db:"title" json:"title"`
+	Items     []string           `db:"items" json:"items"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ResumeWebsite struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	ResumeID  uuid.UUID          `db:"resume_id" json:"resumeId"`
+	WebsiteID uuid.UUID          `db:"website_id" json:"websiteId"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+type ResumeWebsitePage struct {
+	ID            uuid.UUID          `db:"id" json:"id"`
+	ResumeID      uuid.UUID          `db:"resume_id" json:"resumeId"`
+	WebsitePageID uuid.UUID          `db:"website_page_id" json:"websitePageId"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+type ResumeWorkExperience struct {
+	ID          uuid.UUID          `db:"id" json:"id"`
+	ResumeID    uuid.UUID          `db:"resume_id" json:"resumeId"`
+	Company     string             `db:"company" json:"company"`
+	Position    string             `db:"position" json:"position"`
+	Location    string             `db:"location" json:"location"`
+	StartDate   pgtype.Timestamp   `db:"start_date" json:"startDate"`
+	EndDate     pgtype.Timestamp   `db:"end_date" json:"endDate"`
+	IsCurrent   bool               `db:"is_current" json:"isCurrent"`
+	Index       int32              `db:"index" json:"index"`
+	Information string             `db:"information" json:"information"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
 }
 
 type TokenUsage struct {

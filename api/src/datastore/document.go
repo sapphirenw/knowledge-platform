@@ -33,7 +33,7 @@ func GetDocument(
 	dmodel := queries.New(db)
 	document, err := dmodel.GetDocument(ctx, docId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get document: %s", err)
+		return nil, fmt.Errorf("failed to get document: %w", err)
 	}
 	return NewDocumentFromDocument(ctx, logger, document)
 }
@@ -49,20 +49,20 @@ func NewDocumentFromData(
 	// parse the filetype
 	filetype, err := ParseFileType(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the filetype: %s", err)
+		return nil, fmt.Errorf("failed to parse the filetype: %w", err)
 	}
 
 	// create an id for the document
 	docId, err := uuid.NewV7()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a uuid: %s", err)
+		return nil, fmt.Errorf("failed to create a uuid: %w", err)
 	}
 
 	// read the data
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read from the buffer: %s", err)
+		return nil, fmt.Errorf("failed to read from the buffer: %w", err)
 	}
 	raw := buf.Bytes()
 
@@ -104,13 +104,13 @@ func (d *Document) GetRaw(ctx context.Context) (*bytes.Buffer, error) {
 		// fetch the file from the remote datastore
 		dstore, err := d.GetDocstore(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get docstore: %s", err)
+			return nil, fmt.Errorf("failed to get docstore: %w", err)
 		}
 
 		// download the file
 		raw, err := dstore.DownloadFile(ctx, d.DatastoreID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to download the file: %s", err)
+			return nil, fmt.Errorf("failed to download the file: %w", err)
 		}
 
 		// create the buffer
@@ -131,12 +131,12 @@ func (d *Document) GetCleaned(ctx context.Context) (*bytes.Buffer, error) {
 
 	raw, err := d.GetRaw(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the raw data: %s", err)
+		return nil, fmt.Errorf("failed to get the raw data: %w", err)
 	}
 
 	filetype, err := ParseFileType(d.Filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the filetype: %s", err)
+		return nil, fmt.Errorf("failed to parse the filetype: %w", err)
 	}
 
 	// clean the contents
@@ -163,7 +163,7 @@ func (d *Document) GetCleaned(ctx context.Context) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 	_, err = buf.WriteString(cleaned)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write to the buffer: %s", err)
+		return nil, fmt.Errorf("failed to write to the buffer: %w", err)
 	}
 	d.cleaned = buf
 
@@ -174,7 +174,7 @@ func (d *Document) GetChunks(ctx context.Context) ([]string, error) {
 
 	filetype, err := ParseFileType(d.Filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the filetype: %s", err)
+		return nil, fmt.Errorf("failed to parse the filetype: %w", err)
 	}
 
 	content, err := d.GetCleaned(ctx)

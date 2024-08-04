@@ -65,7 +65,7 @@ func (llm *LLM) Summarize(
 
 			response, err := llm.SingleCompletion(ctx, logger, customerId, prompts.SUMMARY_SYSTEM_PROMPT, chunk)
 			if err != nil {
-				errCh <- fmt.Errorf("failed to summarize content: %s", err)
+				errCh <- fmt.Errorf("failed to summarize content: %w", err)
 				return
 			}
 			responses <- response.Message.Message
