@@ -3915,6 +3915,46 @@ func (q *Queries) GetResumeDocuments(ctx context.Context, resumeID uuid.UUID) ([
 	return items, nil
 }
 
+const getResumeResume = `-- name: GetResumeResume :one
+SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at, d.is_asset, d.vectorize FROM resume_document rd
+JOIN document d ON d.id = rd.document_id
+WHERE rd.resume_id = $1
+AND rd.is_resume
+LIMIT 1
+`
+
+// GetResumeResume
+//
+//	SELECT d.id, d.parent_id, d.customer_id, d.filename, d.type, d.size_bytes, d.sha_256, d.validated, d.datastore_type, d.datastore_id, d.summary, d.summary_sha_256, d.vector_sha_256, d.created_at, d.updated_at, d.is_asset, d.vectorize FROM resume_document rd
+//	JOIN document d ON d.id = rd.document_id
+//	WHERE rd.resume_id = $1
+//	AND rd.is_resume
+//	LIMIT 1
+func (q *Queries) GetResumeResume(ctx context.Context, resumeID uuid.UUID) (*Document, error) {
+	row := q.db.QueryRow(ctx, getResumeResume, resumeID)
+	var i Document
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.CustomerID,
+		&i.Filename,
+		&i.Type,
+		&i.SizeBytes,
+		&i.Sha256,
+		&i.Validated,
+		&i.DatastoreType,
+		&i.DatastoreID,
+		&i.Summary,
+		&i.SummarySha256,
+		&i.VectorSha256,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsAsset,
+		&i.Vectorize,
+	)
+	return &i, err
+}
+
 const getResumeWebsitePages = `-- name: GetResumeWebsitePages :many
 SELECT wp.id, wp.customer_id, wp.website_id, wp.url, wp.sha_256, wp.is_valid, wp.metadata, wp.summary, wp.summary_sha_256, wp.vector_sha_256, wp.created_at, wp.updated_at FROM resume_website_page rwp
 JOIN website_page wp ON wp.id = rwp.website_page_id

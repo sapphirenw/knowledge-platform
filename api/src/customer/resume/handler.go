@@ -2,10 +2,12 @@ package resume
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sapphirenw/ai-content-creation-api/src/handlers"
 	"github.com/sapphirenw/ai-content-creation-api/src/queries"
@@ -24,6 +26,11 @@ func Handler(r chi.Router) {
 		r.Post("/setTitle", resumeHandler(setResumeTitleHandler))
 
 		r.Get("/checklist", resumeHandler(getResumeChecklistHandler))
+
+		// docs
+		r.Get("/resume", resumeHandler(getResumeHandler))
+		r.Post("/documents", resumeHandler(attachDocumentsHandler))
+		r.Get("/documents", resumeHandler(getDocumentsHandler))
 
 		// work experience
 		r.Route("/workExperiences/{experienceId}", func(r chi.Router) {
@@ -259,4 +266,72 @@ func getResumeChecklistHandler(
 	}
 
 	request.Encode(w, r, logger, 200, response)
+}
+
+func attachDocumentsHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	logger *slog.Logger,
+	pool *pgxpool.Pool,
+	client *Client,
+) {
+	// parse the body
+	var body attachDocumentsRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		slogger.ServerError(w, logger, 500, "failed to read the body", err)
+		return
+	}
+
+	tx, err := pool.Begin(r.Context())
+	if err != nil {
+		slogger.ServerError(w, logger, 500, "failed to start the transaction", err)
+		return
+	}
+	defer tx.Commit(r.Context())
+
+	for _, id := range body.DocumentIDs {
+		if err := client.AttachDocument(r.Context(), logger, tx, id, false); err != nil {
+			tx.Rollback(r.Context())
+			slogger.ServerError(w, logger, 500, "failed to attach the document", err, "docId", id)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func getDocumentsHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	logger *slog.Logger,
+	pool *pgxpool.Pool,
+	client *Client,
+) {
+	docs, err := client.GetDocuments(r.Context(), logger, pool)
+	if err != nil {
+		slogger.ServerError(w, logger, 500, "failed to get the documents", err)
+		return
+	}
+
+	request.Encode(w, r, logger, 200, docs)
+}
+
+func getResumeHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	logger *slog.Logger,
+	pool *pgxpool.Pool,
+	client *Client,
+) {
+	doc, err := client.GetResume(r.Context(), logger, pool)
+	if err != nil {
+		if errors.Is(errors.Unwrap(err), pgx.ErrNoRows) {
+			w.WriteHeader(404)
+			return
+		}
+		slogger.ServerError(w, logger, 500, "failed to get the resume", err)
+		return
+	}
+
+	request.Encode(w, r, logger, 200, doc)
 }

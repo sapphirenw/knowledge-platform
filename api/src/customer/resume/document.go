@@ -59,3 +59,19 @@ func (c *Client) GetDocuments(
 
 	return docs, nil
 }
+
+func (c *Client) GetResume(
+	ctx context.Context,
+	l *slog.Logger,
+	db queries.DBTX,
+) (*queries.Document, error) {
+	logger := l.With("desc", "get resume of resume")
+	dmodel := queries.New(db)
+
+	doc, err := dmodel.GetResumeResume(ctx, c.Resume.ID)
+	if err != nil {
+		return nil, slogger.Error(ctx, logger, "failed to get the resume", err)
+	}
+
+	return doc, nil
+}

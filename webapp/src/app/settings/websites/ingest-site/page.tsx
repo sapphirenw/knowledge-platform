@@ -154,7 +154,6 @@ export default function WebsiteIngest() {
                     {data.pages.map((item, i) => <TableRow key={`page-${i}`}>
                         <TableCell className="w-fit">
                             <Switch
-
                                 checked={selectedPages.indexOf(item.url) !== -1}
                                 onCheckedChange={(e) => {
                                     if (e === true) {

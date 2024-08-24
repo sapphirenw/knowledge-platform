@@ -35,6 +35,13 @@ SELECT d.* FROM resume_document rd
 JOIN document d ON d.id = rd.document_id
 WHERE rd.resume_id = $1;
 
+-- name: GetResumeResume :one
+SELECT d.* FROM resume_document rd
+JOIN document d ON d.id = rd.document_id
+WHERE rd.resume_id = $1
+AND rd.is_resume
+LIMIT 1;
+
 -- name: CreateResumeWebsite :one
 INSERT INTO resume_website (
     resume_id, website_id

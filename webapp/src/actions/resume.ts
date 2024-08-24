@@ -3,6 +3,7 @@
 import { CreateResumeApplicationRequest, ResumeAbout, ResumeApplication, ResumeChecklistItem, ResumeItem } from "@/types/resume"
 import { getCID } from "./customer"
 import { sendRequestV1 } from "./api"
+import { Document } from "@/types/document"
 
 // export async function getResumeItems(): Promise<ResumeItem[]> {
 //     const cid = await getCID()
@@ -58,6 +59,25 @@ export async function getResumeChecklist() {
     const cid = await getCID()
     return await sendRequestV1<ResumeChecklistItem[]>({
         route: `customers/${cid}/resumes/${cid}/checklist`,
+        method: "GET",
+    })
+}
+
+export async function attachDocumentsToResume(docs: Document[]) {
+    const cid = await getCID()
+    return await sendRequestV1<undefined>({
+        route: `customers/${cid}/resumes/${cid}/documents`,
+        method: "POST",
+        body: JSON.stringify({
+            "documentIds": docs.map((item) => item.id),
+        }),
+    })
+}
+
+export async function getResumeDocuments() {
+    const cid = await getCID()
+    return await sendRequestV1<Document[]>({
+        route: `customers/${cid}/resumes/${cid}/documents`,
         method: "GET",
     })
 }

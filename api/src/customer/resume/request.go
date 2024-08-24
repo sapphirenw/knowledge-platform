@@ -35,3 +35,17 @@ func (r createResumeApplicationRequest) Valid(ctx context.Context) map[string]st
 
 	return p
 }
+
+type attachDocumentsRequest struct {
+	DocumentIDs []string `json:"documentIds"`
+}
+
+func (r attachDocumentsRequest) Valid(ctx context.Context) map[string]string {
+	p := make(map[string]string)
+
+	if len(r.DocumentIDs) == 0 {
+		p["documentIds"] = "cannot be empty"
+	}
+
+	return p
+}

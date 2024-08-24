@@ -78,11 +78,17 @@ func (c *Client) GetChecklist(
 	completed = true
 	message = ""
 
-	for _, item := range experiences {
-		if strings.Trim(item.Information, "") == "" {
-			completed = false
-			message = fmt.Sprintf("The experience '%s' has no information!", item.Position)
-			break
+	// check if empty
+	if len(experiences) == 0 {
+		completed = false
+		message = "Please add some work experience to your resume."
+	} else {
+		for _, item := range experiences {
+			if strings.Trim(item.Information, "") == "" {
+				completed = false
+				message = fmt.Sprintf("The experience '%s' has no information!", item.Position)
+				break
+			}
 		}
 	}
 
