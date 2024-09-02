@@ -37,13 +37,16 @@ func (r createResumeApplicationRequest) Valid(ctx context.Context) map[string]st
 }
 
 type attachDocumentsRequest struct {
-	DocumentIDs []string `json:"documentIds"`
+	Documents []struct {
+		ID       string `json:"id"`
+		IsResume bool   `json:"isResume"`
+	} `json:"documents"`
 }
 
 func (r attachDocumentsRequest) Valid(ctx context.Context) map[string]string {
 	p := make(map[string]string)
 
-	if len(r.DocumentIDs) == 0 {
+	if len(r.Documents) == 0 {
 		p["documentIds"] = "cannot be empty"
 	}
 

@@ -522,8 +522,8 @@ type ResumeEducation struct {
 }
 
 type ResumeProject struct {
-	ID          uuid.UUID          `db:"id" json:"id"`
 	ResumeID    uuid.UUID          `db:"resume_id" json:"resumeId"`
+	Index       int32              `db:"index" json:"index"`
 	Title       string             `db:"title" json:"title"`
 	Subtitle    string             `db:"subtitle" json:"subtitle"`
 	Link        string             `db:"link" json:"link"`
@@ -558,15 +558,14 @@ type ResumeWebsitePage struct {
 }
 
 type ResumeWorkExperience struct {
-	ID          uuid.UUID          `db:"id" json:"id"`
 	ResumeID    uuid.UUID          `db:"resume_id" json:"resumeId"`
+	Index       int32              `db:"index" json:"index"`
 	Company     string             `db:"company" json:"company"`
 	Position    string             `db:"position" json:"position"`
 	Location    string             `db:"location" json:"location"`
 	StartDate   pgtype.Timestamp   `db:"start_date" json:"startDate"`
 	EndDate     pgtype.Timestamp   `db:"end_date" json:"endDate"`
 	IsCurrent   bool               `db:"is_current" json:"isCurrent"`
-	Index       int32              `db:"index" json:"index"`
 	Information string             `db:"information" json:"information"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`

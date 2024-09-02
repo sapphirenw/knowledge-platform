@@ -289,10 +289,10 @@ func attachDocumentsHandler(
 	}
 	defer tx.Commit(r.Context())
 
-	for _, id := range body.DocumentIDs {
-		if err := client.AttachDocument(r.Context(), logger, tx, id, false); err != nil {
+	for _, d := range body.Documents {
+		if err := client.AttachDocument(r.Context(), logger, tx, d.ID, d.IsResume); err != nil {
 			tx.Rollback(r.Context())
-			slogger.ServerError(w, logger, 500, "failed to attach the document", err, "docId", id)
+			slogger.ServerError(w, logger, 500, "failed to attach the document", err, "docId", d.ID)
 			return
 		}
 	}

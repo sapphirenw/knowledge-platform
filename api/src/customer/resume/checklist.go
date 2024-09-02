@@ -70,9 +70,9 @@ func (c *Client) GetChecklist(
 	response = append(response, &ChecklistItem{Completed: completed, Message: message})
 
 	// get all the root objects and check if the information fields are filled out
-	experiences, err := c.GetWorkExperiences(ctx, logger, db)
-	if err != nil {
-		return nil, slogger.Error(ctx, logger, "failed to get the experiences", err)
+	experiences, e := c.GetWorkExperiences(ctx, logger, db)
+	if e != nil {
+		return nil, e.NewErr(logger, "failed to get the experiences", nil, "parse")
 	}
 
 	completed = true

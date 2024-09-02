@@ -1017,7 +1017,7 @@ INSERT INTO resume_project (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
 )
-RETURNING id, resume_id, title, subtitle, link, start_date, end_date, information, created_at, updated_at
+RETURNING resume_id, index, title, subtitle, link, start_date, end_date, information, created_at, updated_at
 `
 
 type CreateResumeProjectParams struct {
@@ -1038,7 +1038,7 @@ type CreateResumeProjectParams struct {
 //	) VALUES (
 //	    $1, $2, $3, $4, $5, $6, $7
 //	)
-//	RETURNING id, resume_id, title, subtitle, link, start_date, end_date, information, created_at, updated_at
+//	RETURNING resume_id, index, title, subtitle, link, start_date, end_date, information, created_at, updated_at
 func (q *Queries) CreateResumeProject(ctx context.Context, arg *CreateResumeProjectParams) (*ResumeProject, error) {
 	row := q.db.QueryRow(ctx, createResumeProject,
 		arg.ResumeID,
@@ -1051,8 +1051,8 @@ func (q *Queries) CreateResumeProject(ctx context.Context, arg *CreateResumeProj
 	)
 	var i ResumeProject
 	err := row.Scan(
-		&i.ID,
 		&i.ResumeID,
+		&i.Index,
 		&i.Title,
 		&i.Subtitle,
 		&i.Link,
@@ -1164,60 +1164,77 @@ func (q *Queries) CreateResumeWebsitePage(ctx context.Context, arg *CreateResume
 
 const createResumeWorkExperience = `-- name: CreateResumeWorkExperience :one
 INSERT INTO resume_work_experience (
-    resume_id, company, position, location,
-    start_date, end_date, is_current, index,
-    information
+    resume_id, index, company, position, location,
+    start_date, end_date, is_current, information
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
-RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
+ON CONFLICT (resume_id, index)
+DO UPDATE SET
+    company = EXCLUDED.company,
+    position = EXCLUDED.position,
+    location = EXCLUDED.location,
+    start_date = EXCLUDED.start_date,
+    end_date = EXCLUDED.end_date,
+    is_current = EXCLUDED.is_current,
+    information = EXCLUDED.information,
+    updated_at = CURRENT_TIMESTAMP
+RETURNING resume_id, index, company, position, location, start_date, end_date, is_current, information, created_at, updated_at
 `
 
 type CreateResumeWorkExperienceParams struct {
 	ResumeID    uuid.UUID        `db:"resume_id" json:"resumeId"`
+	Index       int32            `db:"index" json:"index"`
 	Company     string           `db:"company" json:"company"`
 	Position    string           `db:"position" json:"position"`
 	Location    string           `db:"location" json:"location"`
 	StartDate   pgtype.Timestamp `db:"start_date" json:"startDate"`
 	EndDate     pgtype.Timestamp `db:"end_date" json:"endDate"`
 	IsCurrent   bool             `db:"is_current" json:"isCurrent"`
-	Index       int32            `db:"index" json:"index"`
 	Information string           `db:"information" json:"information"`
 }
 
 // CreateResumeWorkExperience
 //
 //	INSERT INTO resume_work_experience (
-//	    resume_id, company, position, location,
-//	    start_date, end_date, is_current, index,
-//	    information
+//	    resume_id, index, company, position, location,
+//	    start_date, end_date, is_current, information
 //	) VALUES (
 //	    $1, $2, $3, $4, $5, $6, $7, $8, $9
 //	)
-//	RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
+//	ON CONFLICT (resume_id, index)
+//	DO UPDATE SET
+//	    company = EXCLUDED.company,
+//	    position = EXCLUDED.position,
+//	    location = EXCLUDED.location,
+//	    start_date = EXCLUDED.start_date,
+//	    end_date = EXCLUDED.end_date,
+//	    is_current = EXCLUDED.is_current,
+//	    information = EXCLUDED.information,
+//	    updated_at = CURRENT_TIMESTAMP
+//	RETURNING resume_id, index, company, position, location, start_date, end_date, is_current, information, created_at, updated_at
 func (q *Queries) CreateResumeWorkExperience(ctx context.Context, arg *CreateResumeWorkExperienceParams) (*ResumeWorkExperience, error) {
 	row := q.db.QueryRow(ctx, createResumeWorkExperience,
 		arg.ResumeID,
+		arg.Index,
 		arg.Company,
 		arg.Position,
 		arg.Location,
 		arg.StartDate,
 		arg.EndDate,
 		arg.IsCurrent,
-		arg.Index,
 		arg.Information,
 	)
 	var i ResumeWorkExperience
 	err := row.Scan(
-		&i.ID,
 		&i.ResumeID,
+		&i.Index,
 		&i.Company,
 		&i.Position,
 		&i.Location,
 		&i.StartDate,
 		&i.EndDate,
 		&i.IsCurrent,
-		&i.Index,
 		&i.Information,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -1639,20 +1656,6 @@ type DeleteFoldersOlderThanParams struct {
 //	AND updated_at < $2
 func (q *Queries) DeleteFoldersOlderThan(ctx context.Context, arg *DeleteFoldersOlderThanParams) error {
 	_, err := q.db.Exec(ctx, deleteFoldersOlderThan, arg.CustomerID, arg.UpdatedAt)
-	return err
-}
-
-const deleteResumeWorkExperience = `-- name: DeleteResumeWorkExperience :exec
-DELETE FROM resume_work_experience
-WHERE id = $1
-`
-
-// DeleteResumeWorkExperience
-//
-//	DELETE FROM resume_work_experience
-//	WHERE id = $1
-func (q *Queries) DeleteResumeWorkExperience(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteResumeWorkExperience, id)
 	return err
 }
 
@@ -4040,43 +4043,14 @@ func (q *Queries) GetResumeWebsites(ctx context.Context, resumeID uuid.UUID) ([]
 	return items, nil
 }
 
-const getResumeWorkExperience = `-- name: GetResumeWorkExperience :one
-SELECT id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at FROM resume_work_experience
-WHERE id = $1
-`
-
-// GetResumeWorkExperience
-//
-//	SELECT id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at FROM resume_work_experience
-//	WHERE id = $1
-func (q *Queries) GetResumeWorkExperience(ctx context.Context, id uuid.UUID) (*ResumeWorkExperience, error) {
-	row := q.db.QueryRow(ctx, getResumeWorkExperience, id)
-	var i ResumeWorkExperience
-	err := row.Scan(
-		&i.ID,
-		&i.ResumeID,
-		&i.Company,
-		&i.Position,
-		&i.Location,
-		&i.StartDate,
-		&i.EndDate,
-		&i.IsCurrent,
-		&i.Index,
-		&i.Information,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
 const getResumeWorkExperiences = `-- name: GetResumeWorkExperiences :many
-SELECT id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at FROM resume_work_experience
+SELECT resume_id, index, company, position, location, start_date, end_date, is_current, information, created_at, updated_at FROM resume_work_experience
 WHERE resume_id = $1
 `
 
 // GetResumeWorkExperiences
 //
-//	SELECT id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at FROM resume_work_experience
+//	SELECT resume_id, index, company, position, location, start_date, end_date, is_current, information, created_at, updated_at FROM resume_work_experience
 //	WHERE resume_id = $1
 func (q *Queries) GetResumeWorkExperiences(ctx context.Context, resumeID uuid.UUID) ([]*ResumeWorkExperience, error) {
 	rows, err := q.db.Query(ctx, getResumeWorkExperiences, resumeID)
@@ -4088,15 +4062,14 @@ func (q *Queries) GetResumeWorkExperiences(ctx context.Context, resumeID uuid.UU
 	for rows.Next() {
 		var i ResumeWorkExperience
 		if err := rows.Scan(
-			&i.ID,
 			&i.ResumeID,
+			&i.Index,
 			&i.Company,
 			&i.Position,
 			&i.Location,
 			&i.StartDate,
 			&i.EndDate,
 			&i.IsCurrent,
-			&i.Index,
 			&i.Information,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -5298,44 +5271,6 @@ func (q *Queries) SetResumeTitle(ctx context.Context, arg *SetResumeTitleParams)
 	return &i, err
 }
 
-const setResumeWorkExperienceInfo = `-- name: SetResumeWorkExperienceInfo :one
-UPDATE resume_work_experience SET
-    information = $2
-WHERE id = $1
-RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
-`
-
-type SetResumeWorkExperienceInfoParams struct {
-	ID          uuid.UUID `db:"id" json:"id"`
-	Information string    `db:"information" json:"information"`
-}
-
-// SetResumeWorkExperienceInfo
-//
-//	UPDATE resume_work_experience SET
-//	    information = $2
-//	WHERE id = $1
-//	RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
-func (q *Queries) SetResumeWorkExperienceInfo(ctx context.Context, arg *SetResumeWorkExperienceInfoParams) (*ResumeWorkExperience, error) {
-	row := q.db.QueryRow(ctx, setResumeWorkExperienceInfo, arg.ID, arg.Information)
-	var i ResumeWorkExperience
-	err := row.Scan(
-		&i.ID,
-		&i.ResumeID,
-		&i.Company,
-		&i.Position,
-		&i.Location,
-		&i.StartDate,
-		&i.EndDate,
-		&i.IsCurrent,
-		&i.Index,
-		&i.Information,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
 const setWebsitePagesNotValid = `-- name: SetWebsitePagesNotValid :exec
 UPDATE website_page SET
     updated_at = CURRENT_TIMESTAMP,
@@ -5632,71 +5567,6 @@ func (q *Queries) UpdateLLM(ctx context.Context, arg *UpdateLLMParams) (*Llm, er
 		&i.Instructions,
 		&i.IsDefault,
 		&i.Public,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
-const updateResumeWorkExperience = `-- name: UpdateResumeWorkExperience :one
-UPDATE resume_work_experience SET
-    company = $2,
-    position = $3,
-    location = $4,
-    start_date = $5,
-    end_date = $6,
-    is_current = $7,
-    index = $8
-WHERE id = $1
-RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
-`
-
-type UpdateResumeWorkExperienceParams struct {
-	ID        uuid.UUID        `db:"id" json:"id"`
-	Company   string           `db:"company" json:"company"`
-	Position  string           `db:"position" json:"position"`
-	Location  string           `db:"location" json:"location"`
-	StartDate pgtype.Timestamp `db:"start_date" json:"startDate"`
-	EndDate   pgtype.Timestamp `db:"end_date" json:"endDate"`
-	IsCurrent bool             `db:"is_current" json:"isCurrent"`
-	Index     int32            `db:"index" json:"index"`
-}
-
-// UpdateResumeWorkExperience
-//
-//	UPDATE resume_work_experience SET
-//	    company = $2,
-//	    position = $3,
-//	    location = $4,
-//	    start_date = $5,
-//	    end_date = $6,
-//	    is_current = $7,
-//	    index = $8
-//	WHERE id = $1
-//	RETURNING id, resume_id, company, position, location, start_date, end_date, is_current, index, information, created_at, updated_at
-func (q *Queries) UpdateResumeWorkExperience(ctx context.Context, arg *UpdateResumeWorkExperienceParams) (*ResumeWorkExperience, error) {
-	row := q.db.QueryRow(ctx, updateResumeWorkExperience,
-		arg.ID,
-		arg.Company,
-		arg.Position,
-		arg.Location,
-		arg.StartDate,
-		arg.EndDate,
-		arg.IsCurrent,
-		arg.Index,
-	)
-	var i ResumeWorkExperience
-	err := row.Scan(
-		&i.ID,
-		&i.ResumeID,
-		&i.Company,
-		&i.Position,
-		&i.Location,
-		&i.StartDate,
-		&i.EndDate,
-		&i.IsCurrent,
-		&i.Index,
-		&i.Information,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

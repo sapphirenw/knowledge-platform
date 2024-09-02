@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="151.121mm"
+   height="44.388mm"
+   viewBox="0 0 151.12101 44.388"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
+   sodipodi:docname="aithing-master.svg"
+   inkscape:export-filename="aithing-dark.png"
+   inkscape:export-xdpi="59.923153"
+   inkscape:export-ydpi="59.923153"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="0.84096521"
+     inkscape:cx="255.06406"
+     inkscape:cy="72.5357"
+     inkscape:window-width="1512"
+     inkscape:window-height="916"
+     inkscape:window-x="0"
+     inkscape:window-y="38"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-17.35315,-129.33286)">
+    <text
+       xml:space="preserve"
+       style="font-weight:bold;font-size:44.0973px;font-family:'Josefin Sans';-inkscape-font-specification:'Josefin Sans Bold';opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0;stroke-dasharray:none"
+       x="17.325966"
+       y="163.32634"
+       id="text740"><tspan
+         sodipodi:role="line"
+         id="tspan738"
+         style="font-style:normal;font-variant:normal;font-weight:900;font-stretch:normal;font-family:'Inter 28pt';-inkscape-font-specification:'Inter 28pt Heavy';opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0;stroke-dasharray:none;stroke-opacity:0"
+         x="17.325966"
+         y="163.32634"><tspan
+           style="fill:#070000;fill-opacity:1;stroke-width:0;stroke-dasharray:none"
+           id="tspan9561">ai</tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:900;font-stretch:normal;font-family:'Inter 28pt';-inkscape-font-specification:'Inter 28pt Heavy';fill:#3539b6;fill-opacity:1;stroke:#ffffff;stroke-width:0;stroke-dasharray:none;stroke-opacity:0"
+           id="tspan22709">thing</tspan></tspan></text>
+  </g>
+</svg>

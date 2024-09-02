@@ -58,7 +58,7 @@ func (c *Client) CreateWorkExperience(
 	l *slog.Logger,
 	db queries.DBTX,
 	args *CreateExperienceArgs,
-) (*queries.ResumeWorkExperience, error) {
+) (*queries.ResumeWorkExperience, *slogger.Err) {
 	logger := l.With("desc", "create resume work experience")
 	dmodel := queries.New(db)
 
@@ -73,7 +73,7 @@ func (c *Client) CreateWorkExperience(
 		Index:     int32(args.Index),
 	})
 	if err != nil {
-		return nil, slogger.Error(ctx, logger, "failed to create the work experience", err)
+		return nil, slogger.NewErr(logger, "failed to create the work experience", err, "parse")
 	}
 
 	return experience, nil
@@ -83,13 +83,13 @@ func (c *Client) GetWorkExperiences(
 	ctx context.Context,
 	l *slog.Logger,
 	db queries.DBTX,
-) ([]*ResumeWorkExperience, error) {
+) ([]*ResumeWorkExperience, *slogger.Err) {
 	logger := l.With("desc", "get resume work experiences")
 	dmodel := queries.New(db)
 
 	experiences, err := dmodel.GetResumeWorkExperiences(ctx, c.Resume.ID)
 	if err != nil {
-		return nil, slogger.Error(ctx, logger, "failed to get the work experiences", err)
+		return nil, slogger.NewErr(logger, "failed to get the work experiences", err, "parse")
 	}
 
 	e := make([]*ResumeWorkExperience, 0)
@@ -98,54 +98,4 @@ func (c *Client) GetWorkExperiences(
 	}
 
 	return e, nil
-}
-
-func (e *ResumeWorkExperience) Update(
-	ctx context.Context,
-	l *slog.Logger,
-	db queries.DBTX,
-	args *CreateExperienceArgs,
-) error {
-	logger := l.With("desc", "update resume work experience")
-	dmodel := queries.New(db)
-
-	experience, err := dmodel.UpdateResumeWorkExperience(ctx, &queries.UpdateResumeWorkExperienceParams{
-		ID:        e.ID,
-		Company:   args.Company,
-		Position:  args.Position,
-		Location:  args.Location,
-		StartDate: args.parsedStart,
-		EndDate:   args.parsedEnd,
-		IsCurrent: args.IsCurrent,
-		Index:     int32(args.Index),
-	})
-	if err != nil {
-		return slogger.Error(ctx, logger, "failed to update the work experience", err)
-	}
-
-	// set the embeded field
-	e.ResumeWorkExperience = experience
-	return nil
-}
-
-func (e *ResumeWorkExperience) SetInfo(
-	ctx context.Context,
-	l *slog.Logger,
-	db queries.DBTX,
-	info string,
-) error {
-	logger := l.With("desc", "set resume work experience info")
-	dmodel := queries.New(db)
-
-	experience, err := dmodel.SetResumeWorkExperienceInfo(ctx, &queries.SetResumeWorkExperienceInfoParams{
-		ID:          e.ID,
-		Information: info,
-	})
-	if err != nil {
-		return slogger.Error(ctx, logger, "failed to set the work experience info", err)
-	}
-
-	// set the embeded field
-	e.ResumeWorkExperience = experience
-	return nil
 }

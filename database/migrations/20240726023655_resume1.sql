@@ -78,8 +78,8 @@ CREATE TABLE resume_about(
 );
 
 CREATE TABLE resume_work_experience(
-    id uuid NOT NULL DEFAULT uuid7(),
     resume_id uuid NOT NULL REFERENCES resume(id) ON DELETE CASCADE,
+    index INT NOT NULL DEFAULT 0,
     
     -- block fields
     company TEXT NOT NULL DEFAULT '',
@@ -88,12 +88,11 @@ CREATE TABLE resume_work_experience(
     start_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     end_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_current BOOLEAN NOT NULL DEFAULT false,
-    index INT NOT NULL DEFAULT 0,
 
     -- raw information is meant to store ALL information related to this, not formatted
     information TEXT NOT NULL DEFAULT '',
 
-    PRIMARY KEY (id),
+    PRIMARY KEY (resume_id, index),
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -101,8 +100,8 @@ CREATE TABLE resume_work_experience(
 );
 
 CREATE TABLE resume_project(
-    id uuid NOT NULL DEFAULT uuid7(),
     resume_id uuid NOT NULL REFERENCES resume(id) ON DELETE CASCADE,
+    index INT NOT NULL DEFAULT 0,
 
     -- block fields
     title TEXT NOT NULL DEFAULT '',
@@ -114,7 +113,7 @@ CREATE TABLE resume_project(
     -- raw information is meant to store ALL information related to this, not formatted
     information TEXT NOT NULL DEFAULT '',
 
-    PRIMARY KEY (id),
+    PRIMARY KEY (resume_id, index),
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

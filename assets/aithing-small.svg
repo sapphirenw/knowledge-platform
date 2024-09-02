@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="100mm"
+   height="100mm"
+   viewBox="0 0 100 100"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
+   sodipodi:docname="aithing-small-master.svg"
+   inkscape:export-filename="aithing-dark.png"
+   inkscape:export-xdpi="59.923153"
+   inkscape:export-ydpi="59.923153"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="0.84096521"
+     inkscape:cx="123.07287"
+     inkscape:cy="110.58721"
+     inkscape:window-width="1512"
+     inkscape:window-height="916"
+     inkscape:window-x="0"
+     inkscape:window-y="38"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-19.402755,-150.79373)">
+    <text
+       xml:space="preserve"
+       style="font-weight:bold;font-size:44.0973px;font-family:'Josefin Sans';-inkscape-font-specification:'Josefin Sans Bold';opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0;stroke-dasharray:none"
+       x="19.325932"
+       y="195.39557"
+       id="text740"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:900;font-stretch:normal;font-family:'Inter 28pt';-inkscape-font-specification:'Inter 28pt Heavy';opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0;stroke-dasharray:none;stroke-opacity:0"
+         x="19.325932"
+         y="195.39557"
+         id="tspan517" /></text>
+    <circle
+       style="fill:#3539b6;stroke:#000000;stroke-width:0;fill-opacity:1"
+       id="path619"
+       cx="69.402756"
+       cy="200.79373"
+       r="48" />
+    <circle
+       style="fill:#f9f9f9;stroke:#000000;stroke-width:0"
+       id="path619-7"
+       cx="69.402756"
+       cy="200.79373"
+       r="30" />
+  </g>
+</svg>

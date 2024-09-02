@@ -89,43 +89,26 @@ WHERE resume_id = $1;
 
 -- name: CreateResumeWorkExperience :one
 INSERT INTO resume_work_experience (
-    resume_id, company, position, location,
-    start_date, end_date, is_current, index,
-    information
+    resume_id, index, company, position, location,
+    start_date, end_date, is_current, information
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
+ON CONFLICT (resume_id, index)
+DO UPDATE SET
+    company = EXCLUDED.company,
+    position = EXCLUDED.position,
+    location = EXCLUDED.location,
+    start_date = EXCLUDED.start_date,
+    end_date = EXCLUDED.end_date,
+    is_current = EXCLUDED.is_current,
+    information = EXCLUDED.information,
+    updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 
 -- name: GetResumeWorkExperiences :many
 SELECT * FROM resume_work_experience
 WHERE resume_id = $1;
-
--- name: GetResumeWorkExperience :one
-SELECT * FROM resume_work_experience
-WHERE id = $1;
-
--- name: UpdateResumeWorkExperience :one
-UPDATE resume_work_experience SET
-    company = $2,
-    position = $3,
-    location = $4,
-    start_date = $5,
-    end_date = $6,
-    is_current = $7,
-    index = $8
-WHERE id = $1
-RETURNING *;
-
--- name: SetResumeWorkExperienceInfo :one
-UPDATE resume_work_experience SET
-    information = $2
-WHERE id = $1
-RETURNING *;
-
--- name: DeleteResumeWorkExperience :exec
-DELETE FROM resume_work_experience
-WHERE id = $1;
 
 -- name: CreateResumeProject :one
 INSERT INTO resume_project (
