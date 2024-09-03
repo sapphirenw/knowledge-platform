@@ -4,6 +4,7 @@ const nextConfig = {
     experimental: {
         instrumentationHook: true,
     },
+    transpilePackages: ['lucide-react'],
 };
 
 export default nextConfig;

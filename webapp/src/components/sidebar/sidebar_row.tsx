@@ -1,7 +1,10 @@
+"use client"
+
 import { cn } from "@/lib/utils"
-import { Button } from "./ui/button"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
+import { Button } from "../ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 export type SidebarRow = {
     href: string
@@ -11,25 +14,25 @@ export type SidebarRow = {
 
 export default function SidebarRowView({
     item,
-    path,
     isOpen,
     className,
     variant,
     iconClass,
 }: {
     item: SidebarRow,
-    path: string,
     isOpen: boolean,
     className?: string,
     variant?: "link" | "default" | "destructive" | "outline" | "secondary" | "ghost",
     iconClass?: string,
 }) {
+    const pathname = usePathname()
+
     return <TooltipProvider>
         <Tooltip>
             <TooltipTrigger asChild>
                 <Button
-                    variant={(path.match(item.href) ? "secondary" : variant ?? "ghost")}
-                    className={`w-full ${path.match(item.href) ? "font-semibold" : ""}`}
+                    variant={(pathname.match(item.href) ? "secondary" : variant ?? "ghost")}
+                    className={`w-full ${isOpen ? "" : "aspect-square"} ${pathname.match(item.href) ? "font-semibold" : ""}`}
                     size={isOpen ? "default" : "icon"}
                     asChild
                 >
